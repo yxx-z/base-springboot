@@ -16,10 +16,10 @@
 #### 项目结构:
 ```
     base:
-        common:
-            common-core:
-            common-framework:
-        business:
+        -- common
+            -- common-core:
+            -- common-framework:
+        -- business:
 ```
 common为公共包,包含core和framework两个子包:
 <p>
