@@ -2,14 +2,11 @@
 
 ## SpringBoot开发模版
 
-***
 ### 使用
 * 数据库新建utf8mb4数据库，运行db文件夹下的db.sql文件。
 * 更改application-dev.yml中mysql数据库连接配置、redis连接配置
 
 
-
-***
 ***
 ### 框架选型:
 <p>
