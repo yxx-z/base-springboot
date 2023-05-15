@@ -1,14 +1,22 @@
 # base-springboot
 
-SpringBoot开发模版
+## SpringBoot开发模版
 
 ***
-框架选型:
+### 使用
+* 数据库新建utf8mb4数据库，运行db文件夹下的db.sql文件。
+* 更改application-dev.yml中mysql数据库连接配置、redis连接配置
+
+
+
+***
+***
+### 框架选型:
 <p>
     &nbsp;&nbsp;&nbsp;&nbsp;SpringBoot + Mybatis-plus + Redis
 </p>
 
-项目结构:
+#### 项目结构:
 ```
     base:
         common:
@@ -28,7 +36,7 @@ common为公共包,包含core和framework两个子包:
 </p>
 
 ****
-自定义注解:
+#### 自定义注解:
 
 @ResponseResult
 
@@ -54,7 +62,7 @@ common为公共包,包含core和framework两个子包:
 </p>
 
 ***
-常用utils:
+#### 常用utils:
 
 LoginUtils
 <p>
