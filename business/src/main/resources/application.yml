@@ -1,0 +1,11 @@
+server:
+  port: 6059
+
+spring:
+  profiles:
+    active: @profileActive@
+
+logging:
+  file:
+    path: ./logs
+    name: base
