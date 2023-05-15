@@ -62,7 +62,7 @@ public class RedissonCache {
         // 设置url和密码
         config.useSingleServer().setAddress(redisUrl).setPassword(redisProperties.getPassword());
         // 设置库
-        config.useSingleServer().setDatabase(3);
+        config.useSingleServer().setDatabase(redisProperties.getDatabase());
         // 设置最小空闲Redis连接量
         config.useSingleServer().setConnectionMinimumIdleSize(10);
         // 设置Redis数据编解码器 序列化方式
