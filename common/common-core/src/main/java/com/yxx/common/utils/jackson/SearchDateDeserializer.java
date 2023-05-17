@@ -51,7 +51,7 @@ public class SearchDateDeserializer extends JsonDeserializer<LocalDateTime> impl
     public JsonDeserializer<?> createContextual(DeserializationContext ctxt, BeanProperty property) throws JsonMappingException {
         if (property != null) {
             if (ObjectUtil.equal(property.getType().getRawClass(), LocalDateTime.class)) {
-                SearchDate searchDate = property.getAnnotation(SearchDate.class);
+                searchDate = property.getAnnotation(SearchDate.class);
                 if (searchDate != null) {
                     return new SearchDateDeserializer(searchDate);
                 }

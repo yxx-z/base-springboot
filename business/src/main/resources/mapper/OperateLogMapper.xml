@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yxx.business.mapper.OperateLogMapper">
+
+    <select id="authLogPage" resultType="com.yxx.business.model.response.OperateLogResp">
+        SELECT
+            id,
+            module,
+            title,
+            ip,
+            type,
+            exception,
+            create_time
+        FROM
+            operate_log
+        <where>
+            module = "鉴权模块"
+            <if test="req.startTime != null and req.endTime != null">
+                AND create_time &gt;= #{req.startTime} &lt;= #{req.endTime}
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+    <select id="operationLogPage" resultType="com.yxx.business.model.response.OperateLogResp">
+        SELECT
+            operate_log.id,
+            `user`.login_code,
+            `user`.login_name,
+            operate_log.type,
+            operate_log.exception,
+            operate_log.module,
+            operate_log.title,
+            operate_log.ip,
+            operate_log.create_time
+        FROM
+            operate_log
+            LEFT JOIN `user` ON operate_log.user_id = `user`.id
+        <where>
+            operate_log.is_delete = 0
+            AND operate_log.module != "鉴权模块"
+            <if test="req.startTime != null and req.endTime != null">
+                AND operate_log.create_time &gt;= #{req.startTime} &lt;= #{req.endTime}
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+</mapper>

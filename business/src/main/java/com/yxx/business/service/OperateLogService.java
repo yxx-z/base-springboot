@@ -17,9 +17,16 @@ public interface OperateLogService extends IService<OperateLog> {
     /**
      * 查询操作日志分页列表
      *
-     * @param page 分页参数
      * @param req  OperateLogReq
      * @return 操作日志分页列表
      */
-    Page<OperateLogResp> getOperateLog(Page<OperateLogResp> page, OperateLogReq req);
+    Page<OperateLogResp> operationLogPage(OperateLogReq req);
+
+    /**
+     * 登录日志分野
+     *
+     * @param req 请求参数
+     * @return 分页结果
+     */
+    Page<OperateLogResp> authLogPage(OperateLogReq req);
 }

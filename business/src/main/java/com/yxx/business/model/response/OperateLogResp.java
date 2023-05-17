@@ -1,5 +1,6 @@
 package com.yxx.business.model.response;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -35,6 +36,16 @@ public class OperateLogResp {
     private String ip;
 
     /**
+     * 类型：1:成功；2:失败
+     */
+    private Integer type;
+
+    /**
+     * 异常信息
+     */
+    private String exception;
+
+    /**
      * 操作用户
      */
     private String loginCode;
@@ -47,5 +58,6 @@ public class OperateLogResp {
     /**
      * 创建时间
      */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private LocalDateTime createTime;
 }

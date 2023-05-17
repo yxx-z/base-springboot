@@ -26,14 +26,28 @@ public class OperateLogServiceImpl extends ServiceImpl<OperateLogMapper, Operate
     @Async
     @Override
     public void saveLog(LogDTO dto) {
+        // 初始化日志类
         OperateLog log = new OperateLog();
+        // 拷贝赋值数据
         BeanUtils.copyProperties(dto, log);
+        // 插入日志数据
         this.save(log);
     }
 
 
     @Override
-    public Page<OperateLogResp> getOperateLog(Page<OperateLogResp> page, OperateLogReq req) {
-        return baseMapper.getOperateLog(page, req);
+    public Page<OperateLogResp> operationLogPage(OperateLogReq req) {
+        // 初始化分页构造器
+        Page<OperateLogResp> page = new Page<>(req.getPage(), req.getPageSize());
+        // 查询分页结果并返回
+        return baseMapper.operationLogPage(page, req);
+    }
+
+    @Override
+    public Page<OperateLogResp> authLogPage(OperateLogReq req) {
+        // 初始化分页构造器
+        Page<OperateLogResp> page = new Page<>(req.getPage(), req.getPageSize());
+        // 查询分页结果并返回
+        return this.baseMapper.authLogPage(page, req);
     }
 }

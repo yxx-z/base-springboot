@@ -1,11 +1,12 @@
 package com.yxx.business.model.request;
 
-import com.yxx.common.annotation.jackson.SearchDate;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.yxx.common.core.page.BasePageRequest;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-import java.time.LocalDateTime;
+import java.io.Serializable;
+import java.time.LocalDate;
 
 /**
  * @author yxx
@@ -13,7 +14,7 @@ import java.time.LocalDateTime;
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class OperateLogReq extends BasePageRequest {
+public class OperateLogReq extends BasePageRequest implements Serializable {
 
     /**
      * 用户名
@@ -34,12 +35,12 @@ public class OperateLogReq extends BasePageRequest {
     /**
      * 开始时间
      */
-    @SearchDate(startDate = true)
-    private LocalDateTime startTime;
+    @JsonFormat(pattern = "yyyy-MM-dd", timezone = "GMT+8")
+    private LocalDate startTime;
 
     /**
      * 结束时间
      */
-    @SearchDate(endDate = true)
-    private LocalDateTime endTime;
+    @JsonFormat(pattern = "yyyy-MM-dd", timezone = "GMT+8")
+    private LocalDate endTime;
 }

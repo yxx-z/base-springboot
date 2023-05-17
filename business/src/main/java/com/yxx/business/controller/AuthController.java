@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.validation.Valid;
+
 /**
  * @author yxx
  * @since 2023-05-17 10:02
@@ -30,7 +32,7 @@ public class AuthController {
     @ReleaseToken
     @OperationLog(module = "鉴权模块", title = "pc登录")
     @PostMapping("/login")
-    public LoginRes login(@RequestBody LoginReq request) {
+    public LoginRes login(@Valid @RequestBody LoginReq request) {
         return userService.login(request);
     }
 
