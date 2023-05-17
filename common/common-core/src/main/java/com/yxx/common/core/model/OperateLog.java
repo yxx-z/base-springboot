@@ -104,10 +104,9 @@ public class OperateLog extends Convert {
     private LocalDateTime createTime;
 
     /**
-     * 是否删除 0-否 1-是
+     * 是否删除
      */
     @TableLogic
-    private Integer isDelete;
-
+    private Boolean isDelete;
 
 }

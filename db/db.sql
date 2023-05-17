@@ -68,4 +68,35 @@ CREATE TABLE `user`
   DEFAULT CHARSET = utf8mb4
   COLLATE = utf8mb4_general_ci COMMENT ='用户表';
 
+DROP TABLE IF EXISTS `role`;
+CREATE TABLE `role`
+(
+    `id`          bigint                                                        NOT NULL AUTO_INCREMENT COMMENT '业务主键',
+    `code`        varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '编码',
+    `name`        varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '角色名称',
+    `remark`      varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci          DEFAULT NULL COMMENT '备注',
+    `is_delete`   char(2) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci      NOT NULL DEFAULT '0' COMMENT '是否删除：0-未删除；1-已删除',
+    `update_time` datetime                                                      NOT NULL COMMENT '修改时间',
+    `create_time` datetime                                                      NOT NULL COMMENT '创建时间',
+    PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB
+  AUTO_INCREMENT = 4
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_general_ci COMMENT ='角色表';
+
+DROP TABLE IF EXISTS `user_role`;
+CREATE TABLE `user_role`
+(
+    `id`          bigint                                                   NOT NULL AUTO_INCREMENT COMMENT '业务主键',
+    `user_id`     bigint                                                   NOT NULL COMMENT '用户id',
+    `role_id`     bigint                                                   NOT NULL COMMENT '角色id',
+    `is_delete`   char(2) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '0' COMMENT '是否删除：0-未删除；1-已删除',
+    `update_time` datetime                                                 NOT NULL COMMENT '修改时间',
+    `create_time` datetime                                                 NOT NULL COMMENT '创建时间',
+    PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB
+  AUTO_INCREMENT = 2
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_general_ci COMMENT ='用户角色关联表';
+
 SET FOREIGN_KEY_CHECKS = 1;

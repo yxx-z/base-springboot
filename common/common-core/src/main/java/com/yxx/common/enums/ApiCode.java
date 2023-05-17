@@ -40,6 +40,9 @@ public enum ApiCode {
     PASSWORD_ERROR(2004, "密码错误"),
 
     USER_PERMISSION_ERROR(2005, "无权查看他人信息"),
+    USER_NOT_ROLE(2006, "用户无角色"),
+
+
 
     DATE_ERROR(9000, "开始时间存在多个"),
 

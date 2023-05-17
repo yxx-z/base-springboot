@@ -8,24 +8,30 @@ import com.yxx.business.model.entity.User;
 import com.yxx.business.model.request.LoginReq;
 import com.yxx.business.model.request.UserRegisterReq;
 import com.yxx.business.model.response.LoginRes;
+import com.yxx.business.service.UserRoleService;
 import com.yxx.business.service.UserService;
 import com.yxx.common.constant.LoginDevice;
 import com.yxx.common.core.model.LoginUser;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.utils.ApiAssert;
 import com.yxx.common.utils.auth.LoginUtils;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * @author yxx
  * @since 2022-11-12 13:54
  */
 @Service
+@RequiredArgsConstructor
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
+    private final UserRoleService userRoleService;
+
     @Override
     public LoginRes login(LoginReq request) {
         // 根据登录账号获取用户信息
@@ -43,6 +49,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         BeanUtils.copyProperties(user, loginUser);
         // 设置登录时间
         loginUser.setLoginTime(LocalDateTime.now());
+        // 获取该用户角色信息
+        List<String> roleList = userRoleService.loginUserRoleManage(user);
+        // 赋值角色集合
+        loginUser.setRolePermission(roleList);
+
         // 登录
         LoginUtils.login(loginUser, LoginDevice.PC);
         // 返回token

@@ -9,35 +9,25 @@ import java.time.LocalDateTime;
 
 /**
  * @author yxx
- * @since 2022-11-12 13:38
+ * @since 2023-05-17 09:38
  */
 @Data
-public class User implements Serializable {
+public class UserRole implements Serializable {
     /**
-     * 用户id
+     * id
      */
     @TableId(type = IdType.AUTO)
     private Long id;
 
     /**
-     * 登录账号
+     * 用户id
      */
-    private String loginCode;
+    private Long userId;
 
     /**
-     * 登录名
+     * 角色id
      */
-    private String loginName;
-
-    /**
-     * 密码
-     */
-    private String password;
-
-    /**
-     * 手机号
-     */
-    private String linkPhone;
+    private Long roleId;
 
     /**
      * 是否删除:0-未删除；1-已删除
@@ -58,10 +48,4 @@ public class User implements Serializable {
     @TableField(fill = FieldFill.INSERT)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private LocalDateTime createTime;
-
-    @TableField(fill = FieldFill.INSERT)
-    private Long createUid;
-
-    @TableField(fill = FieldFill.INSERT_UPDATE)
-    private Long updateUid;
 }
