@@ -43,7 +43,7 @@
                 AND operate_log.create_time &gt;= #{req.startTime} &lt;= #{req.endTime}
             </if>
         </where>
-        ORDER BY id DESC
+        ORDER BY operate_log.id DESC
     </select>
 
 </mapper>

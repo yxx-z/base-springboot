@@ -2,7 +2,6 @@
 <configuration debug="false">
     <springProperty scope="context" name="APP_NAME" source="logging.file.name"/>
     <springProperty scope="context" name="LOG_HOME" source="logging.file.path"/>
-    <contextListener class="com.yomahub.tlog.core.enhance.logback.TLogLogbackTTLMdcListener"/>
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <!--这里替换成AspectLogbackEncoder-->
         <encoder class="com.yomahub.tlog.core.enhance.logback.AspectLogbackEncoder">
