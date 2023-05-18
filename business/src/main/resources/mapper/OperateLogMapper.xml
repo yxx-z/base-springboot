@@ -15,8 +15,11 @@
             operate_log
         <where>
             module = "鉴权模块"
-            <if test="req.startTime != null and req.endTime != null">
-                AND create_time &gt;= #{req.startTime} &lt;= #{req.endTime}
+            <if test="req.startTime != null">
+                AND create_time &gt;= #{req.startTime}
+                <if test="req.endTime != null">
+                    AND create_time &lt;= #{req.endTime}
+                </if>
             </if>
         </where>
         ORDER BY id DESC
@@ -39,8 +42,11 @@
         <where>
             operate_log.is_delete = 0
             AND operate_log.module != "鉴权模块"
-            <if test="req.startTime != null and req.endTime != null">
-                AND operate_log.create_time &gt;= #{req.startTime} &lt;= #{req.endTime}
+            <if test="req.startTime != null">
+                AND operate_log.create_time &gt;= #{req.startTime}
+                <if test="req.endTime != null">
+                    AND operate_log.create_time &lt;= #{req.endTime}
+                </if>
             </if>
         </where>
         ORDER BY operate_log.id DESC

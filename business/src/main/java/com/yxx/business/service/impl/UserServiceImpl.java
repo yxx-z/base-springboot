@@ -8,6 +8,7 @@ import com.yxx.business.model.entity.User;
 import com.yxx.business.model.request.LoginReq;
 import com.yxx.business.model.request.UserRegisterReq;
 import com.yxx.business.model.response.LoginRes;
+import com.yxx.business.service.RoleMenuService;
 import com.yxx.business.service.UserRoleService;
 import com.yxx.business.service.UserService;
 import com.yxx.common.constant.LoginDevice;
@@ -31,6 +32,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
     private final UserRoleService userRoleService;
+    private final RoleMenuService roleMenuService;
 
     @Override
     public LoginRes login(LoginReq request) {
@@ -50,9 +52,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 设置登录时间
         loginUser.setLoginTime(LocalDateTime.now());
         // 获取该用户角色信息
-        List<String> roleList = userRoleService.loginUserRoleManage(user);
+        List<String> roleCodeList = userRoleService.loginUserRoleManage(user);
         // 赋值角色集合
-        loginUser.setRolePermission(roleList);
+        loginUser.setRolePermission(roleCodeList);
+        // 根据角色code获取该用户菜单集合
+        List<String> menuCodeList = roleMenuService.loginUserMenu(roleCodeList);
+        // 赋值菜单集合
+        loginUser.setMenuPermission(menuCodeList);
 
         // 登录
         LoginUtils.login(loginUser, LoginDevice.PC);

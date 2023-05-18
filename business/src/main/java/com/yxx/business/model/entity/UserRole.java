@@ -27,7 +27,7 @@ public class UserRole implements Serializable {
     /**
      * 角色id
      */
-    private Long roleId;
+    private Integer roleId;
 
     /**
      * 是否删除:0-未删除；1-已删除

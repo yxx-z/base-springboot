@@ -1,5 +1,6 @@
 package com.yxx.common.utils.jackson;
 
+import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.BeanProperty;
@@ -10,15 +11,13 @@ import com.fasterxml.jackson.databind.deser.ContextualDeserializer;
 import com.yxx.common.annotation.jackson.SearchDate;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.util.Date;
 
 /**
- *
  * @author yxx
  * @since 2022/11/2 10:38
  */
-public class SearchDateDeserializer extends JsonDeserializer<LocalDateTime> implements ContextualDeserializer {
+public class SearchDateDeserializer extends JsonDeserializer<Date> implements ContextualDeserializer {
 
     private SearchDate searchDate;
 
@@ -33,31 +32,31 @@ public class SearchDateDeserializer extends JsonDeserializer<LocalDateTime> impl
     }
 
     @Override
-    public LocalDateTime deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
-        LocalDateTime date = p.readValueAs(LocalDateTime.class);
+    public Date deserialize(JsonParser p, DeserializationContext context) throws IOException {
+        Date date = p.readValueAs(Date.class);
         if (ObjectUtil.isNull(date)) {
             return null;
         }
         if (searchDate.startDate()) {
-            return date.with(LocalTime.MIN);
+            return DateUtil.beginOfDay(date);
         }
         if (searchDate.endDate()) {
-            return date.with(LocalTime.MAX);
+            return DateUtil.endOfDay(date);
         }
         return date;
     }
 
     @Override
-    public JsonDeserializer<?> createContextual(DeserializationContext ctxt, BeanProperty property) throws JsonMappingException {
+    public JsonDeserializer<?> createContextual(DeserializationContext context, BeanProperty property) throws JsonMappingException {
         if (property != null) {
-            if (ObjectUtil.equal(property.getType().getRawClass(), LocalDateTime.class)) {
+            if (ObjectUtil.equal(property.getType().getRawClass(), Date.class)) {
                 searchDate = property.getAnnotation(SearchDate.class);
                 if (searchDate != null) {
                     return new SearchDateDeserializer(searchDate);
                 }
             }
-            return ctxt.findContextualValueDeserializer(property.getType(), property);
+            return context.findContextualValueDeserializer(property.getType(), property);
         }
-        return ctxt.findNonContextualValueDeserializer(ctxt.getContextualType());
+        return context.findNonContextualValueDeserializer(context.getContextualType());
     }
 }

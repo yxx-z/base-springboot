@@ -1,12 +1,12 @@
 package com.yxx.business.model.request;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
+import com.yxx.common.annotation.jackson.SearchDate;
 import com.yxx.common.core.page.BasePageRequest;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 import java.io.Serializable;
-import java.time.LocalDate;
+import java.util.Date;
 
 /**
  * @author yxx
@@ -35,12 +35,12 @@ public class OperateLogReq extends BasePageRequest implements Serializable {
     /**
      * 开始时间
      */
-    @JsonFormat(pattern = "yyyy-MM-dd", timezone = "GMT+8")
-    private LocalDate startTime;
+    @SearchDate(startDate = true)
+    private Date startTime;
 
     /**
      * 结束时间
      */
-    @JsonFormat(pattern = "yyyy-MM-dd", timezone = "GMT+8")
-    private LocalDate endTime;
+    @SearchDate(endDate = true)
+    private Date endTime;
 }

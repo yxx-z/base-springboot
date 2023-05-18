@@ -2,6 +2,19 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- ----------------------------
+-- Table structure for menu
+-- ----------------------------
+DROP TABLE IF EXISTS `menu`;
+CREATE TABLE `menu` (
+                        `id` int NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        `parent_id` int DEFAULT NULL COMMENT '父id。顶级节点为null',
+                        `menu_code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '菜单标识',
+                        `menu_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '菜单名称',
+                        `is_delete` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '0' COMMENT '是否删除: 0- 否; 1- 是',
+                        PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='菜单表';
+
+-- ----------------------------
 -- Table structure for operate_log
 -- ----------------------------
 DROP TABLE IF EXISTS `operate_log`;
@@ -24,22 +37,34 @@ CREATE TABLE `operate_log` (
                                `create_time` datetime NOT NULL COMMENT '创建时间',
                                `is_delete` char(1) COLLATE utf8mb4_general_ci NOT NULL DEFAULT '0' COMMENT '是否删除 0-否 1-是',
                                PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='操作日志表';
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='操作日志表';
 
 -- ----------------------------
 -- Table structure for role
 -- ----------------------------
 DROP TABLE IF EXISTS `role`;
 CREATE TABLE `role` (
-                        `id` bigint NOT NULL AUTO_INCREMENT COMMENT '业务主键',
-                        `code` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '编码',
-                        `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '角色名称',
+                        `id` int NOT NULL AUTO_INCREMENT COMMENT '业务主键',
+                        `code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '编码',
+                        `name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '角色名称',
                         `remark` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '备注',
                         `is_delete` char(2) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '0' COMMENT '是否删除：0-未删除；1-已删除',
                         `update_time` datetime NOT NULL COMMENT '修改时间',
                         `create_time` datetime NOT NULL COMMENT '创建时间',
                         PRIMARY KEY (`id`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='角色表';
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='角色表';
+
+-- ----------------------------
+-- Table structure for role_menu
+-- ----------------------------
+DROP TABLE IF EXISTS `role_menu`;
+CREATE TABLE `role_menu` (
+                             `id` int NOT NULL AUTO_INCREMENT COMMENT '主键',
+                             `role_id` int NOT NULL COMMENT '角色id',
+                             `menu_id` int NOT NULL COMMENT '菜单id',
+                             `is_delete` char(1) COLLATE utf8mb4_general_ci NOT NULL DEFAULT '0' COMMENT '是否删除：0-否；1-是',
+                             PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='角色—菜单关联表';
 
 -- ----------------------------
 -- Table structure for user
@@ -66,7 +91,7 @@ DROP TABLE IF EXISTS `user_role`;
 CREATE TABLE `user_role` (
                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT '业务主键',
                              `user_id` bigint NOT NULL COMMENT '用户id',
-                             `role_id` bigint NOT NULL COMMENT '角色id',
+                             `role_id` int NOT NULL COMMENT '角色id',
                              `is_delete` char(2) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '0' COMMENT '是否删除：0-未删除；1-已删除',
                              `update_time` datetime NOT NULL COMMENT '修改时间',
                              `create_time` datetime NOT NULL COMMENT '创建时间',

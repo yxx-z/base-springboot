@@ -2,7 +2,6 @@
 .idea
 
 **/target/
-**/**/test/
 logs/
 **/**/**.iml
 **/.DS_Store

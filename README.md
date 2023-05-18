@@ -60,6 +60,11 @@ common为公共包,包含core和framework两个子包:
     &nbsp;&nbsp;&nbsp;&nbsp;加在类字段上,mybatis在插入或更新时默认会自动加密该字段,查询时默认会自动解密该字段。
 </p>
 
+@SearchDate
+<p>
+    &nbsp;&nbsp;&nbsp;&nbsp;加在Date类型上，搜索条件开始时间结束时间，自动拼接开始时间00:00:00和结束时间23:59:59
+</p>
+
 ***
 #### 常用utils:
 
@@ -81,4 +86,9 @@ EnuUtils
 ApplicationUtils
 <p>
     &nbsp;&nbsp;&nbsp;程序工具类,可获取SpringBean,程序上下文等
+</p>
+
+TreeUtil
+<p>
+    &nbsp;&nbsp;&nbsp;通用树状工具类
 </p>
