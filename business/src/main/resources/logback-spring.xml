@@ -5,7 +5,7 @@
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <!--这里替换成AspectLogbackEncoder-->
         <encoder class="com.yomahub.tlog.core.enhance.logback.AspectLogbackEncoder">
-            <pattern>%red(%d{yyyy-MM-dd HH:mm:ss}) %green([%thread]) %highlight(%-5level) %cyan(%logger{50}) %yellow(%X{tl}) - %magenta(%msg) %n</pattern>
+            <pattern>%red(%d{yyyy-MM-dd HH:mm:ss}) %green([%thread]) %highlight(%-5level) %cyan(%logger{50}) - %magenta(%msg) %n</pattern>
         </encoder>
     </appender>
     <appender name="FILE"  class="ch.qos.logback.core.rolling.RollingFileAppender">

@@ -48,10 +48,10 @@ spring:
 # mybatis-plus开发日志打印内容
 mybatis-plus:
   configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
   global-config:
     db-config:
-      logic-delete-field: is_del
+      logic-delete-field: is_delete
       logic-delete-value: 1
       logic-not-delete-value: 0
     banner: false
