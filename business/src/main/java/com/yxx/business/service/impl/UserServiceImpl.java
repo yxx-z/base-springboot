@@ -48,6 +48,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 初始化登录信息
         LoginUser loginUser = new LoginUser();
         // 拷贝赋值数据
+        // 不建议用BeanUtils
         BeanUtils.copyProperties(user, loginUser);
         // 设置登录时间
         loginUser.setLoginTime(LocalDateTime.now());
