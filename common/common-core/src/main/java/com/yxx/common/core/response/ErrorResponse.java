@@ -18,7 +18,7 @@ public class ErrorResponse {
     private String exception;
 
     /**
-     * @param resultEnum 状态枚举类
+     * @param apiCode 状态枚举类
      * @param e          异常
      * @param message    异常描述信息
      * @return 自定义异常返回
@@ -30,7 +30,7 @@ public class ErrorResponse {
     }
 
     /**
-     * @param resultEnum 状态枚举类
+     * @param apiCode 状态枚举类
      * @param e          异常
      * @return 自定义异常返回
      */
