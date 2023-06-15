@@ -35,7 +35,7 @@ public class ExceptionAdvice {
     /**
      * 处理自定义的业务异常
      *
-     * @param e       异常对象
+     * @param e 异常对象
      * @return 错误结果
      */
     @ExceptionHandler(ApiException.class)
@@ -80,7 +80,7 @@ public class ExceptionAdvice {
     /**
      * 拦截抛出的异常
      *
-     * @param e       异常
+     * @param e 异常
      * @return 拦截抛出的异常
      */
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -93,7 +93,7 @@ public class ExceptionAdvice {
     /**
      * 参数校验异常
      *
-     * @param e       异常
+     * @param e 异常
      * @return 参数校验异常返回
      */
     @ExceptionHandler(BindException.class)

@@ -19,8 +19,8 @@ public class ErrorResponse {
 
     /**
      * @param apiCode 状态枚举类
-     * @param e          异常
-     * @param message    异常描述信息
+     * @param e       异常
+     * @param message 异常描述信息
      * @return 自定义异常返回
      */
     public static ErrorResponse fail(ApiCode apiCode, Throwable e, String message) {
@@ -31,7 +31,7 @@ public class ErrorResponse {
 
     /**
      * @param apiCode 状态枚举类
-     * @param e          异常
+     * @param e       异常
      * @return 自定义异常返回
      */
     public static ErrorResponse fail(ApiCode apiCode, Throwable e) {
