@@ -1,45 +1,41 @@
-package com.yxx.business.service.impl;
+package com.yxx.common.utils.email;
 
-import com.yxx.business.service.MailService;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.exceptions.ApiException;
+import com.yxx.common.properties.MailProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
 import javax.mail.MessagingException;
 import javax.mail.internet.MimeMessage;
 import java.io.UnsupportedEncodingException;
 
-/**
- * 邮件服务impl
- *
- * @author yxx
- * @classname MailServiceImpl
- * @since 2023/07/05
- */
-@Service
 @Slf4j
+@Component
 @RequiredArgsConstructor
-public class MailServiceImpl implements MailService {
+public class MailUtils {
 
     private final JavaMailSender mailSender;
 
-    @Value("${mail.from}")
-    private String mailFrom;
+    private final MailProperties mailProperties;
 
-    @Value("${mail.from-name}")
-    private String mailFromName;
 
-    @Override
+    /**
+     * 发送邮件 单个接收人
+     *
+     * @param to      接收人邮箱
+     * @param subject 邮件主题
+     * @param text    邮件正文
+     * @author yxx
+     */
     public void baseSendMail(String to, String subject, String text) {
         MimeMessage message = mailSender.createMimeMessage();
         try {
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(mailFrom, mailFromName);
+            helper.setFrom(mailProperties.getFrom(), mailProperties.getFromName());
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(text);
@@ -51,12 +47,19 @@ public class MailServiceImpl implements MailService {
         }
     }
 
-    @Override
+    /**
+     * 发送邮件，多个接收人
+     *
+     * @param to      接收人邮箱
+     * @param subject 邮件主题
+     * @param text    邮件正文
+     * @author yxx
+     */
     public void baseSendMail(String[] to, String subject, String text) {
         MimeMessage message = mailSender.createMimeMessage();
         try {
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(mailFrom, mailFromName);
+            helper.setFrom(mailProperties.getFrom(), mailProperties.getFromName());
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(text);
@@ -67,4 +70,5 @@ public class MailServiceImpl implements MailService {
             throw new ApiException(ApiCode.MAIL_ERROR);
         }
     }
+
 }

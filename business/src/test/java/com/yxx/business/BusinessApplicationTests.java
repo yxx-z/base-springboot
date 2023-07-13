@@ -3,6 +3,8 @@ package com.yxx.business;
 import com.yxx.business.model.entity.Menu;
 import com.yxx.business.model.entity.User;
 import com.yxx.business.service.MenuService;
+import com.yxx.common.properties.MailProperties;
+import com.yxx.common.utils.email.MailUtils;
 import com.yxx.common.utils.redis.RedissonCache;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +18,11 @@ class BusinessApplicationTests {
     private RedissonCache redissonCache;
     @Autowired
     private MenuService menuService;
+    @Autowired
+    private MailUtils mailUtils;
+
+    @Autowired
+    private MailProperties mailProperties;
 
     String key = "test";
     String userKey = "user";
@@ -50,6 +57,11 @@ class BusinessApplicationTests {
     void menuTree(){
         List<Menu> menus = menuService.menuTree();
         System.out.println("menus = " + menus);
+    }
+
+    @Test
+    void mailTest() {
+        mailUtils.baseSendMail("yangxx@88.com", mailProperties.getSubject(), "test");
     }
 
 }

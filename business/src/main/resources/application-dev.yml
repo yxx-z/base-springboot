@@ -47,12 +47,12 @@ spring:
   mail:
     default-encoding: UTF-8
     host: smtp.email.cn
-    username: youremail@cn
+    username: shuniversity@email.cn
     port: 25
-    password: xxxxxxxxxx
+    password: 2BCZKEGQgHyCZ5i4
 
 mail:
-  from: youremail@cn
+  from: shuniversity@email.cn
   from-name: 发件人
   subject: 【主题】
 
