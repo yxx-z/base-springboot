@@ -1,0 +1,8 @@
+{
+  "properties": [
+    {
+      "name": "mail.subject",
+      "type": "java.lang.String",
+      "description": "Description for mail.subject."
+  }
+] }

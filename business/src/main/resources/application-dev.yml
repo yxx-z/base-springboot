@@ -44,6 +44,18 @@ spring:
         min-idle: 5
     # 连接超时时间（毫秒）
     timeout: 5000ms
+  mail:
+    default-encoding: UTF-8
+    host: smtp.email.cn
+    username: youremail@cn
+    port: 25
+    password: xxxxxxxxxx
+
+mail:
+  from: youremail@cn
+  from-name: 发件人
+  subject: 【主题】
+
 
 # mybatis-plus开发日志打印内容
 mybatis-plus:

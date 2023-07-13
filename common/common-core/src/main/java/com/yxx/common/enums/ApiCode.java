@@ -42,7 +42,11 @@ public enum ApiCode {
     USER_PERMISSION_ERROR(2005, "无权查看他人信息"),
     USER_NOT_ROLE(2006, "用户无角色"),
 
-
+    /**
+     * 邮件错误
+     */
+    MAIL_ERROR(8000, "邮件发送失败"),
+    MAIL_EXIST(8001, "邮件已成功发送过，请前往邮箱查看，如收件箱不存在，请前往垃圾邮箱查看"),
 
     DATE_ERROR(9000, "开始时间存在多个"),
 
