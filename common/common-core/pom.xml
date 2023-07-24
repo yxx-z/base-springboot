@@ -138,6 +138,18 @@
             <version>${spring-boot.version}</version>
         </dependency>
 
+        <!-- ip2region  -->
+        <dependency>
+            <groupId>org.lionsoul</groupId>
+            <artifactId>ip2region</artifactId>
+            <version>${ip2region.version}</version>
+        </dependency>
+        <!-- 用于读取ip2region.xdb文件使用 -->
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>${ip2region-commons.version}</version>
+        </dependency>
     </dependencies>
 
 

@@ -9,7 +9,8 @@ import com.yxx.common.constant.Constant;
 import com.yxx.common.core.model.LogDTO;
 import com.yxx.common.core.model.LoginUser;
 import com.yxx.common.enums.LogTypeEnum;
-import com.yxx.common.utils.IpUtil;
+import com.yxx.common.utils.ip.AddressUtil;
+import com.yxx.common.utils.ip.IpUtil;
 import com.yxx.common.utils.ServletUtils;
 import com.yxx.framework.service.impl.OperationLogDefaultServiceImpl;
 import com.yxx.framework.service.OperationLogService;
@@ -25,6 +26,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import javax.servlet.http.HttpServletRequest;
+import java.text.MessageFormat;
 import java.util.Arrays;
 
 /**
@@ -150,27 +152,28 @@ public class LogAspect {
                              String traceId, String spanId, String exception) {
         HttpServletRequest request = ServletUtils.getRequest();
 
-        LogDTO log = new LogDTO();
-        log.setModule(module);
-        log.setTitle(title);
-        log.setType(logType.getCode());
+        LogDTO logdto = new LogDTO();
+        logdto.setModule(module);
+        logdto.setTitle(title);
+        logdto.setType(logType.getCode());
 
         String ip = IpUtil.getRequestIp();
-        log.setIp(ip);
-        log.setUserAgent(request.getHeader("user-agent"));
-        log.setMethod(request.getMethod());
-        log.setTime(time);
-        log.setException(exception);
+        log.info(MessageFormat.format("当前IP为:[{0}]；当前IP地址解析出来的地址为:[{1}]", ip, AddressUtil.getCityInfo(ip)));
+        logdto.setIp(ip);
+        logdto.setUserAgent(request.getHeader("user-agent"));
+        logdto.setMethod(request.getMethod());
+        logdto.setTime(time);
+        logdto.setException(exception);
 
         if (StpUtil.isLogin()) {
             LoginUser loginUser = (LoginUser) StpUtil.getTokenSession().get(Constant.LOGIN_USER_KEY);
-            log.setUserId(loginUser.getId());
-            log.setCreateUid(loginUser.getId());
+            logdto.setUserId(loginUser.getId());
+            logdto.setCreateUid(loginUser.getId());
         }
-        log.setParams(ServletUtils.getRequestParms(request));
-        log.setRequestUri(request.getRequestURI());
-        log.setTraceId(traceId);
-        log.setSpanId(spanId);
-        return log;
+        logdto.setParams(ServletUtils.getRequestParms(request));
+        logdto.setRequestUri(request.getRequestURI());
+        logdto.setTraceId(traceId);
+        logdto.setSpanId(spanId);
+        return logdto;
     }
 }

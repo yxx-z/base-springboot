@@ -32,6 +32,8 @@
         <netty.version>4.1.32.Final</netty.version>
         <liteflow.version>2.9.3</liteflow.version>
         <jasypt.version>1.9.3</jasypt.version>
+        <ip2region.version>2.6.3</ip2region.version>
+        <ip2region-commons.version>2.6</ip2region-commons.version>
     </properties>
 
     <profiles>
