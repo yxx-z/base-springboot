@@ -1,10 +1,10 @@
 package com.yxx.business.model.request;
 
 import lombok.Data;
+import org.hibernate.validator.constraints.Length;
 
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.Pattern;
-import javax.validation.constraints.Size;
 
 /**
  * @author yxx
@@ -16,21 +16,21 @@ public class UserRegisterReq {
      * 登录账号
      */
     @NotBlank(message = "登录账号不能为空")
-    @Size(min = 4, max = 12, message = "登录账号应为4-12位")
+    @Length(min = 4, max = 12, message = "登录账号应为4-12位")
     private String loginCode;
 
     /**
      * 登录名
      */
     @NotBlank(message = "昵称不能为空")
-    @Size(min = 2, max = 8, message = "昵称应为2-8位")
+    @Length(min = 2, max = 8, message = "昵称应为2-8位")
     private String loginName;
 
     /**
      * 密码
      */
     @NotBlank(message = "密码不能为空")
-    @Size(min = 8, max = 20, message = "密码应为8-20位")
+    @Length(min = 8, max = 20, message = "密码应为8-20位")
     private String password;
 
     /**

@@ -1,9 +1,9 @@
 package com.yxx.business.model.request;
 
 import lombok.Data;
+import org.hibernate.validator.constraints.Length;
 
 import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.Size;
 
 /**
  * 重置密码请求参数
@@ -18,7 +18,7 @@ public class ResetPwdReq {
      * 新密码
      */
     @NotBlank(message = "密码不能为空")
-    @Size(min = 8, max = 20, message = "密码应为8-20位")
+    @Length(min = 8, max = 20, message = "密码应为8-20位")
     private String newPassword;
 
     @NotBlank(message = "token不能为空")
