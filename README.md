@@ -101,3 +101,8 @@ TreeUtil
 <p>
     &nbsp;&nbsp;&nbsp;通用树状工具类
 </p>
+
+MailUtils
+<p>
+    &nbsp;&nbsp;&nbsp;发送邮件工具
+</p>
