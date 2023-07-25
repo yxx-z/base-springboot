@@ -18,6 +18,7 @@ import com.yxx.common.constant.LoginDevice;
 import com.yxx.common.constant.RedisConstant;
 import com.yxx.common.core.model.LoginUser;
 import com.yxx.common.enums.ApiCode;
+import com.yxx.common.exceptions.ApiException;
 import com.yxx.common.properties.MailProperties;
 import com.yxx.common.utils.ApiAssert;
 import com.yxx.common.utils.DateUtils;
@@ -28,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
 
 import java.time.LocalDateTime;
@@ -90,6 +92,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return new LoginRes(loginUser.getToken());
     }
 
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public Boolean register(UserRegisterReq req) {
         // 判断该邮箱是否存在验证码
@@ -120,13 +123,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 设置加密后密码
         user.setPassword(password);
         // 插入
-        save(user);
+        boolean saveResult = save(user);
 
         // 设置默认角色
-        userRoleService.setDefaultRole(user);
+        Boolean result = userRoleService.setDefaultRole(user);
 
         // 删除该邮箱注册验证码
         redissonCache.remove(RedisConstant.EMAIL_REGISTER + req.getEmail());
+
+        // 校验操作结果
+        if (!(saveResult && result)) {
+            throw new ApiException(ApiCode.SYSTEM_ERROR);
+        }
 
         return Boolean.TRUE;
     }
