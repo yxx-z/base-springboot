@@ -2,10 +2,7 @@ package com.yxx.business.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yxx.business.model.entity.User;
-import com.yxx.business.model.request.LoginReq;
-import com.yxx.business.model.request.ResetPwdEmailReq;
-import com.yxx.business.model.request.ResetPwdReq;
-import com.yxx.business.model.request.UserRegisterReq;
+import com.yxx.business.model.request.*;
 import com.yxx.business.model.response.LoginRes;
 
 /**
@@ -55,4 +52,14 @@ public interface UserService extends IService<User> {
      * @author yxx
      */
     User getUserByEmail(String email);
+
+
+    /**
+     * 修改密码
+     *
+     * @param req 要求事情
+     * @return {@link Boolean }
+     * @author yxx
+     */
+    Boolean editPwd(EditPwdReq req);
 }

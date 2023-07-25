@@ -7,10 +7,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yxx.business.mapper.UserMapper;
 import com.yxx.business.model.entity.User;
-import com.yxx.business.model.request.LoginReq;
-import com.yxx.business.model.request.ResetPwdEmailReq;
-import com.yxx.business.model.request.ResetPwdReq;
-import com.yxx.business.model.request.UserRegisterReq;
+import com.yxx.business.model.request.*;
 import com.yxx.business.model.response.LoginRes;
 import com.yxx.business.service.RoleMenuService;
 import com.yxx.business.service.UserRoleService;
@@ -180,5 +177,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public User getUserByEmail(String email){
         // 根据邮箱号获取用户信息
         return getOne(new LambdaUpdateWrapper<User>().eq(User::getEmail, email));
+    }
+
+    @Override
+    public Boolean editPwd(EditPwdReq req) {
+        // 根据登录id 获取该用户详情
+        User user = getById(LoginUtils.getUserId());
+
+        // 加密请求参数中的旧密码
+        String password = DigestUtils.md5DigestAsHex(req.getPassword().getBytes());
+        // 匹对请求参数中的旧密码是否正确
+        ApiAssert.isFalse(ApiCode.ORIGINAL_PASSWORD_ERROR, user.getPassword().equals(password));
+
+        // 加密新密码
+        String newPassword = DigestUtils.md5DigestAsHex(req.getNewPassword().getBytes());
+        // 根据用户id修改新密码
+        return update(new LambdaUpdateWrapper<User>().eq(User::getId, user.getId()).set(User::getPassword, newPassword));
     }
 }

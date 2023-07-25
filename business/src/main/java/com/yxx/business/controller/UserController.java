@@ -1,5 +1,6 @@
 package com.yxx.business.controller;
 
+import com.yxx.business.model.request.EditPwdReq;
 import com.yxx.business.model.request.ResetPwdEmailReq;
 import com.yxx.business.model.request.ResetPwdReq;
 import com.yxx.business.model.request.UserRegisterReq;
@@ -83,6 +84,18 @@ public class UserController {
     @PostMapping("/resetPwd")
     public Boolean resetPwd(@Valid @RequestBody ResetPwdReq req){
         return userService.resetPwd(req);
+    }
+
+    /**
+     * 修改密码
+     *
+     * @param req 要求事情
+     * @return {@link Boolean }
+     * @author yxx
+     */
+    @PostMapping("/editPwd")
+    public Boolean editPwd(@Valid @RequestBody EditPwdReq req){
+        return userService.editPwd(req);
     }
 
 }

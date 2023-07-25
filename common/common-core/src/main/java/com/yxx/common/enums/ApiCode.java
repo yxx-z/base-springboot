@@ -44,6 +44,7 @@ public enum ApiCode {
     USER_NOT_ROLE(2006, "用户无角色"),
 
     CAPTCHA_ERROR(2007, "验证码错误"),
+    ORIGINAL_PASSWORD_ERROR(2008, "原密码错误"),
 
     /**
      * 找回密码
