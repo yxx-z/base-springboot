@@ -48,6 +48,11 @@ public class LoginUser {
     private String linkPhone;
 
     /**
+     * 邮箱
+     */
+    private String email;
+
+    /**
      * 菜单权限
      */
     private List<String> menuPermission;

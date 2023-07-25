@@ -3,6 +3,8 @@ package com.yxx.business.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yxx.business.model.entity.User;
 import com.yxx.business.model.request.LoginReq;
+import com.yxx.business.model.request.ResetPwdEmailReq;
+import com.yxx.business.model.request.ResetPwdReq;
 import com.yxx.business.model.request.UserRegisterReq;
 import com.yxx.business.model.response.LoginRes;
 
@@ -26,4 +28,31 @@ public interface UserService extends IService<User> {
      * @return true-成功
      */
     Boolean register(UserRegisterReq req);
+
+    /**
+     * 发送重置密码邮件
+     *
+     * @param req 要求事情
+     * @return {@link Boolean }
+     * @author yxx
+     */
+    Boolean resetPwdEmail(ResetPwdEmailReq req);
+
+    /**
+     * 重置密码
+     *
+     * @param req 要求事情
+     * @return {@link Boolean }
+     * @author yxx
+     */
+    Boolean resetPwd(ResetPwdReq req);
+
+    /**
+     * 根据电子邮件获取用户
+     *
+     * @param email 电子邮件
+     * @return {@link User }
+     * @author yxx
+     */
+    User getUserByEmail(String email);
 }

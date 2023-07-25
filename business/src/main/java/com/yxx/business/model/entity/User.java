@@ -40,6 +40,11 @@ public class User implements Serializable {
     private String linkPhone;
 
     /**
+     * 邮箱
+     */
+    private String email;
+
+    /**
      * 是否删除:0-未删除；1-已删除
      */
     @TableLogic

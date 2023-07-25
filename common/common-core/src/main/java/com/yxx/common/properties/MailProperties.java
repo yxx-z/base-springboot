@@ -21,9 +21,4 @@ public class MailProperties {
      * 发件人昵称
      */
     private String fromName;
-
-    /**
-     * 主题
-     */
-    private String subject;
 }

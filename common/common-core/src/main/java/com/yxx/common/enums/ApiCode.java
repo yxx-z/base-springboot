@@ -40,14 +40,33 @@ public enum ApiCode {
     PASSWORD_ERROR(2004, "密码错误"),
 
     USER_PERMISSION_ERROR(2005, "无权查看他人信息"),
+
     USER_NOT_ROLE(2006, "用户无角色"),
+
+    CAPTCHA_ERROR(2007, "验证码错误"),
+
+    /**
+     * 找回密码
+     */
+    RESET_PWD_MAX(3000, "已经达到今日最大找回密码次数，明日再试"),
+    RESET_PWD_TOKEN_ERROR(3001, "链接已失效，请重新找回密码"),
+
 
     /**
      * 邮件错误
      */
     MAIL_ERROR(8000, "邮件发送失败"),
+
     MAIL_EXIST(8001, "邮件已成功发送过，请前往邮箱查看，如收件箱不存在，请前往垃圾邮箱查看"),
 
+    CAPTCHA_NOT_EXIST(8002, "验证码已过期或未发送，请重新发送"),
+
+    EMAIL_NOT_EXIST(8003, "邮箱不存在"),
+
+
+    /**
+     * 其它
+     */
     DATE_ERROR(9000, "开始时间存在多个"),
 
     ENCRYPTION_ERROR(90001, "加密异常"),
@@ -57,6 +76,7 @@ public enum ApiCode {
     KEY_ERROR(90003, "密钥异常"),
 
     KEY_LENGTH_ERROR(90004, "加密失败，key不能小于8位"),
+
 
     SYSTEM_ERROR(10000, "系统异常，请稍后重试"),
     ;

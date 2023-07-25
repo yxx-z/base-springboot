@@ -9,6 +9,7 @@ import com.yxx.business.model.entity.User;
 import com.yxx.business.model.entity.UserRole;
 import com.yxx.business.service.RoleService;
 import com.yxx.business.service.UserRoleService;
+import com.yxx.common.enums.business.RoleEnum;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -50,5 +51,20 @@ public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole> i
 
         // 返回角色code集合
         return roleList;
+    }
+
+    @Override
+    public Boolean setDefaultRole(User user) {
+        // 根据角色code 获取角色详情
+        Role role = roleService.getOne(
+                new LambdaQueryWrapper<Role>().eq(Role::getCode, RoleEnum.USER.getCode()));
+        // 初始化用户角色实体类
+        UserRole userRole = new UserRole();
+        // 设置用户id
+        userRole.setUserId(user.getId());
+        // 设置角色id
+        userRole.setRoleId(role.getId());
+        // 保存
+        return save(userRole);
     }
 }

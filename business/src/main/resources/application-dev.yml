@@ -44,18 +44,32 @@ spring:
         min-idle: 5
     # 连接超时时间（毫秒）
     timeout: 5000ms
+  # 邮箱
   mail:
+    # 编码
     default-encoding: UTF-8
+    # 邮件服务器
     host: smtp.email.cn
+    # 用户名(一般为邮箱号)
     username: shuniversity@email.cn
+    # 邮件服务器端口
     port: 25
+    # 专用密码
     password: 2BCZKEGQgHyCZ5i4
 
+# 邮箱设置
 mail:
+  # 发件人邮箱
   from: shuniversity@email.cn
+  # 发件人名称
   from-name: 发件人
-  subject: 【主题】
 
+# 找回密码
+reset-password:
+  # 找回密码页面url
+  base-path: http://127.0.0.1
+  # 每日找回密码最大次数
+  max-number: 3
 
 # mybatis-plus开发日志打印内容
 mybatis-plus:
@@ -89,7 +103,7 @@ sa-token:
   # 是否输出操作日志
   is-log: false
   # jwt秘钥
-  jwt-secret-key: TUxMzg0MzA3OThAMTYzLmNvbQECAwQF
+  jwt-secret-key: TUx8IaslTsibligsqvzLmNvbQECAwQF
   # 是否在初始化配置时打印版本字符画
   is-print: false
   # 登录逻辑缓存和业务逻辑缓存分离

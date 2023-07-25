@@ -19,4 +19,13 @@ public interface UserRoleService extends IService<UserRole> {
      * @return 用户角色code集合
      */
     List<String> loginUserRoleManage(User user);
+
+    /**
+     * 设置默认角色: 用户
+     *
+     * @param user 用户信息
+     * @return {@link Boolean }
+     * @author yxx
+     */
+    Boolean setDefaultRole(User user);
 }

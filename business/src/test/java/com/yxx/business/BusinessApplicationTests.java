@@ -1,5 +1,6 @@
 package com.yxx.business;
 
+import cn.dev33.satoken.temp.SaTempUtil;
 import com.yxx.business.model.entity.Menu;
 import com.yxx.business.model.entity.User;
 import com.yxx.business.service.MenuService;
@@ -61,7 +62,13 @@ class BusinessApplicationTests {
 
     @Test
     void mailTest() {
-        mailUtils.baseSendMail("yangxx@88.com", mailProperties.getSubject(), "test");
+        mailUtils.baseSendMail("yangxx@88.com", "主题", "test", false);
+    }
+
+    @Test
+    void tokenTest(){
+        long timeout = SaTempUtil.getTimeout("asldfjaklsjfk");
+        System.out.println("timeout = " + timeout);
     }
 
 }

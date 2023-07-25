@@ -29,16 +29,21 @@ public class MailUtils {
      * @param to      接收人邮箱
      * @param subject 邮件主题
      * @param text    邮件正文
+     * @param html    true:发送html格式邮件；false:发送普通邮件
      * @author yxx
      */
-    public void baseSendMail(String to, String subject, String text) {
+    public void baseSendMail(String to, String subject, String text, boolean html) {
         MimeMessage message = mailSender.createMimeMessage();
         try {
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
             helper.setFrom(mailProperties.getFrom(), mailProperties.getFromName());
             helper.setTo(to);
             helper.setSubject(subject);
-            helper.setText(text);
+            if (html) {
+                helper.setText(text, true);
+            } else {
+                helper.setText(text);
+            }
             mailSender.send(message);
             log.info("邮件已经发送");
         } catch (MessagingException | UnsupportedEncodingException e) {
@@ -53,16 +58,21 @@ public class MailUtils {
      * @param to      接收人邮箱
      * @param subject 邮件主题
      * @param text    邮件正文
+     * @param html    true:发送html格式邮件；false:发送普通邮件
      * @author yxx
      */
-    public void baseSendMail(String[] to, String subject, String text) {
+    public void baseSendMail(String[] to, String subject, String text, boolean html) {
         MimeMessage message = mailSender.createMimeMessage();
         try {
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
             helper.setFrom(mailProperties.getFrom(), mailProperties.getFromName());
             helper.setTo(to);
             helper.setSubject(subject);
-            helper.setText(text);
+            if (html) {
+                helper.setText(text, true);
+            } else {
+                helper.setText(text);
+            }
             mailSender.send(message);
             log.info("邮件已经发送");
         } catch (MessagingException | UnsupportedEncodingException e) {

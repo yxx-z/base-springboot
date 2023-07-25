@@ -395,4 +395,22 @@ public class DateUtils extends DateUtil {
         Instant instant = time.toInstant();
         return instant.atZone(zoneId).toLocalDate();
     }
+
+    /**
+     * 今天剩余时间 单位(秒)
+     *
+     * @return {@link Long }
+     * @author yxx
+     */
+    public static Long theRestOfTheDaySecond(){
+        // 获取当前日期和时间
+        LocalDateTime now = LocalDateTime.now();
+
+        // 获取今晚的十二点整时间
+        LocalDateTime midnight = now.toLocalDate().atTime(LocalTime.MAX);
+
+        // 计算当前时间距离今晚十二点整的秒数
+        Duration duration = Duration.between(now, midnight);
+        return duration.getSeconds();
+    }
 }
