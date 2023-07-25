@@ -41,9 +41,7 @@ common为公共包,包含core和framework两个子包:
 <p>
     &nbsp;&nbsp;&nbsp;&nbsp;common-framework主要是filter、listener、日志打印、日志记录、Mybatis-plus配置、统一异常处理等
 </p>
-<p>
-    &nbsp;&nbsp;&nbsp;&nbsp;business为业务包,用来处理业务。不赘述。
-</p>
+    business为业务包,用来处理业务。不赘述。
 
 ****
 #### 自定义注解:
