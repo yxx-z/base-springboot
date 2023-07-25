@@ -2,6 +2,15 @@
 
 ## SpringBoot开发模版
 
+### 功能
+* 注册、登录、用户详情、接口日志、ip属地、发送邮件、修改密码、找回密码、用户权限、角色、菜单
+
+***
+### 准备
+* redis
+* mysql
+
+***
 ### 使用
 * 数据库新建utf8mb4数据库，运行db文件夹下的db.sql文件。
 * 更改application-dev.yml中mysql数据库连接配置、redis连接配置
