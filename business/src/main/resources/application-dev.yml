@@ -62,13 +62,17 @@ mail:
   # 发件人邮箱
   from: shuniversity@email.cn
   # 发件人名称
-  from-name: 发件人
+  from-name: SpringBoot开发模版
+  # 注册时邮箱验证码有效期
+  register-time: 5
+  # 一个邮箱每日最大注册次数 (防止恶意发送邮件)
+  register-max: 3
 
 # 找回密码
 reset-password:
   # 找回密码页面url
   base-path: http://127.0.0.1
-  # 每日找回密码最大次数
+  # 每日找回密码最大次数 (防止恶意发送邮件)
   max-number: 3
 
 # mybatis-plus开发日志打印内容

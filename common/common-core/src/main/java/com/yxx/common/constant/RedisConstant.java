@@ -9,6 +9,18 @@ package com.yxx.common.constant;
  */
 public interface RedisConstant {
 
-    String EMAIL = "email:";
-    String RESET_PWD = "reset:pwd:";
+    /**
+     * 注册验证码
+     */
+    String EMAIL_REGISTER = "email:register:";
+
+    /**
+     * 当日发送注册验证码次数
+     */
+    String EMAIL_REGISTER_NUM = "email:register:num:";
+
+    /**
+     * 当日找回密码次数
+     */
+    String RESET_PWD_NUM = "reset:pwd:num:";
 }

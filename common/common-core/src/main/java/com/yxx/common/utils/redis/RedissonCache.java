@@ -137,6 +137,20 @@ public class RedissonCache {
         RBucket<String> bucket = redisson.getBucket(REDIS_KEY_PREFIX + key, StringCodec.INSTANCE);
         bucket.set(value, expired <= 0 ? DEFAULT_EXPIRED : expired, TimeUnit.SECONDS);
     }
+
+    /**
+     * 以string的方式保存缓存（与其他应用共用redis时需要使用该函数）
+     *
+     * @param key       缓存key
+     * @param value     缓存值
+     * @param expired   缓存过期时间
+     * @param timeStyle 时间风格 {@link TimeUnit}
+     * @author yxx
+     */
+    public void putString(String key, String value, long expired, TimeUnit timeStyle) {
+        RBucket<String> bucket = redisson.getBucket(REDIS_KEY_PREFIX + key, StringCodec.INSTANCE);
+        bucket.set(value, expired <= 0 ? DEFAULT_EXPIRED : expired, timeStyle);
+    }
  
     /**
      * 如果不存在则写入缓存（string方式，不带有redisson的格式信息）

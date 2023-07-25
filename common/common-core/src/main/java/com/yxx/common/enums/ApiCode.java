@@ -45,11 +45,12 @@ public enum ApiCode {
 
     CAPTCHA_ERROR(2007, "验证码错误"),
     ORIGINAL_PASSWORD_ERROR(2008, "原密码错误"),
+    REGISTER_MAX(2009, "已经达到今日最大注册次数，明日再试吧"),
 
     /**
      * 找回密码
      */
-    RESET_PWD_MAX(3000, "已经达到今日最大找回密码次数，明日再试"),
+    RESET_PWD_MAX(3000, "已经达到今日最大找回密码次数，明日再试吧"),
     RESET_PWD_TOKEN_ERROR(3001, "链接已失效，请重新找回密码"),
 
 

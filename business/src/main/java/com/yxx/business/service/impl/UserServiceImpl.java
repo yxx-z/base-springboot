@@ -2,6 +2,7 @@ package com.yxx.business.service.impl;
 
 import cn.dev33.satoken.temp.SaTempUtil;
 import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -17,6 +18,7 @@ import com.yxx.common.constant.LoginDevice;
 import com.yxx.common.constant.RedisConstant;
 import com.yxx.common.core.model.LoginUser;
 import com.yxx.common.enums.ApiCode;
+import com.yxx.common.properties.MailProperties;
 import com.yxx.common.utils.ApiAssert;
 import com.yxx.common.utils.DateUtils;
 import com.yxx.common.utils.auth.LoginUtils;
@@ -31,6 +33,7 @@ import org.springframework.util.DigestUtils;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author yxx
@@ -46,6 +49,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final RedissonCache redissonCache;
 
     private final MailUtils mailUtils;
+
+    private final MailProperties mailProperties;
 
     @Value("${reset-password.base-path}")
     private String basePath;
@@ -88,12 +93,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public Boolean register(UserRegisterReq req) {
         // 判断该邮箱是否存在验证码
-        Boolean emailIsSend = redissonCache.isExists(RedisConstant.EMAIL + req.getEmail());
+        Boolean emailIsSend = redissonCache.isExists(RedisConstant.EMAIL_REGISTER + req.getEmail());
         // 如果不存在，抛出提示
         ApiAssert.isTrue(ApiCode.CAPTCHA_NOT_EXIST, emailIsSend);
 
         // 获取验证码
-        String captcha = redissonCache.getString(RedisConstant.EMAIL + req.getEmail());
+        String captcha = redissonCache.getString(RedisConstant.EMAIL_REGISTER + req.getEmail());
         //对比用户传入的验证码是否正确
         ApiAssert.isTrue(ApiCode.CAPTCHA_ERROR, req.getCaptcha().equals(captcha));
 
@@ -118,7 +123,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         save(user);
 
         // 设置默认角色
-        return userRoleService.setDefaultRole(user);
+        userRoleService.setDefaultRole(user);
+
+        // 删除该邮箱注册验证码
+        redissonCache.remove(RedisConstant.EMAIL_REGISTER + req.getEmail());
+
+        return Boolean.TRUE;
     }
 
     @Override
@@ -139,13 +149,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         mailUtils.baseSendMail(req.getEmail(), EmailSubjectConstant.RESET_PWD, emailContent, true);
 
         // 从redis中获取该邮箱号今日找回密码次数
-        Integer number = redissonCache.get(RedisConstant.RESET_PWD + req.getEmail());
+        Integer number = redissonCache.get(RedisConstant.RESET_PWD_NUM + req.getEmail());
         // 如果找回次数不为空，并且大于等于设置的最大次数，抛出异常
         ApiAssert.isFalse(ApiCode.RESET_PWD_MAX, number != null && number >= maxNumber);
         // 今天剩余时间
         Long time = DateUtils.theRestOfTheDaySecond();
         // 添加找回密码次数到redis中 找回密码次数+1
-        redissonCache.put(RedisConstant.RESET_PWD + req.getEmail(), Optional.ofNullable(number).map(x -> ++x).orElse(1), time);
+        redissonCache.put(RedisConstant.RESET_PWD_NUM + req.getEmail(), Optional.ofNullable(number).map(x -> ++x).orElse(1), time);
 
         return Boolean.TRUE;
     }
@@ -193,5 +203,41 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String newPassword = DigestUtils.md5DigestAsHex(req.getNewPassword().getBytes());
         // 根据用户id修改新密码
         return update(new LambdaUpdateWrapper<User>().eq(User::getId, user.getId()).set(User::getPassword, newPassword));
+    }
+
+    @Override
+    public Boolean sendRegisterCaptcha(RegisterCaptchaReq req) {
+        // 判断该邮箱是否已经发送过验证码
+        Boolean emailIsSend = redissonCache.isExists(RedisConstant.EMAIL_REGISTER + req.getEmail());
+        // 如果已经发送过，抛出提示
+        ApiAssert.isFalse(ApiCode.MAIL_EXIST, emailIsSend);
+
+        // 获得六位随机数
+        int random = RandomUtil.randomInt(100000, 999999);
+        // 拼接邮件内容
+        String resultText = String.format(EmailSubjectConstant.REGISTER_CONTENT, random, mailProperties.getRegisterTime());
+
+        // 发送邮件
+        mailUtils.baseSendMail(req.getEmail(), EmailSubjectConstant.REGISTER_SUBJECT, resultText, false);
+
+        // 存入redis
+        redissonCache.putString(RedisConstant.EMAIL_REGISTER + req.getEmail(), String.valueOf(random),
+                mailProperties.getRegisterTime(), TimeUnit.MINUTES);
+        // 判断验证码是否成功存入redis
+        Boolean exists = redissonCache.isExists(RedisConstant.EMAIL_REGISTER + req.getEmail());
+        // 如果验证码未成功存入redis，抛出异常
+        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, exists);
+
+        // 防止恶意发送邮件
+        // 从redis中获取该邮箱号今日注册次数
+        Integer number = redissonCache.get(RedisConstant.EMAIL_REGISTER_NUM + req.getEmail());
+        // 如果注册次数不为空，并且大于等于设置的最大次数，抛出异常
+        ApiAssert.isFalse(ApiCode.REGISTER_MAX, number != null && number >= mailProperties.getRegisterMax());
+        // 今天剩余时间
+        Long time = DateUtils.theRestOfTheDaySecond();
+        // 添加注册次数到redis中 注册次数+1
+        redissonCache.put(RedisConstant.EMAIL_REGISTER_NUM + req.getEmail(), Optional.ofNullable(number).map(x -> ++x).orElse(1), time);
+
+        return Boolean.TRUE;
     }
 }

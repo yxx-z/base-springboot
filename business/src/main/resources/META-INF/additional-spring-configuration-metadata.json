@@ -14,5 +14,16 @@
       "name": "reset-password.max-number",
       "type": "java.lang.String",
       "description": "Description for reset-password.max-number."
+    },
+    {
+      "name": "mail.register-time",
+      "type": "java.lang.String",
+      "description": "Description for mail.register-time."
+    },
+    {
+      "name": "mail.register-max",
+      "type": "java.lang.String",
+      "description": "Description for mail.register-max."
     }
-  ] }
+  ]
+}

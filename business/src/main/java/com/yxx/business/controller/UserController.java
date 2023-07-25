@@ -1,9 +1,6 @@
 package com.yxx.business.controller;
 
-import com.yxx.business.model.request.EditPwdReq;
-import com.yxx.business.model.request.ResetPwdEmailReq;
-import com.yxx.business.model.request.ResetPwdReq;
-import com.yxx.business.model.request.UserRegisterReq;
+import com.yxx.business.model.request.*;
 import com.yxx.business.service.UserService;
 import com.yxx.common.annotation.auth.ReleaseToken;
 import com.yxx.common.annotation.log.OperationLog;
@@ -45,6 +42,19 @@ public class UserController {
         return userService.register(req);
     }
 
+    /**
+     * 发送注册验证码
+     *
+     * @param req 要求事情
+     * @return {@link Boolean }
+     * @author yxx
+     */
+    @ReleaseToken
+    @OperationLog(module = "用户模块", title = "发送注册邮箱验证码")
+    @PostMapping("/sendCaptcha")
+    public Boolean sendRegisterCaptcha(@Valid @RequestBody RegisterCaptchaReq req){
+        return userService.sendRegisterCaptcha(req);
+    }
 
     /**
      * 获取用户信息

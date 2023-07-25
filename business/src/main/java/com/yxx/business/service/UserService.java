@@ -62,4 +62,13 @@ public interface UserService extends IService<User> {
      * @author yxx
      */
     Boolean editPwd(EditPwdReq req);
+
+    /**
+     * 发送注册验证码
+     *
+     * @param req 要求事情
+     * @return {@link Boolean }
+     * @author yxx
+     */
+    Boolean sendRegisterCaptcha(RegisterCaptchaReq req);
 }

@@ -21,4 +21,14 @@ public class MailProperties {
      * 发件人昵称
      */
     private String fromName;
+
+    /**
+     * 注册验证码过期时间
+     */
+    private Integer registerTime;
+
+    /**
+     * 一个邮箱每日最大注册次数 (防止恶意发送邮件)
+     */
+    private Integer registerMax;
 }
