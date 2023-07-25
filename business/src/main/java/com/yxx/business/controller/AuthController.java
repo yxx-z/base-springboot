@@ -29,6 +29,13 @@ import javax.validation.Valid;
 public class AuthController {
     private final UserService userService;
 
+    /**
+     * 登录
+     *
+     * @param request 请求
+     * @return {@link LoginRes }
+     * @author yxx
+     */
     @ReleaseToken
     @OperationLog(module = "鉴权模块", title = "pc登录")
     @PostMapping("/login")

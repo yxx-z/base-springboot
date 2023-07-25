@@ -18,12 +18,10 @@ import javax.validation.Valid;
 
 /**
  * @author yxx
- * @since 2023-05-17 15:39
- * @description
- *
- * 注：@SaCheckRole("super_admin")
+ * @description 注：@SaCheckRole("super_admin")
  * 表示只有 super_admin 角色的用户才可访问此controller。
  * 该注解亦可放在具体的方法上
+ * @since 2023-05-17 15:39
  */
 @Slf4j
 @Validated
@@ -35,11 +33,25 @@ import javax.validation.Valid;
 public class OperateLogController {
     private final OperateLogService operateLogService;
 
+    /**
+     * 身份验证登录日志数据分页
+     *
+     * @param req 要求事情
+     * @return {@link Page }<{@link OperateLogResp }>
+     * @author yxx
+     */
     @PostMapping("/auth")
     public Page<OperateLogResp> authLogPage(@Valid @RequestBody OperateLogReq req) {
         return operateLogService.authLogPage(req);
     }
 
+    /**
+     * 操作日志数据分页
+     *
+     * @param req 要求事情
+     * @return {@link Page }<{@link OperateLogResp }>
+     * @author yxx
+     */
     @PostMapping("/operation")
     public Page<OperateLogResp> operationLogPage(@Valid @RequestBody OperateLogReq req) {
         return operateLogService.operationLogPage(req);
