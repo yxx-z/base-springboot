@@ -68,6 +68,7 @@ public class UserController {
      * @author yxx
      */
     @ReleaseToken
+    @OperationLog(module = "用户模块", title = "发送重置密码邮件")
     @PostMapping("/resetPwdEmail")
     public Boolean resetPwdEmail(@Valid @RequestBody ResetPwdEmailReq req){
         return userService.resetPwdEmail(req);
@@ -81,6 +82,7 @@ public class UserController {
      * @author yxx
      */
     @ReleaseToken
+    @OperationLog(module = "用户模块", title = "重置密码")
     @PostMapping("/resetPwd")
     public Boolean resetPwd(@Valid @RequestBody ResetPwdReq req){
         return userService.resetPwd(req);
@@ -93,6 +95,7 @@ public class UserController {
      * @return {@link Boolean }
      * @author yxx
      */
+    @OperationLog(module = "用户模块", title = "修改密码")
     @PostMapping("/editPwd")
     public Boolean editPwd(@Valid @RequestBody EditPwdReq req){
         return userService.editPwd(req);
