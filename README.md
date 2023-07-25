@@ -8,8 +8,9 @@
 ***
 ### 准备
 * jdk1.8
+* maven3
 * redis
-* mysql
+* mysql8
 
 ***
 ### 使用
