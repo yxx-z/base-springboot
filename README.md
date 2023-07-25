@@ -7,6 +7,7 @@
 
 ***
 ### 准备
+* jdk1.8
 * redis
 * mysql
 
