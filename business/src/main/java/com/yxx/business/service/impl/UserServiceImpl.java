@@ -141,13 +141,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public Boolean resetPwdEmail(ResetPwdEmailReq req) {
+        // 校验邮件是否已经发送过
+        ApiAssert.isTrue(ApiCode.MAIL_EXIST, Boolean.FALSE.equals(redissonCache.exists(RedisConstant.RESET_PWD_CONTENT + req.getEmail())));
+
         // 根据邮箱 获取用户
         User user = getUserByEmail(req.getEmail());
         // 如果用户不存在，抛出提示
         ApiAssert.isTrue(ApiCode.EMAIL_NOT_EXIST, ObjectUtil.isNotNull(user));
 
-        // 创建临时token
-        String token = SaTempUtil.createToken(req.getEmail(), 1500);
+        // 创建临时token 临时时间15分钟
+        String token = SaTempUtil.createToken(req.getEmail(), 900);
         // 找回密码路径 拼接token
         String resetPassHref = basePath + "?token=" + token;
         // 邮件内容
@@ -155,6 +158,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 "<br/><br/>tips:本邮件超过15分钟,链接将会失效，需要重新申请'找回密码'";
         // 发送html格式邮件
         mailUtils.baseSendMail(req.getEmail(), EmailSubjectConstant.RESET_PWD, emailContent, true);
+
+        // 将临时token 存入redis中
+        redissonCache.putString(RedisConstant.RESET_PWD_CONTENT + req.getEmail(), token, 900, TimeUnit.SECONDS);
 
         // 从redis中获取该邮箱号今日找回密码次数
         Integer number = redissonCache.get(RedisConstant.RESET_PWD_NUM + req.getEmail());
@@ -228,13 +234,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 发送邮件
         mailUtils.baseSendMail(req.getEmail(), EmailSubjectConstant.REGISTER_SUBJECT, resultText, false);
 
-        // 存入redis
+        // 验证码存入redis
         redissonCache.putString(RedisConstant.EMAIL_REGISTER + req.getEmail(), String.valueOf(random),
                 mailProperties.getRegisterTime(), TimeUnit.MINUTES);
-        // 判断验证码是否成功存入redis
-        Boolean exists = redissonCache.isExists(RedisConstant.EMAIL_REGISTER + req.getEmail());
-        // 如果验证码未成功存入redis，抛出异常
-        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, exists);
 
         // 防止恶意发送邮件
         // 从redis中获取该邮箱号今日注册次数

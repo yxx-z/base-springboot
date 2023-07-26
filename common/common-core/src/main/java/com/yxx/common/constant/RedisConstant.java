@@ -23,4 +23,6 @@ public interface RedisConstant {
      * 当日找回密码次数
      */
     String RESET_PWD_NUM = "reset:pwd:num:";
+
+    String RESET_PWD_CONTENT = "reset:pwd:content:";
 }
