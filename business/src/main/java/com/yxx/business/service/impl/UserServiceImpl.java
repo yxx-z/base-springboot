@@ -20,6 +20,7 @@ import com.yxx.common.core.model.LoginUser;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.exceptions.ApiException;
 import com.yxx.common.properties.MailProperties;
+import com.yxx.common.properties.ResetPwdProperties;
 import com.yxx.common.utils.ApiAssert;
 import com.yxx.common.utils.DateUtils;
 import com.yxx.common.utils.auth.LoginUtils;
@@ -27,7 +28,6 @@ import com.yxx.common.utils.email.MailUtils;
 import com.yxx.common.utils.redis.RedissonCache;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
@@ -54,11 +54,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     private final MailProperties mailProperties;
 
-    @Value("${reset-password.base-path}")
-    private String basePath;
-
-    @Value("${reset-password.max-number}")
-    private Integer maxNumber;
+    private final ResetPwdProperties resetPwdProperties;
 
     @Override
     public LoginRes login(LoginReq request) {
@@ -152,7 +148,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 创建临时token 临时时间15分钟
         String token = SaTempUtil.createToken(req.getEmail(), 900);
         // 找回密码路径 拼接token
-        String resetPassHref = basePath + "?token=" + token;
+        String resetPassHref = resetPwdProperties.getBasePath() + "?token=" + token;
         // 邮件内容
         String emailContent = "请勿回复本邮件.点击下面的链接,重设密码<br/><br/><a href=" + resetPassHref + " target='_BLANK'>点击我重新设置密码</a>" +
                 "<br/><br/>tips:本邮件超过15分钟,链接将会失效，需要重新申请'找回密码'";
@@ -165,7 +161,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 从redis中获取该邮箱号今日找回密码次数
         Integer number = redissonCache.get(RedisConstant.RESET_PWD_NUM + req.getEmail());
         // 如果找回次数不为空，并且大于等于设置的最大次数，抛出异常
-        ApiAssert.isFalse(ApiCode.RESET_PWD_MAX, number != null && number >= maxNumber);
+        ApiAssert.isFalse(ApiCode.RESET_PWD_MAX, number != null && number >= resetPwdProperties.getMaxNumber());
         // 今天剩余时间
         Long time = DateUtils.theRestOfTheDaySecond();
         // 添加找回密码次数到redis中 找回密码次数+1
