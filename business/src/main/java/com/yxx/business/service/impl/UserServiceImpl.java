@@ -142,7 +142,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public Boolean resetPwdEmail(ResetPwdEmailReq req) {
         // 校验邮件是否已经发送过
-        ApiAssert.isTrue(ApiCode.MAIL_EXIST, Boolean.FALSE.equals(redissonCache.exists(RedisConstant.RESET_PWD_CONTENT + req.getEmail())));
+        ApiAssert.isFalse(ApiCode.MAIL_EXIST, redissonCache.exists(RedisConstant.RESET_PWD_CONTENT + req.getEmail()));
 
         // 根据邮箱 获取用户
         User user = getUserByEmail(req.getEmail());
@@ -222,9 +222,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public Boolean sendRegisterCaptcha(RegisterCaptchaReq req) {
         // 判断该邮箱是否已经发送过验证码
-        Boolean emailIsSend = redissonCache.isExists(RedisConstant.EMAIL_REGISTER + req.getEmail());
         // 如果已经发送过，抛出提示
-        ApiAssert.isFalse(ApiCode.MAIL_EXIST, emailIsSend);
+        ApiAssert.isFalse(ApiCode.MAIL_EXIST, redissonCache.isExists(RedisConstant.EMAIL_REGISTER + req.getEmail()));
 
         // 获得六位随机数
         int random = RandomUtil.randomInt(100000, 999999);
