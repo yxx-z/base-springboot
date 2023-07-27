@@ -140,6 +140,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 校验邮件是否已经发送过
         ApiAssert.isFalse(ApiCode.MAIL_EXIST, redissonCache.exists(RedisConstant.RESET_PWD_CONTENT + req.getEmail()));
 
+        // 防止恶意刷邮件
+        // 从redis中获取该邮箱号今日找回密码次数
+        Integer number = redissonCache.get(RedisConstant.RESET_PWD_NUM + req.getEmail());
+        // 如果找回次数不为空，并且大于等于设置的最大次数，抛出异常
+        ApiAssert.isFalse(ApiCode.RESET_PWD_MAX, number != null && number >= resetPwdProperties.getMaxNumber());
+
         // 根据邮箱 获取用户
         User user = getUserByEmail(req.getEmail());
         // 如果用户不存在，抛出提示
@@ -150,18 +156,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 找回密码路径 拼接token
         String resetPassHref = resetPwdProperties.getBasePath() + "?token=" + token;
         // 邮件内容
-        String emailContent = "请勿回复本邮件.点击下面的链接,重设密码<br/><br/><a href=" + resetPassHref + " target='_BLANK'>点击我重新设置密码</a>" +
-                "<br/><br/>tips:本邮件超过15分钟,链接将会失效，需要重新申请'找回密码'";
+        String emailContent = String.format(resetPwdProperties.getResetPwdContent(), resetPassHref);
         // 发送html格式邮件
         mailUtils.baseSendMail(req.getEmail(), EmailSubjectConstant.RESET_PWD, emailContent, true);
 
         // 将临时token 存入redis中
         redissonCache.putString(RedisConstant.RESET_PWD_CONTENT + req.getEmail(), token, 900, TimeUnit.SECONDS);
 
-        // 从redis中获取该邮箱号今日找回密码次数
-        Integer number = redissonCache.get(RedisConstant.RESET_PWD_NUM + req.getEmail());
-        // 如果找回次数不为空，并且大于等于设置的最大次数，抛出异常
-        ApiAssert.isFalse(ApiCode.RESET_PWD_MAX, number != null && number >= resetPwdProperties.getMaxNumber());
+        // 防止恶意刷邮件
         // 今天剩余时间
         Long time = DateUtils.theRestOfTheDaySecond();
         // 添加找回密码次数到redis中 找回密码次数+1
@@ -221,10 +223,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 如果已经发送过，抛出提示
         ApiAssert.isFalse(ApiCode.MAIL_EXIST, redissonCache.isExists(RedisConstant.EMAIL_REGISTER + req.getEmail()));
 
+        // 防止恶意发送邮件
+        // 从redis中获取该邮箱号今日注册次数
+        Integer number = redissonCache.get(RedisConstant.EMAIL_REGISTER_NUM + req.getEmail());
+        // 如果注册次数不为空，并且大于等于设置的最大次数，抛出异常
+        ApiAssert.isFalse(ApiCode.REGISTER_MAX, number != null && number >= mailProperties.getRegisterMax());
+
         // 获得六位随机数
         int random = RandomUtil.randomInt(100000, 999999);
         // 拼接邮件内容
-        String resultText = String.format(EmailSubjectConstant.REGISTER_CONTENT, random, mailProperties.getRegisterTime());
+        String resultText = String.format(mailProperties.getRegisterContent(), random, mailProperties.getRegisterTime());
 
         // 发送邮件
         mailUtils.baseSendMail(req.getEmail(), EmailSubjectConstant.REGISTER_SUBJECT, resultText, false);
@@ -233,11 +241,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         redissonCache.putString(RedisConstant.EMAIL_REGISTER + req.getEmail(), String.valueOf(random),
                 mailProperties.getRegisterTime(), TimeUnit.MINUTES);
 
+
         // 防止恶意发送邮件
-        // 从redis中获取该邮箱号今日注册次数
-        Integer number = redissonCache.get(RedisConstant.EMAIL_REGISTER_NUM + req.getEmail());
-        // 如果注册次数不为空，并且大于等于设置的最大次数，抛出异常
-        ApiAssert.isFalse(ApiCode.REGISTER_MAX, number != null && number >= mailProperties.getRegisterMax());
         // 今天剩余时间
         Long time = DateUtils.theRestOfTheDaySecond();
         // 添加注册次数到redis中 注册次数+1

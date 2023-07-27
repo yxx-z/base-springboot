@@ -25,4 +25,9 @@ public class ResetPwdProperties {
      * 每日找回密码最大次数 (防止恶意发送邮件)
      */
     private Integer maxNumber;
+
+    /**
+     * 找回密码邮件正文
+     */
+    private String resetPwdContent;
 }

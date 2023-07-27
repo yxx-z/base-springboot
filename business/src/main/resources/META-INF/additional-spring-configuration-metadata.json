@@ -24,6 +24,16 @@
       "name": "mail.register-max",
       "type": "java.lang.String",
       "description": "Description for mail.register-max."
+    },
+    {
+      "name": "mail.registerContent",
+      "type": "java.lang.String",
+      "description": "Description for mail.registerContent."
+    },
+    {
+      "name": "reset-password.reset-pwd-content",
+      "type": "java.lang.String",
+      "description": "Description for reset-password.reset-pwd-content."
     }
   ]
 }

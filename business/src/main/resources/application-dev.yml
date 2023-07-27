@@ -67,6 +67,8 @@ mail:
   register-time: 5
   # 一个邮箱每日最大注册次数 (防止恶意发送邮件)
   register-max: 3
+  # 注册邮件正文
+  registerContent: 你正在注册xxxx账号，验证码为 %d,有效期 %d 分钟，妥善保管请勿泄露。如果不是您本人发送，请不必理会。
 
 # 找回密码
 reset-password:
@@ -74,6 +76,8 @@ reset-password:
   base-path: http://127.0.0.1
   # 每日找回密码最大次数 (防止恶意发送邮件)
   max-number: 3
+  # 找回密码邮件正文
+  reset-pwd-content: 请勿回复本邮件.点击下面的链接,重设密码<br/><br/> <a href=%s target='_BLANK'>点击我重新设置密码</a> <br/><br/> tips:本邮件超过15分钟,链接将会失效，需要重新申请'找回密码'
 
 # mybatis-plus开发日志打印内容
 mybatis-plus:
