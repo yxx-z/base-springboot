@@ -1,6 +1,7 @@
 package com.yxx.business.service.impl;
 
 import cn.dev33.satoken.temp.SaTempUtil;
+import cn.hutool.core.text.CharSequenceUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -25,8 +26,11 @@ import com.yxx.common.utils.ApiAssert;
 import com.yxx.common.utils.DateUtils;
 import com.yxx.common.utils.auth.LoginUtils;
 import com.yxx.common.utils.email.MailUtils;
+import com.yxx.common.utils.ip.AddressUtil;
+import com.yxx.common.utils.ip.IpUtil;
 import com.yxx.common.utils.redis.RedissonCache;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +45,7 @@ import java.util.concurrent.TimeUnit;
  * @author yxx
  * @since 2022-11-12 13:54
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
@@ -81,11 +86,31 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         List<String> menuCodeList = roleMenuService.loginUserMenu(roleCodeList);
         // 赋值菜单集合
         loginUser.setMenuPermission(menuCodeList);
+        // ip归属地
+        loginUser.setIpHomePlace(getIpHomePlace(user.getLoginCode()));
 
         // 登录
         LoginUtils.login(loginUser, LoginDevice.PC);
         // 返回token
         return new LoginRes(loginUser.getToken());
+    }
+
+    private String getIpHomePlace(String loginCode) {
+        String requestIp = IpUtil.getRequestIp();
+        String cityInfo = AddressUtil.getCityInfo(requestIp);
+        if (CharSequenceUtil.isNotBlank(cityInfo)) {
+            String[] ipResult = cityInfo.split("\\|");
+            // 获取省份
+            String ipHomePlace = ipResult[2];
+            log.info("用户：{}, 当前登录的ip归属地为：{}", loginCode, ipHomePlace);
+            if (!"0".equals(ipHomePlace)) {
+                return ipHomePlace.substring(0, ipHomePlace.length() - 1);
+            } else {
+                return "未知";
+            }
+        } else {
+            return "未知";
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)

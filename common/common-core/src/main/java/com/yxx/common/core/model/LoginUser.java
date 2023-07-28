@@ -48,6 +48,11 @@ public class LoginUser {
     private String linkPhone;
 
     /**
+     * ip归属地
+     */
+    private String ipHomePlace;
+
+    /**
      * 邮箱
      */
     private String email;
