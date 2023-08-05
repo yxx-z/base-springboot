@@ -68,16 +68,207 @@ mail:
   # 一个邮箱每日最大注册次数 (防止恶意发送邮件)
   register-max: 3
   # 注册邮件正文
-  registerContent: 你正在注册xxxx账号，验证码为 %d,有效期 %d 分钟，妥善保管请勿泄露。如果不是您本人发送，请不必理会。
+  register-content: >
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>注册验证码邮件</title>
+      <style>
+        /* 基本样式 */
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+        }
+        h1 {
+          color: #695d9d;
+        }
+        p {
+          margin-bottom: 20px;
+        }
+        .verification-code {
+          background-color: #695d9d;
+          color: #fff;
+          font-size: 20px;
+          font-weight: bold;
+          padding: 5px 10px;
+          border-radius: 5px;
+          margin: 10px 0;
+          display: inline-block;
+        }
+        .footer {
+          text-align: center;
+        }
+        .footer p {
+          color: #777;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>欢迎注册！</h1>
+        <p>感谢您注册我们的服务。以下是您的验证码：</p>
+        <span class="verification-code"> {captcha} </span>
+        <p>此验证码将在 {time} 分钟后失效，请及时使用。</p>
+        <p>如果您没有进行注册操作，请忽略此邮件。</p>
+        <div class="footer">
+          <p>此邮件由 <a style="color:#695d9d;text-decoration: none;" href="{domain}">{formName}</a> 发送</p>
+          <p>如有疑问，请联系我们：{form}</p>
+        </div>
+      </div>
+    </body>
+    </html>
 
-# 找回密码
+  # ip异常邮件正文
+  ip-unusual-content: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>IP异常提醒</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          border: 1px solid #ddd;
+          border-radius: 5px;
+        }
+        h1 {
+          color: #695d9d;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 20px;
+        }
+        th, td {
+          padding: 10px;
+          text-align: left;
+          border-bottom: 1px solid #ddd;
+        }
+        th {
+          background-color: #f5f5f5;
+        }
+        .footer {
+          text-align: center;
+        }
+        .footer p {
+          color: #777;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>IP异常提醒</h1>
+        <p>您的账户在以下时间出现异常登录：</p>
+        <table>
+          <tr>
+            <th>登录时间</th>
+            <th>登录IP</th>
+            <th>登录地址</th>
+            <th>登录设备</th>
+          </tr>
+          <tr>
+            <td>{time}</td>
+            <td>{ip}</td>
+            <td>{address}</td>
+            <td>{agent}</td>
+          </tr>
+        </table>
+        <p>如果这些登录不是您的操作，请尽快修改密码并确保账户安全。</p>
+        <div class="footer">
+          <p>此邮件由 <a style="color:#695d9d;text-decoration: none;" href="{domain}">{formName}</a> 发送</p>
+          <p>如有疑问，请联系我们：{form}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+
+
+# 重置密码
 reset-password:
   # 找回密码页面url
   base-path: http://127.0.0.1
   # 每日找回密码最大次数 (防止恶意发送邮件)
   max-number: 3
   # 找回密码邮件正文
-  reset-pwd-content: 请勿回复本邮件.点击下面的链接,重设密码<br/><br/> <a href=%s target='_BLANK'>点击我重新设置密码</a> <br/><br/> tips:本邮件超过15分钟,链接将会失效，需要重新申请'找回密码'
+  reset-pwd-content: >
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>重置密码</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          border: 1px solid #ddd;
+          border-radius: 5px;
+        }
+        h1 {
+          color: #695d9d;
+        }
+        .instructions {
+          margin-top: 20px;
+        }
+        .button {
+          display: inline-block;
+          margin-top: 20px;
+          padding: 10px 20px;
+          background-color: #695d9d;
+          color: #fff;
+          text-decoration: none;
+          border-radius: 5px;
+        }
+        .footer {
+          text-align: center;
+          margin-top: 20px;
+          color: #777;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>重置密码</h1>
+        <p>亲爱的用户，您收到这封邮件是因为您请求重置密码。</p>
+        <p class="instructions">请点击下面的按钮来设置一个新密码：</p>
+        <a class="button" href="{url}">重置密码</a>
+        <p class="instructions">请注意，此链接将在接下来的{time}分钟内有效，请尽快完成密码重置操作。</p>
+        <p class="instructions">如果您没有请求重置密码，请忽略此邮件。</p>
+        <div class="footer">
+          <p>此邮件由 <a style="color:#695d9d;text-decoration: none;" href="{domain}">{formName}</a> 发送</p>
+          <p>如有疑问，请联系我们：{form}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+
+  # 重置密码链接有效期（单位：分钟）
+  reset-pwd-time: 15
+
+# 是否校验ip异常
+ip:
+  # 开启后则校验ip异常情况 (异地换设备登录) 发送邮件通知
+  check: false
+
+# 网站域名
+web:
+  domain: http://127.0.0.1
 
 # mybatis-plus开发日志打印内容
 mybatis-plus:

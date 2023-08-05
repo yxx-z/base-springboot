@@ -1,18 +1,17 @@
 package com.yxx.business.model.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
-import com.fasterxml.jackson.annotation.JsonFormat;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
 
 /**
  * @author yxx
  * @since 2022-11-12 13:38
  */
 @Data
-public class User implements Serializable {
+public class User extends BaseEntity implements Serializable{
     /**
      * 用户id
      */
@@ -45,28 +44,12 @@ public class User implements Serializable {
     private String email;
 
     /**
-     * 是否删除:0-未删除；1-已删除
+     * ip归属地
      */
-    @TableLogic
-    private Boolean isDelete;
+    private String ipHomePlace;
 
     /**
-     * 修改时间
+     * 登录设备
      */
-    @TableField(fill = FieldFill.INSERT_UPDATE)
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
-    private LocalDateTime updateTime;
-
-    /**
-     * 创建时间
-     */
-    @TableField(fill = FieldFill.INSERT)
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
-    private LocalDateTime createTime;
-
-    @TableField(fill = FieldFill.INSERT)
-    private Long createUid;
-
-    @TableField(fill = FieldFill.INSERT_UPDATE)
-    private Long updateUid;
+    private String agent;
 }

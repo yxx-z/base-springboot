@@ -35,7 +35,7 @@ public class MailUtils {
     public void baseSendMail(String to, String subject, String text, boolean html) {
         MimeMessage message = mailSender.createMimeMessage();
         try {
-            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setFrom(mailProperties.getFrom(), mailProperties.getFromName());
             helper.setTo(to);
             helper.setSubject(subject);
@@ -64,7 +64,7 @@ public class MailUtils {
     public void baseSendMail(String[] to, String subject, String text, boolean html) {
         MimeMessage message = mailSender.createMimeMessage();
         try {
-            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setFrom(mailProperties.getFrom(), mailProperties.getFromName());
             helper.setTo(to);
             helper.setSubject(subject);

@@ -40,6 +40,11 @@ public class LogDTO extends Convert {
     private String ip;
 
     /**
+     * ip归属地
+     */
+    private String ipHomePlace;
+
+    /**
      * 用户代理
      */
     private String userAgent;

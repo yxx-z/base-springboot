@@ -1,5 +1,6 @@
 package com.yxx.common.core.model;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -12,7 +13,7 @@ import java.util.List;
  * 登录用户身份权限
  *
  * @author yxx
- * @since  2022/4/13 14:23
+ * @since 2022/4/13 14:23
  */
 @Data
 @NoArgsConstructor
@@ -43,6 +44,11 @@ public class LoginUser {
     private String loginName;
 
     /**
+     * 学号
+     */
+    private String studentNumber;
+
+    /**
      * 联系手机
      */
     private String linkPhone;
@@ -51,6 +57,11 @@ public class LoginUser {
      * ip归属地
      */
     private String ipHomePlace;
+
+    /**
+     * 登录设备
+     */
+    private String agent;
 
     /**
      * 邮箱
@@ -75,5 +86,6 @@ public class LoginUser {
     /**
      * 登录时间
      */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private LocalDateTime loginTime;
 }

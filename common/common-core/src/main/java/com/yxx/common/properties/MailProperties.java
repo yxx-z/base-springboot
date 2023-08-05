@@ -36,4 +36,9 @@ public class MailProperties {
      * 注册邮件正文
      */
     private String registerContent;
+
+    /**
+     * ip异常邮件正文
+     */
+    private String ipUnusualContent;
 }

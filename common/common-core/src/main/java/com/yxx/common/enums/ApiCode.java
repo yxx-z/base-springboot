@@ -64,6 +64,8 @@ public enum ApiCode {
     CAPTCHA_NOT_EXIST(8002, "验证码已过期或未发送，请重新发送"),
 
     EMAIL_NOT_EXIST(8003, "邮箱不存在"),
+    EMAIL_NOT_REGISTER(8004, "邮箱尚未注册，先去注册吧~"),
+    EMAIL_EXIST(8005, "该邮箱已经注册过"),
 
 
     /**

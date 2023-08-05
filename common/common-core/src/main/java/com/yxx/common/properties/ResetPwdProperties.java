@@ -30,4 +30,9 @@ public class ResetPwdProperties {
      * 找回密码邮件正文
      */
     private String resetPwdContent;
+
+    /**
+     * 找回密码链接有效期
+     */
+    private Integer resetPwdTime;
 }

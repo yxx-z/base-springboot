@@ -24,5 +24,18 @@ public interface RedisConstant {
      */
     String RESET_PWD_NUM = "reset:pwd:num:";
 
+    /**
+     * 重置密码内容
+     */
     String RESET_PWD_CONTENT = "reset:pwd:content:";
+
+    /**
+     * ip异常操作
+     */
+    String IP_UNUSUAL_OPERATE = "ip:unusual:operate:";
+
+    /**
+     * ip异常登录
+     */
+    String IP_UNUSUAL_LOGIN = "ip:unusual:login:";
 }
