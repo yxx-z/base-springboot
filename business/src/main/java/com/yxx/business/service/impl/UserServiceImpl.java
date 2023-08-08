@@ -24,8 +24,8 @@ import com.yxx.common.enums.ApiCode;
 import com.yxx.common.exceptions.ApiException;
 import com.yxx.common.properties.IpProperties;
 import com.yxx.common.properties.MailProperties;
-import com.yxx.common.properties.ResetPwdProperties;
 import com.yxx.common.properties.MyWebProperties;
+import com.yxx.common.properties.ResetPwdProperties;
 import com.yxx.common.utils.ApiAssert;
 import com.yxx.common.utils.DateUtils;
 import com.yxx.common.utils.ServletUtils;
@@ -38,6 +38,7 @@ import com.yxx.common.utils.redis.RedissonCache;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
@@ -81,9 +82,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 如果用户信息不存在，抛出异常
         ApiAssert.isTrue(ApiCode.USER_NOT_EXIST, ObjectUtil.isNotNull(user));
         // 加密请求参数中的密码
-        String password = DigestUtils.md5DigestAsHex(request.getPassword().getBytes());
+        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         // 如果请求参数中的密码加密后和数据库中不一致，抛出异常
-        ApiAssert.isTrue(ApiCode.PASSWORD_ERROR, user.getPassword().equals(password));
+        ApiAssert.isTrue(ApiCode.PASSWORD_ERROR, encoder.matches(request.getPassword(), user.getPassword()));
 
         // 初始化登录信息
         LoginUser loginUser = new LoginUser();
@@ -162,8 +163,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 如果存在该账号信息 表示用户已存在，抛出提示
         ApiAssert.isTrue(ApiCode.USER_EXIST,
                 ObjectUtil.isNull(userByLoginCode) && ObjectUtil.isNull(userByEmail));
-        // 加密请求参数中的密码
-        String password = DigestUtils.md5DigestAsHex(req.getPassword().getBytes());
+        // 创建 BCryptPasswordEncoder 对象
+        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+        // 对密码进行哈希
+        String password = encoder.encode(req.getPassword());
+
 
         // 初始化用户类
         User user = new User();
