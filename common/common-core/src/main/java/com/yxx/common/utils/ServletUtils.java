@@ -1,9 +1,8 @@
 package com.yxx.common.utils;
 
 import cn.hutool.core.map.MapUtil;
-import cn.hutool.extra.servlet.ServletUtil;
-import com.yomahub.tlog.web.wrapper.RequestWrapper;
 import com.yxx.common.utils.jackson.JacksonUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -11,7 +10,6 @@ import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import javax.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -21,7 +19,7 @@ import java.util.Map;
  * @author yxx
  * @since 2022/4/13 11:45
  */
-public class ServletUtils extends ServletUtil {
+public class ServletUtils {
 
     public static ServletRequestAttributes getRequestAttributes() {
         RequestAttributes attributes = RequestContextHolder.getRequestAttributes();

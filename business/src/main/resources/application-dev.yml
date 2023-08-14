@@ -26,24 +26,25 @@ spring:
       max-file-size: 30MB
       max-request-size: 30MB
   # redis 配置内容
-  redis:
-    # 设置初始数据库的数据为8
-    database: 8
-    host: 127.0.0.1
-    port: 6379
-#    password:
-    jedis:
-      pool:
-        # 连接池最大连接数（使用负值表示没有限制）
-        max-active: 50
-        # 连接池最大阻塞等待时间（使用负值表示没有限制）
-        max-wait: 3000ms
-        # 连接池中的最大空闲连接数
-        max-idle: 20
-        # 连接池中的最小空闲连接数
-        min-idle: 5
-    # 连接超时时间（毫秒）
-    timeout: 5000ms
+  data:
+    redis:
+      # 设置初始数据库的数据为8
+      database: 14
+      host: 127.0.0.1
+      port: 6379
+      # password:
+      jedis:
+        pool:
+          # 连接池最大连接数（使用负值表示没有限制）
+          max-active: 50
+          # 连接池最大阻塞等待时间（使用负值表示没有限制）
+          max-wait: 3000ms
+          # 连接池中的最大空闲连接数
+          max-idle: 20
+          # 连接池中的最小空闲连接数
+          min-idle: 5
+      # 连接超时时间（毫秒）
+      timeout: 5000ms
   # 邮箱
   mail:
     # 编码
@@ -292,7 +293,7 @@ sa-token:
   # 是否打开自动续签 (如果此值为true, 框架会在每次直接或间接调用 getLoginId() 时进行一次过期检查与续签操作)
   autoRenew: true
   # token临时有效期 (指定时间内无操作就视为token过期) 单位: 秒
-  activity-timeout: -1
+  active-timeout: -1
   # 是否允许同一账号并发登录 (为true时允许一起登录, 为false时新登录挤掉旧登录)
   is-concurrent: false
   # 在多人登录同一账号时，是否共用一个token (为true时所有登录共用一个token, 为false时每次登录新建一个token)
@@ -308,7 +309,7 @@ sa-token:
   # 登录逻辑缓存和业务逻辑缓存分离
   alone-redis:
     # Redis数据库索引（默认为0）
-    database: 2
+    database: 13
     # Redis服务器地址
     host: 127.0.0.1
     # Redis服务器连接端口
