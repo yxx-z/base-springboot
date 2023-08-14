@@ -7,8 +7,8 @@
 
 ***
 ### 准备
-* jdk1.8
-* maven3
+* jdk17
+* maven3.5+
 * redis
 * mysql8
 

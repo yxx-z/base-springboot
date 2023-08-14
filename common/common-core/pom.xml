@@ -167,8 +167,8 @@
         </dependency>
     </dependencies>
 
-    <!--<repositories>
-        &lt;!&ndash; 下载mybatis-plus SNAPSHOT 版本所需仓库 &ndash;&gt;
+    <repositories>
+        <!-- 下载mybatis-plus SNAPSHOT 版本所需仓库 -->
         <repository>
             <id>ossrh</id>
             <name>OSS Snapshot repository</name>
@@ -181,6 +181,6 @@
             </snapshots>
         </repository>
 
-    </repositories>-->
+    </repositories>
 
 </project>
