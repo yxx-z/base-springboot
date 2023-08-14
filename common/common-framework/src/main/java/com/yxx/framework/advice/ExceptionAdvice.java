@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
-import javax.validation.ConstraintViolationException;
+import jakarta.validation.ConstraintViolationException;
 
 
 /**
@@ -47,16 +47,13 @@ public class ExceptionAdvice {
     @ExceptionHandler(NotLoginException.class)
     public ErrorResponse notLoginException(NotLoginException e) {
         log.error(ERROR_CODE, e.getMessage());
-        switch (e.getType()) {
-            case NotLoginException.NOT_TOKEN:
-            case NotLoginException.INVALID_TOKEN:
-            case NotLoginException.TOKEN_TIMEOUT:
-            case NotLoginException.BE_REPLACED:
-                return ErrorResponse.fail(ApiCode.TOKEN_ERROR.getCode(), e.getMessage());
-            default:
-                return ErrorResponse.fail(Integer.parseInt(e.getType()), e.getMessage());
-
-        }
+        return switch (e.getType()) {
+            case NotLoginException.NOT_TOKEN,
+                 NotLoginException.INVALID_TOKEN,
+                 NotLoginException.TOKEN_TIMEOUT,
+                 NotLoginException.BE_REPLACED -> ErrorResponse.fail(ApiCode.TOKEN_ERROR.getCode(), e.getMessage());
+            default -> ErrorResponse.fail(Integer.parseInt(e.getType()), e.getMessage());
+        };
     }
 
     @ExceptionHandler(NotRoleException.class)

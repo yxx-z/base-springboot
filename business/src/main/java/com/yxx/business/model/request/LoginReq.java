@@ -2,7 +2,7 @@ package com.yxx.business.model.request;
 
 import lombok.Data;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 /**
  * @author yxx

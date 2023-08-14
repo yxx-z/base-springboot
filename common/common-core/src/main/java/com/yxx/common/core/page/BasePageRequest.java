@@ -2,7 +2,7 @@ package com.yxx.common.core.page;
 
 import lombok.Data;
 
-import javax.validation.constraints.Min;
+import jakarta.validation.constraints.Min;
 
 /**
  * 分页参数基本信息

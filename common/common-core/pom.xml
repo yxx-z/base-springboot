@@ -14,6 +14,7 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
+            <version>${spring-boot.version}</version>
         </dependency>
 
         <dependency>
@@ -25,6 +26,7 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-jdbc</artifactId>
+            <version>${spring-boot.version}</version>
         </dependency>
 
         <!-- mybatis-Plus -->
@@ -42,13 +44,6 @@
             <version>${mysql.version}</version>
         </dependency>
 
-        <!-- Sa-Token 整合 jwt -->
-        <dependency>
-            <groupId>cn.dev33</groupId>
-            <artifactId>sa-token-jwt</artifactId>
-            <version>${sa-token.version}</version>
-        </dependency>
-
         <!-- lang3包 -->
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -60,6 +55,7 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
+            <version>${spring-boot.version}</version>
         </dependency>
 
         <dependency>
@@ -79,12 +75,20 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-aop</artifactId>
+            <version>${spring-boot.version}</version>
         </dependency>
 
         <!-- Sa-Token 权限认证, 在线文档：http://sa-token.dev33.cn/ -->
         <dependency>
             <groupId>cn.dev33</groupId>
-            <artifactId>sa-token-spring-boot-starter</artifactId>
+            <artifactId>sa-token-spring-boot3-starter</artifactId>
+            <version>${sa-token.version}</version>
+        </dependency>
+
+        <!-- Sa-Token 整合 jwt -->
+        <dependency>
+            <groupId>cn.dev33</groupId>
+            <artifactId>sa-token-jwt</artifactId>
             <version>${sa-token.version}</version>
         </dependency>
 
@@ -98,7 +102,7 @@
         <!-- Sa-Token 整合 Redis （使用jackson序列化方式） -->
         <dependency>
             <groupId>cn.dev33</groupId>
-            <artifactId>sa-token-dao-redis-jackson</artifactId>
+            <artifactId>sa-token-redis-jackson</artifactId>
             <version>${sa-token.version}</version>
         </dependency>
 
@@ -155,8 +159,28 @@
             <artifactId>commons-io</artifactId>
             <version>${ip2region-commons.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-core</artifactId>
+            <version>${tomcat.version}</version>
+        </dependency>
     </dependencies>
 
+    <!--<repositories>
+        &lt;!&ndash; 下载mybatis-plus SNAPSHOT 版本所需仓库 &ndash;&gt;
+        <repository>
+            <id>ossrh</id>
+            <name>OSS Snapshot repository</name>
+            <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
 
+    </repositories>-->
 
 </project>
