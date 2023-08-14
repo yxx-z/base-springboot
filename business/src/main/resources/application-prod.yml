@@ -25,25 +25,26 @@ spring:
     multipart:
       max-file-size: 30MB
       max-request-size: 30MB
-  # redis 配置内容
-  redis:
-    # 设置初始数据库的数据为8
-    database: 8
-    host: 127.0.0.1
-    port: 6379
-    #    password:
-    jedis:
-      pool:
-        # 连接池最大连接数（使用负值表示没有限制）
-        max-active: 50
-        # 连接池最大阻塞等待时间（使用负值表示没有限制）
-        max-wait: 3000ms
-        # 连接池中的最大空闲连接数
-        max-idle: 20
-        # 连接池中的最小空闲连接数
-        min-idle: 5
-    # 连接超时时间（毫秒）
-    timeout: 5000ms
+  data:
+    # redis 配置内容
+    redis:
+      # 设置初始数据库的数据为8
+      database: 8
+      host: 127.0.0.1
+      port: 6379
+      #    password:
+      jedis:
+        pool:
+          # 连接池最大连接数（使用负值表示没有限制）
+          max-active: 50
+          # 连接池最大阻塞等待时间（使用负值表示没有限制）
+          max-wait: 3000ms
+          # 连接池中的最大空闲连接数
+          max-idle: 20
+          # 连接池中的最小空闲连接数
+          min-idle: 5
+      # 连接超时时间（毫秒）
+      timeout: 5000ms
   # 邮箱
   mail:
     # 编码
@@ -264,7 +265,7 @@ reset-password:
 # 是否校验ip异常
 ip:
   # 开启后则校验ip异常情况 (异地换设备登录) 发送邮件通知
-  check: false
+  check: true
 
 # 网站域名
 web:
