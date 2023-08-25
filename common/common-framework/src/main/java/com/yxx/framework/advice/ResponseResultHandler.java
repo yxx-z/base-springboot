@@ -3,6 +3,8 @@ package com.yxx.framework.advice;
 import com.yxx.common.annotation.response.ResponseResult;
 import com.yxx.common.core.response.BaseResponse;
 import com.yxx.common.core.response.ErrorResponse;
+import com.yxx.framework.context.AppContext;
+import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
@@ -20,6 +22,7 @@ import jakarta.servlet.http.HttpServletRequest;
  * @author yxx
  * @description: 使用 @ControllerAdvice & ResponseBodyAdvice 拦截Controller方法默认返回参数，统一处理返回值/响应体
  */
+@Slf4j
 @ControllerAdvice
 public class ResponseResultHandler implements ResponseBodyAdvice<Object> {
 
@@ -62,8 +65,7 @@ public class ResponseResultHandler implements ResponseBodyAdvice<Object> {
     public Object beforeBodyWrite(Object body, @NotNull MethodParameter arg1, @NotNull MediaType arg2,
                                   @NotNull Class<? extends HttpMessageConverter<?>> arg3,
                                   @NotNull ServerHttpRequest arg4, @NotNull ServerHttpResponse arg5) {
-        // todo 去掉tlog
-        String traceId = null;
+        String traceId = AppContext.getContext().getTraceId();
         if (body instanceof ErrorResponse error) {
             return BaseResponse.fail(error.getCode(), error.getMessage(), traceId);
         } else if (body instanceof BaseResponse baseResponse) {

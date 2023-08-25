@@ -22,6 +22,7 @@ import com.yxx.common.utils.email.MailUtils;
 import com.yxx.common.utils.ip.AddressUtil;
 import com.yxx.common.utils.ip.IpUtil;
 import com.yxx.common.utils.redis.RedissonCache;
+import com.yxx.framework.context.AppContext;
 import com.yxx.framework.service.OperationLogService;
 import com.yxx.framework.service.impl.OperationLogDefaultServiceImpl;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.*;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -84,6 +86,7 @@ public class LogAspect {
      */
     @Before("requestLog()")
     public void doBefore(JoinPoint joinPoint) {
+        MDC.put(AppContext.KEY_TRACE_ID, AppContext.getContext().getTraceId());
         startTime.set(System.currentTimeMillis());
         ServletRequestAttributes servletRequestAttributes = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
         HttpServletRequest request = servletRequestAttributes.getRequest();
@@ -175,9 +178,7 @@ public class LogAspect {
             log.info("signature:[{}]", signature);
             String module = operationLog.module();
             String title = operationLog.title();
-
-            // todo 去掉tlog
-            String traceId = null;
+            String traceId = AppContext.getContext().getTraceId();
             String spanId = null;
             LogDTO dto = createLog(module, title, type, time, traceId, spanId, exception);
             getLogService().saveLog(dto);

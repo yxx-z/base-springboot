@@ -7,12 +7,11 @@ import com.yxx.common.annotation.log.OperationLog;
 import com.yxx.common.annotation.response.ResponseResult;
 import com.yxx.common.core.model.LoginUser;
 import com.yxx.common.utils.auth.LoginUtils;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
-import jakarta.validation.Valid;
 
 /**
  * @author yxx

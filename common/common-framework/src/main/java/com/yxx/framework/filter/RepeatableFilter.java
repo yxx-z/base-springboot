@@ -1,6 +1,10 @@
 package com.yxx.framework.filter;
 
+import cn.hutool.core.text.CharSequenceUtil;
+import com.yxx.common.utils.ApplicationUtils;
 import com.yxx.common.utils.RepeatedlyRequestWrapper;
+import com.yxx.common.utils.SnowflakeConfig;
+import com.yxx.framework.context.AppContext;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +29,13 @@ public class RepeatableFilter implements Filter {
         if (request instanceof HttpServletRequest httpServletRequest
                 && StringUtils.startsWithIgnoreCase(request.getContentType(), MediaType.APPLICATION_JSON_VALUE)) {
             requestWrapper = new RepeatedlyRequestWrapper(httpServletRequest, response);
+            String traceId = httpServletRequest.getHeader("Trace-Id");
+            if (CharSequenceUtil.isNotBlank(traceId)) {
+                log.info(traceId);
+            } else {
+                SnowflakeConfig snowflake = ApplicationUtils.getBean(SnowflakeConfig.class);
+                AppContext.getContext().setTraceId(String.valueOf(snowflake.snowflakeId()));
+            }
         }
         if (null == requestWrapper) {
             chain.doFilter(request, response);

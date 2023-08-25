@@ -3,7 +3,9 @@ package com.yxx.framework.interceptor.response;
 import cn.dev33.satoken.stp.StpUtil;
 import com.yxx.common.annotation.auth.ReleaseToken;
 import com.yxx.common.annotation.response.ResponseResult;
+import com.yxx.framework.context.AppContext;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -43,6 +45,7 @@ public class ResponseResultInterceptor implements HandlerInterceptor {
                 StpUtil.checkLogin();
             }
         }
+        MDC.put(AppContext.KEY_TRACE_ID, AppContext.getContext().getTraceId());
         return true;
     }
 }

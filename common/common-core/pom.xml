@@ -159,6 +159,12 @@
             <version>${tomcat.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>transmittable-thread-local</artifactId>
+            <version>${ttl.version}</version>
+        </dependency>
+
     </dependencies>
 
     <repositories>
