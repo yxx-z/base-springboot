@@ -53,7 +53,7 @@ public class CommonMetaObjectHandler implements MetaObjectHandler {
         try {
             return LoginUtils.getUserId();
         } catch (Exception ignore) {
-
+            log.error("生成uid错误");
         }
         return 1L;
     }

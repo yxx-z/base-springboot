@@ -23,7 +23,6 @@
 ### 框架选型:
 <p>
     &nbsp;&nbsp;&nbsp;&nbsp;SpringBoot + Mybatis-plus + Redis <br>
-    &nbsp;&nbsp;&nbsp;&nbsp;日志追踪框架 TLog  <a href="https://tlog.yomahub.com/pages/5b7bd2/" style="text-decoration: none">框架文档</a> <br>
     &nbsp;&nbsp;&nbsp;&nbsp;登录框架 Sa-Token <a href="https://sa-token.cc/doc.html#/" style="text-decoration: none">框架文档</a>
 </p>
 

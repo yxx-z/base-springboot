@@ -3,6 +3,7 @@ package com.yxx.framework.interceptor.response;
 import cn.dev33.satoken.stp.StpUtil;
 import com.yxx.common.annotation.auth.ReleaseToken;
 import com.yxx.common.annotation.response.ResponseResult;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -23,9 +24,9 @@ public class ResponseResultInterceptor implements HandlerInterceptor {
     public static final String RESPONSE_RESULT_ANN = "RESPONSE-RESULT";
 
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        if (handler instanceof HandlerMethod) {
-            final HandlerMethod handlerMethod = (HandlerMethod) handler;
+    public boolean preHandle(@NotNull HttpServletRequest request, @NotNull HttpServletResponse response,
+                             @NotNull Object handler) {
+        if (handler instanceof HandlerMethod handlerMethod) {
             final Class<?> clazz = handlerMethod.getBeanType();
             final Method method = handlerMethod.getMethod();
 

@@ -1,9 +1,9 @@
 package com.yxx.framework.advice;
 
-import com.yomahub.tlog.context.TLogContext;
 import com.yxx.common.annotation.response.ResponseResult;
 import com.yxx.common.core.response.BaseResponse;
 import com.yxx.common.core.response.ErrorResponse;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.HttpMessageConverter;
@@ -37,7 +37,7 @@ public class ResponseResultHandler implements ResponseBodyAdvice<Object> {
      * @return return
      */
     @Override
-    public boolean supports(MethodParameter arg0, Class<? extends HttpMessageConverter<?>> arg1) {
+    public boolean supports(@NotNull MethodParameter arg0, @NotNull Class<? extends HttpMessageConverter<?>> arg1) {
         ServletRequestAttributes sra = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         assert sra != null;
         HttpServletRequest request = sra.getRequest();
@@ -59,14 +59,15 @@ public class ResponseResultHandler implements ResponseBodyAdvice<Object> {
      * @return the body that was passed in or a modified (possibly new) instance
      */
     @Override
-    public Object beforeBodyWrite(Object body, MethodParameter arg1, MediaType arg2,
-                                  Class<? extends HttpMessageConverter<?>> arg3, ServerHttpRequest arg4, ServerHttpResponse arg5) {
-        String traceId = TLogContext.getTraceId();
-        if (body instanceof ErrorResponse) {
-            ErrorResponse error = (ErrorResponse) body;
+    public Object beforeBodyWrite(Object body, @NotNull MethodParameter arg1, @NotNull MediaType arg2,
+                                  @NotNull Class<? extends HttpMessageConverter<?>> arg3,
+                                  @NotNull ServerHttpRequest arg4, @NotNull ServerHttpResponse arg5) {
+        // todo 去掉tlog
+        String traceId = null;
+        if (body instanceof ErrorResponse error) {
             return BaseResponse.fail(error.getCode(), error.getMessage(), traceId);
-        } else if (body instanceof BaseResponse) {
-            ((BaseResponse) body).setTraceId(traceId);
+        } else if (body instanceof BaseResponse baseResponse) {
+            baseResponse.setTraceId(traceId);
             return body;
         } else if (body instanceof String) {
             return BaseResponse.success(body, traceId);

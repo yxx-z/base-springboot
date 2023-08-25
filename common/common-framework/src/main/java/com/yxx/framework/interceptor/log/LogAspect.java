@@ -5,7 +5,6 @@ import cn.hutool.core.date.DatePattern;
 import cn.hutool.core.date.LocalDateTimeUtil;
 import cn.hutool.extra.spring.SpringUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yomahub.tlog.context.TLogContext;
 import com.yxx.common.annotation.log.OperationLog;
 import com.yxx.common.constant.Constant;
 import com.yxx.common.constant.EmailSubjectConstant;
@@ -73,7 +72,7 @@ public class LogAspect {
     /**
      * 定义切入点，controller下面的所有类的所有公有方法
      */
-    @Pointcut("execution(public * com.yxx..controller.*.*.*(..))")
+    @Pointcut("execution(public * com.yxx..controller.*.*(..))")
     public void requestLog() {
         // document why this method is empty
     }
@@ -176,8 +175,10 @@ public class LogAspect {
             log.info("signature:[{}]", signature);
             String module = operationLog.module();
             String title = operationLog.title();
-            String traceId = TLogContext.getTraceId();
-            String spanId = TLogContext.getSpanId();
+
+            // todo 去掉tlog
+            String traceId = null;
+            String spanId = null;
             LogDTO dto = createLog(module, title, type, time, traceId, spanId, exception);
             getLogService().saveLog(dto);
         }

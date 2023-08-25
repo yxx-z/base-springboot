@@ -4,8 +4,6 @@ import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 import com.yxx.framework.hander.CommonMetaObjectHandler;
-import com.yxx.framework.interceptor.mybatis.ParameterInterceptor;
-import com.yxx.framework.interceptor.mybatis.ResultSetInterceptor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -31,22 +29,5 @@ public class MyBatisPlusConfig {
     public CommonMetaObjectHandler commonMetaObjectHandler() {
         return new CommonMetaObjectHandler();
     }
-
-    /**
-     * 注解加密
-     */
-    @Bean
-    public ParameterInterceptor encrypt() {
-        return new ParameterInterceptor();
-    }
-
-    /**
-     * 注解解密
-     */
-    @Bean
-    public ResultSetInterceptor decrypt() {
-        return new ResultSetInterceptor();
-    }
-
 
 }

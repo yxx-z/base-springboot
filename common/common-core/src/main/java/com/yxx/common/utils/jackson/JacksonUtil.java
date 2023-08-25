@@ -7,6 +7,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.DateSerializer;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalTimeDeserializer;
@@ -37,7 +38,7 @@ import java.util.Objects;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public abstract class JacksonUtil {
 
-    private final static ObjectMapper OBJECT_MAPPER;
+    private static final ObjectMapper OBJECT_MAPPER;
 
     static {
         OBJECT_MAPPER = initObjectMapper(new ObjectMapper());
@@ -71,6 +72,7 @@ public abstract class JacksonUtil {
         try {
             object = getObjectMapper().readValue(json, Object.class);
         } catch (Exception ignored) {
+            log.error("json转换对象异常");
         }
         return object;
     }
@@ -151,12 +153,12 @@ public abstract class JacksonUtil {
      */
     private static ObjectMapper doInitObjectMapper(ObjectMapper objectMapper) {
         // 忽略不能转移的字符
-        objectMapper.configure(JsonReadFeature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER.mappedFeature(), true);
+        JsonMapper.builder().configure(JsonReadFeature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER.mappedFeature(), true);
         // 忽略目标对象没有的属性
-        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        JsonMapper.builder().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        JsonMapper.builder().configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
         //忽略transient
-        objectMapper.configure(MapperFeature.PROPAGATE_TRANSIENT_MARKER, true);
+        JsonMapper.builder().configure(MapperFeature.PROPAGATE_TRANSIENT_MARKER, true);
         objectMapper.getSerializerProvider().setNullValueSerializer(new NullValueSerializer());
         return registerModule(objectMapper);
     }
@@ -172,14 +174,14 @@ public abstract class JacksonUtil {
         simpleModule.addSerializer(Date.class, new DateSerializer(true, null));
         simpleModule.addSerializer(LocalDateTime.class, new LocalDateTimeSerializer(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)));
 
-        simpleModule.addDeserializer(LocalDateTime.class, new JsonDeserializer<LocalDateTime>() {
+        simpleModule.addDeserializer(LocalDateTime.class, new JsonDeserializer<>() {
             @Override
             public LocalDateTime deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
                 return DateUtils.convertLocalDateTime(p.getText());
             }
         });
         simpleModule.addSerializer(LocalDate.class, new LocalDateSerializer(DateTimeFormatter.ofPattern(DatePattern.NORM_DATE_PATTERN)));
-        simpleModule.addDeserializer(LocalDate.class, new JsonDeserializer<LocalDate>() {
+        simpleModule.addDeserializer(LocalDate.class, new JsonDeserializer<>() {
             @Override
             public LocalDate deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
                 return DateUtils.convertLocalDate(p.getText());
