@@ -1,0 +1,17 @@
+server:
+  port: 6060
+
+spring:
+  profiles:
+    active: @profileActive@
+
+app:
+  name: admin
+
+logging:
+  file:
+    path: ./logs
+    name: admin
+  level:
+    # mapper包下打印debug级别日志
+    com.yxx.business.mapper: debug

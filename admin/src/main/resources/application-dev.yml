@@ -1,0 +1,260 @@
+spring:
+  application:
+    name: business
+  config:
+    activate:
+      on-profile: dev
+  # mysql 通用配置信息内容 使用HikariDataSource连接池
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3306/base_springboot?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: admin123
+    type: com.zaxxer.hikari.HikariDataSource
+    hikari:
+      minimum-idle: 10
+      maximum-pool-size: 20
+      auto-commit: true
+      idle-timeout: 30000
+      pool-name: HikariCP
+      max-lifetime: 1800000
+      connection-timeout: 30000
+      connection-test-query: SELECT 1
+  # 请求大小
+  servlet:
+    multipart:
+      max-file-size: 30MB
+      max-request-size: 30MB
+  # redis 配置内容
+  data:
+    redis:
+      # 设置初始数据库的数据为8
+      database: 14
+      host: 127.0.0.1
+      port: 6379
+      # password:
+      jedis:
+        pool:
+          # 连接池最大连接数（使用负值表示没有限制）
+          max-active: 50
+          # 连接池最大阻塞等待时间（使用负值表示没有限制）
+          max-wait: 3000ms
+          # 连接池中的最大空闲连接数
+          max-idle: 20
+          # 连接池中的最小空闲连接数
+          min-idle: 5
+      # 连接超时时间（毫秒）
+      timeout: 5000ms
+  # 邮箱
+  mail:
+    # 编码
+    default-encoding: UTF-8
+    # 邮件服务器
+    host: smtp.email.cn
+    # 用户名(一般为邮箱号)
+    username: shuniversity@email.cn
+    # 邮件服务器端口
+    port: 25
+    # 专用密码
+    password: 2BCZKEGQgHyCZ5i4
+
+# 邮箱设置
+mail:
+  # 发件人邮箱
+  from: shuniversity@email.cn
+  # 发件人名称
+  from-name: SpringBoot开发模版
+  # ip异常邮件正文
+  ip-unusual-content: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>IP异常提醒</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          border: 1px solid #ddd;
+          border-radius: 5px;
+        }
+        h1 {
+          color: #695d9d;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 20px;
+        }
+        th, td {
+          padding: 10px;
+          text-align: left;
+          border-bottom: 1px solid #ddd;
+        }
+        th {
+          background-color: #f5f5f5;
+        }
+        .footer {
+          text-align: center;
+        }
+        .footer p {
+          color: #777;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>IP异常提醒</h1>
+        <p>您的账户在以下时间出现异常登录：</p>
+        <table>
+          <tr>
+            <th>登录时间</th>
+            <th>登录IP</th>
+            <th>登录地址</th>
+            <th>登录设备</th>
+          </tr>
+          <tr>
+            <td>{time}</td>
+            <td>{ip}</td>
+            <td>{address}</td>
+            <td>{agent}</td>
+          </tr>
+        </table>
+        <p>如果这些登录不是您的操作，请尽快修改密码并确保账户安全。</p>
+        <div class="footer">
+          <p>此邮件由 <a style="color:#695d9d;text-decoration: none;" href="{domain}">{formName}</a> 发送</p>
+          <p>如有疑问，请联系我们：{form}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+
+
+# 重置密码
+reset-password:
+  # 找回密码页面url
+  base-path: http://127.0.0.1
+  # 每日找回密码最大次数 (防止恶意发送邮件)
+  max-number: 3
+  # 找回密码邮件正文
+  reset-pwd-content: >
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>重置密码</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          border: 1px solid #ddd;
+          border-radius: 5px;
+        }
+        h1 {
+          color: #695d9d;
+        }
+        .instructions {
+          margin-top: 20px;
+        }
+        .button {
+          display: inline-block;
+          margin-top: 20px;
+          padding: 10px 20px;
+          background-color: #695d9d;
+          color: #fff;
+          text-decoration: none;
+          border-radius: 5px;
+        }
+        .footer {
+          text-align: center;
+          margin-top: 20px;
+          color: #777;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>重置密码</h1>
+        <p>亲爱的用户，您收到这封邮件是因为您请求重置密码。</p>
+        <p class="instructions">请点击下面的按钮来设置一个新密码：</p>
+        <a class="button" href="{url}">重置密码</a>
+        <p class="instructions">请注意，此链接将在接下来的{time}分钟内有效，请尽快完成密码重置操作。</p>
+        <p class="instructions">如果您没有请求重置密码，请忽略此邮件。</p>
+        <div class="footer">
+          <p>此邮件由 <a style="color:#695d9d;text-decoration: none;" href="{domain}">{formName}</a> 发送</p>
+          <p>如有疑问，请联系我们：{form}</p>
+        </div>
+      </div>
+    </body>
+    </html>
+
+  # 重置密码链接有效期（单位：分钟）
+  reset-pwd-time: 15
+
+# 是否校验ip异常
+ip:
+  # 开启后则校验ip异常情况 (异地换设备登录) 发送邮件通知
+  check: false
+
+# 网站域名
+web:
+  domain: http://127.0.0.1
+
+# mybatis-plus开发日志打印内容
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+  global-config:
+    db-config:
+      logic-delete-field: is_delete
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+    banner: false
+
+# Sa-Token配置
+sa-token:
+  # token名称 (同时也是cookie名称,可自行更改)
+  token-name: Authorization
+  # token前缀
+  token-prefix: Bearer
+  # token有效期，单位s 默认30天, -1代表永不过期
+  timeout: 2592000
+  # 是否打开自动续签 (如果此值为true, 框架会在每次直接或间接调用 getLoginId() 时进行一次过期检查与续签操作)
+  autoRenew: true
+  # token临时有效期 (指定时间内无操作就视为token过期) 单位: 秒
+  active-timeout: -1
+  # 是否允许同一账号并发登录 (为true时允许一起登录, 为false时新登录挤掉旧登录)
+  is-concurrent: false
+  # 在多人登录同一账号时，是否共用一个token (为true时所有登录共用一个token, 为false时每次登录新建一个token)
+  is-share: false
+  # token风格
+  token-style: uuid
+  # 是否输出操作日志
+  is-log: false
+  # jwt秘钥
+  jwt-secret-key: TUx8IaslTsibligsqvzLmNvbQECAwQF
+  # 是否在初始化配置时打印版本字符画
+  is-print: false
+  # 登录逻辑缓存和业务逻辑缓存分离
+  alone-redis:
+    # Redis数据库索引（默认为0）
+    database: 13
+    # Redis服务器地址
+    host: 127.0.0.1
+    # Redis服务器连接端口
+    port: 6379
+    # Redis服务器连接密码（默认为空）
+    password:
+    # 连接超时时间
+    timeout: 10s
+

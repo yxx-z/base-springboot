@@ -1,5 +1,6 @@
 package com.yxx.business.controller;
 
+import cn.dev33.satoken.stp.StpUtil;
 import com.yxx.business.model.request.LoginReq;
 import com.yxx.business.model.response.LoginRes;
 import com.yxx.business.service.UserService;
@@ -43,4 +44,14 @@ public class AuthController {
         return userService.login(request);
     }
 
+    /**
+     * 注销
+     *
+     * @author yxx
+     */
+    @OperationLog(module = "鉴权模块", title = "pc退出")
+    @PostMapping("/logout")
+    public void logout() {
+        StpUtil.logout();
+    }
 }

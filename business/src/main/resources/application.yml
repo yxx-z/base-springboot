@@ -5,10 +5,13 @@ spring:
   profiles:
     active: @profileActive@
 
+app:
+  name: user
+
 logging:
   file:
     path: ./logs
-    name: base
+    name: business
   level:
     # mapper包下打印debug级别日志
     com.yxx.business.mapper: debug

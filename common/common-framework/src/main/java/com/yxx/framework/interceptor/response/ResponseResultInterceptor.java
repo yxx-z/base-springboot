@@ -3,9 +3,11 @@ package com.yxx.framework.interceptor.response;
 import cn.dev33.satoken.stp.StpUtil;
 import com.yxx.common.annotation.auth.ReleaseToken;
 import com.yxx.common.annotation.response.ResponseResult;
+import com.yxx.common.utils.satoken.StpAdminUtil;
 import com.yxx.framework.context.AppContext;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -25,6 +27,9 @@ public class ResponseResultInterceptor implements HandlerInterceptor {
      */
     public static final String RESPONSE_RESULT_ANN = "RESPONSE-RESULT";
 
+    @Value("${app.name}")
+    private String appName;
+
     @Override
     public boolean preHandle(@NotNull HttpServletRequest request, @NotNull HttpServletResponse response,
                              @NotNull Object handler) {
@@ -41,8 +46,12 @@ public class ResponseResultInterceptor implements HandlerInterceptor {
             }
 
             // 判断方法上是否加了放行token校验的注解
-            if (!method.isAnnotationPresent(ReleaseToken.class)) {
+            if ("user".equals(appName) && !method.isAnnotationPresent(ReleaseToken.class)) {
                 StpUtil.checkLogin();
+            }
+
+            if ("admin".equals(appName) && !method.isAnnotationPresent(ReleaseToken.class)) {
+                StpAdminUtil.checkLogin();
             }
         }
         MDC.put(AppContext.KEY_TRACE_ID, AppContext.getContext().getTraceId());

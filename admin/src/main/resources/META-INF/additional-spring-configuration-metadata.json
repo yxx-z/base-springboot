@@ -1,0 +1,44 @@
+{
+  "properties": [
+    {
+      "name": "mail.subject",
+      "type": "java.lang.String",
+      "description": "Description for mail.subject."
+    },
+    {
+      "name": "reset-password.base-path",
+      "type": "java.lang.String",
+      "description": "Description for reset-password.base-path."
+    },
+    {
+      "name": "reset-password.max-number",
+      "type": "java.lang.String",
+      "description": "Description for reset-password.max-number."
+    },
+    {
+      "name": "mail.register-time",
+      "type": "java.lang.String",
+      "description": "Description for mail.register-time."
+    },
+    {
+      "name": "mail.register-max",
+      "type": "java.lang.String",
+      "description": "Description for mail.register-max."
+    },
+    {
+      "name": "mail.registerContent",
+      "type": "java.lang.String",
+      "description": "Description for mail.registerContent."
+    },
+    {
+      "name": "reset-password.reset-pwd-content",
+      "type": "java.lang.String",
+      "description": "Description for reset-password.reset-pwd-content."
+    },
+    {
+      "name": "web.domain",
+      "type": "java.lang.String",
+      "description": "Description for web.domain."
+    }
+  ]
+}

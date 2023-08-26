@@ -5,6 +5,7 @@ import cn.hutool.core.date.DatePattern;
 import cn.hutool.core.date.LocalDateTimeUtil;
 import cn.hutool.extra.spring.SpringUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.yxx.common.annotation.log.OperationLog;
 import com.yxx.common.constant.Constant;
 import com.yxx.common.constant.EmailSubjectConstant;
@@ -129,6 +130,7 @@ public class LogAspect {
             //打印返回值信息
             log.info("++++++++++++++++++++++++++++++++++++++++++++");
             ObjectMapper jsonMapper = new ObjectMapper();
+            jsonMapper.registerModule(new JavaTimeModule());
             log.info("Response:[{}]", jsonMapper.writeValueAsString(response));
             //打印请求耗时
             log.info("Request spend times : [{}ms]", System.currentTimeMillis() - startTime.get());

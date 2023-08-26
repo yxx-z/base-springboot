@@ -1,9 +1,11 @@
 package com.yxx.framework.hander;
 
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
+import com.yxx.common.utils.auth.LoginAdminUtils;
 import com.yxx.common.utils.auth.LoginUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ibatis.reflection.MetaObject;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDateTime;
 
@@ -13,6 +15,8 @@ import java.time.LocalDateTime;
  */
 @Slf4j
 public class CommonMetaObjectHandler implements MetaObjectHandler {
+    @Value("${app.name}")
+    private String appName;
 
     /**
      * 创建人
@@ -51,7 +55,11 @@ public class CommonMetaObjectHandler implements MetaObjectHandler {
 
     public Long currentUid() {
         try {
-            return LoginUtils.getUserId();
+            if ("user".equals(appName)) {
+                return LoginUtils.getUserId();
+            } else {
+                return LoginAdminUtils.getUserId();
+            }
         } catch (Exception ignore) {
             log.error("生成uid错误");
         }

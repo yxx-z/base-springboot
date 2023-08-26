@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yxx.admin.mapper.OperateAdminLogMapper">
+
+    <select id="authLogPage" resultType="com.yxx.admin.model.response.OperateLogResp">
+        SELECT
+            id,
+            module,
+            title,
+            ip,
+            type,
+            exception,
+            create_time
+        FROM
+            operate_admin_log
+        <where>
+            module = "鉴权模块"
+            <if test="req.startTime != null">
+                AND create_time &gt;= #{req.startTime}
+                <if test="req.endTime != null">
+                    AND create_time &lt;= #{req.endTime}
+                </if>
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+    <select id="operationLogPage" resultType="com.yxx.admin.model.response.OperateLogResp">
+        SELECT
+            operate_admin_log.id,
+            `user`.login_code,
+            `user`.login_name,
+            operate_admin_log.type,
+            operate_admin_log.exception,
+            operate_admin_log.module,
+            operate_admin_log.title,
+            operate_admin_log.ip,
+            operate_admin_log.create_time
+        FROM
+            operate_admin_log
+            LEFT JOIN `user` ON operate_admin_log.user_id = `user`.id
+        <where>
+            operate_admin_log.is_delete = 0
+            AND operate_admin_log.module != "鉴权模块"
+            <if test="req.startTime != null">
+                AND operate_admin_log.create_time &gt;= #{req.startTime}
+                <if test="req.endTime != null">
+                    AND operate_admin_log.create_time &lt;= #{req.endTime}
+                </if>
+            </if>
+        </where>
+        ORDER BY operate_admin_log.id DESC
+    </select>
+
+</mapper>
