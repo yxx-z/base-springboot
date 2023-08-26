@@ -29,10 +29,11 @@
 #### 项目结构:
 ```
     base:
+        -- admin:
+        -- business:
         -- common:
             -- common-core
             -- common-framework
-        -- business:
 ```
 common为公共包,包含core和framework两个子包:
 <p>
@@ -41,7 +42,8 @@ common为公共包,包含core和framework两个子包:
 <p>
     &nbsp;&nbsp;&nbsp;&nbsp;common-framework主要是filter、listener、日志打印、日志记录、Mybatis-plus配置、统一异常处理等
 </p>
-    business为业务包,用来处理业务。不赘述。
+admin 为后台管理模块包，处理管理后台逻辑。
+business为业务包,用来处理业务。不赘述。
 
 ****
 #### 自定义注解:
@@ -62,11 +64,6 @@ common为公共包,包含core和framework两个子包:
 
 <p>
     &nbsp;&nbsp;&nbsp;&nbsp;用来跳过token校验,可放在controller中的单个方法上。
-</p>
-
-@EncryptedField
-<p>
-    &nbsp;&nbsp;&nbsp;&nbsp;加在类字段上,mybatis在插入或更新时默认会自动加密该字段,查询时默认会自动解密该字段。
 </p>
 
 @SearchDate
