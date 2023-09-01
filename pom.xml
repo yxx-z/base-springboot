@@ -28,7 +28,7 @@
         <log4j.version>2.19.0</log4j.version>
         <lombok.version>1.18.28</lombok.version>
         <hutool.version>5.8.21</hutool.version>
-        <forest.verskon>1.5.27</forest.verskon>
+        <forest.verskon>1.5.33</forest.verskon>
         <redisson.version>3.17.0</redisson.version>
         <netty.version>4.1.32.Final</netty.version>
         <liteflow.version>2.9.3</liteflow.version>
