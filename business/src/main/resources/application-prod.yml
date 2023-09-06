@@ -3,13 +3,13 @@ spring:
     name: business
   config:
     activate:
-      on-profile: dev
+      on-profile: prod
   # mysql 通用配置信息内容 使用HikariDataSource连接池
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://127.0.0.1:3306/base_springboot?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&useSSL=false&serverTimezone=Asia/Shanghai
     username: root
-    password: admin123
+    password: Mysql@{110}
     type: com.zaxxer.hikari.HikariDataSource
     hikari:
       minimum-idle: 10
@@ -31,8 +31,8 @@ spring:
       # 设置初始数据库的数据为8
       database: 8
       host: 127.0.0.1
-      port: 6379
-      #    password:
+      port: 7288
+      password: Redis@{110}
       jedis:
         pool:
           # 连接池最大连接数（使用负值表示没有限制）
@@ -293,7 +293,7 @@ sa-token:
   # 是否打开自动续签 (如果此值为true, 框架会在每次直接或间接调用 getLoginId() 时进行一次过期检查与续签操作)
   autoRenew: true
   # token临时有效期 (指定时间内无操作就视为token过期) 单位: 秒
-  activity-timeout: -1
+  active-timeout: -1
   # 是否允许同一账号并发登录 (为true时允许一起登录, 为false时新登录挤掉旧登录)
   is-concurrent: false
   # 在多人登录同一账号时，是否共用一个token (为true时所有登录共用一个token, 为false时每次登录新建一个token)
@@ -313,9 +313,9 @@ sa-token:
     # Redis服务器地址
     host: 127.0.0.1
     # Redis服务器连接端口
-    port: 6379
+    port: 7288
     # Redis服务器连接密码（默认为空）
-    password:
+    password: Redis@{110}
     # 连接超时时间
     timeout: 10s
 
