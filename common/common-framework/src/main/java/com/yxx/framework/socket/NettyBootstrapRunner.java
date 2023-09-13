@@ -2,11 +2,12 @@ package com.yxx.framework.socket;
 
 import java.net.InetSocketAddress;
 
+import com.yxx.common.properties.SocketProperties;
+import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.ApplicationContext;
@@ -41,21 +42,11 @@ import io.netty.handler.stream.ChunkedWriteHandler;
  * @author Administrator
  */
 @Component
-public class NettyBootsrapRunner implements ApplicationRunner, ApplicationListener<ContextClosedEvent>, ApplicationContextAware {
+@RequiredArgsConstructor
+public class NettyBootstrapRunner implements ApplicationRunner, ApplicationListener<ContextClosedEvent>, ApplicationContextAware {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(NettyBootsrapRunner.class);
-
-    @Value("${netty.websocket.port}")
-    private int port;
-
-    @Value("${netty.websocket.ip}")
-    private String ip;
-
-    @Value("${netty.websocket.path}")
-    private String path;
-
-    @Value("${netty.websocket.max-frame-size}")
-    private long maxFrameSize;
+    private static final Logger LOGGER = LoggerFactory.getLogger(NettyBootstrapRunner.class);
+    private final SocketProperties socketProperties;
 
     private ApplicationContext applicationContext;
 
@@ -73,7 +64,7 @@ public class NettyBootsrapRunner implements ApplicationRunner, ApplicationListen
             ServerBootstrap serverBootstrap = new ServerBootstrap();
             serverBootstrap.group(bossGroup, workerGroup);
             serverBootstrap.channel(NioServerSocketChannel.class);
-            serverBootstrap.localAddress(new InetSocketAddress(this.ip, this.port));
+            serverBootstrap.localAddress(new InetSocketAddress(socketProperties.getIp(), socketProperties.getPort()));
             serverBootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
                 @Override
                 protected void initChannel(SocketChannel socketChannel) {
@@ -86,7 +77,7 @@ public class NettyBootsrapRunner implements ApplicationRunner, ApplicationListen
                         public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
                             if(msg instanceof FullHttpRequest fullHttpRequest) {
                                 String uri = fullHttpRequest.uri();
-                                if (!uri.equals(path)) {
+                                if (!uri.equals(socketProperties.getPath())) {
                                     // 访问的路径不是 websocket的端点地址，响应404
                                     ctx.channel().writeAndFlush(new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND))
                                             .addListener(ChannelFutureListener.CLOSE);
@@ -97,7 +88,7 @@ public class NettyBootsrapRunner implements ApplicationRunner, ApplicationListen
                         }
                     });
                     pipeline.addLast(new WebSocketServerCompressionHandler());
-                    pipeline.addLast(new WebSocketServerProtocolHandler(path, null, true, maxFrameSize));
+                    pipeline.addLast(new WebSocketServerProtocolHandler(socketProperties.getPath(), null, true, socketProperties.getMaxFrameSize()));
 
                     // 从IOC中获取到Handler
                     pipeline.addLast(applicationContext.getBean(WebsocketMessageHandler.class));
@@ -105,7 +96,7 @@ public class NettyBootsrapRunner implements ApplicationRunner, ApplicationListen
             });
             Channel channel = serverBootstrap.bind().sync().channel();
             this.serverChannel = channel;
-            LOGGER.info("websocket 服务启动，ip={},port={}", this.ip, this.port);
+            LOGGER.info("websocket 服务启动，ip={},port={}", socketProperties.getIp(), socketProperties.getPort());
             channel.closeFuture().sync();
         } finally {
             bossGroup.shutdownGracefully();

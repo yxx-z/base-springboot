@@ -27,13 +27,11 @@ public class WebsocketMessageHandler extends SimpleChannelInboundHandler<WebSock
 
     private static final Logger LOGGER = LoggerFactory.getLogger(WebsocketMessageHandler.class);
 
-//    private final DiscardService discardService;
-
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, WebSocketFrame msg) {
         if (msg instanceof TextWebSocketFrame textWebSocketFrame) {
             // 业务层处理数据
-//            this.discardService.discard(textWebSocketFrame.text());
+//            xxService.dispose(textWebSocketFrame.text());
             log.info("textWebSocketFrame.text():{}", textWebSocketFrame.text());
             // 响应客户端
             ctx.channel().writeAndFlush(new TextWebSocketFrame("我收到了你的消息：" + System.currentTimeMillis()));
