@@ -12,10 +12,11 @@ import com.alipay.api.response.AlipayTradeRefundResponse;
 import com.yxx.business.model.dto.AliPayDto;
 import com.yxx.business.service.AliPayService;
 import com.yxx.common.enums.ApiCode;
+import com.yxx.common.enums.business.AliPayEnum;
 import com.yxx.common.exceptions.ApiException;
 import com.yxx.common.properties.AliProperties;
 import com.yxx.common.utils.SnowflakeConfig;
-import com.yxx.common.utils.auth.AliLoginUtils;
+import com.yxx.common.utils.enums.EnumUtils;
 import com.yxx.common.utils.jackson.JacksonUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -51,7 +52,7 @@ public class AliPayServiceImpl implements AliPayService {
      * @author yxx
      */
     @Override
-    public AlipayTradeCreateResponse pay(String totalAmount) {
+    public String pay(String totalAmount) {
         //获得初始化的AlipayClient
         AlipayClient alipayClient = new DefaultAlipayClient(aliProperties.getServerUrl(), aliProperties.getAppId(),
                 aliProperties.getMerchantPrivateKey(), "json", aliProperties.getCharset(),
@@ -64,8 +65,8 @@ public class AliPayServiceImpl implements AliPayService {
         long oid = snowflake.snowflakeId();
         AliPayDto payDto = new AliPayDto();
         payDto.setTotalAmount(totalAmount);
-        String userId = AliLoginUtils.getLoginCode();
-        payDto.setBuyerId(userId);
+//        String userId = AliLoginUtils.getLoginCode();
+        payDto.setBuyerId("2088722012937522");
         payDto.setOutTradeNo(String.valueOf(oid));
         payDto.setSubject("测试");
 
@@ -79,10 +80,29 @@ public class AliPayServiceImpl implements AliPayService {
         try {
             //使用的是execute
             AlipayTradeCreateResponse response = alipayClient.execute(request);
-            log.info("response:{}", response);
-            return response;
+            log.info("response:{}", JacksonUtil.toJson(response));
+            // 如果返回结果是正确的
+            if (response.getCode().equals(AliPayEnum.SUCCESS.getCode())) {
+                // 返回描述
+                return response.getBody();
+            } else {
+                // 如果返回结果是错误的
+                // 判断错误码是否在公共错误码中
+                boolean include = EnumUtils.isInclude(AliPayEnum.class, response.getCode());
+                // 如果错误码在公共错误码中
+                if (include) {
+                    // 根据错误码code 获取message
+                    String message = EnumUtils.getMessageByCode(AliPayEnum.class, response.getCode());
+                    // 抛出提示
+                    throw new ApiException(Integer.valueOf(response.getCode()), message);
+                }
+                // 如果错误码不在公共错误码中，抛出系统异常
+                throw new ApiException(ApiCode.SYSTEM_ERROR);
+            }
         } catch (AlipayApiException e) {
+            // 处理阿里返回结果异常
             e.printStackTrace();
+            // 抛出系统异常提示
             throw new ApiException(ApiCode.SYSTEM_ERROR);
         }
     }

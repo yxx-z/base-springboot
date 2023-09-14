@@ -1,6 +1,5 @@
 package com.yxx.business.controller;
 
-import com.alipay.api.response.AlipayTradeCreateResponse;
 import com.yxx.business.model.request.AliPayReq;
 import com.yxx.business.model.request.AliRefundOfDuty;
 import com.yxx.business.service.AliPayService;
@@ -37,11 +36,11 @@ public class AliPayController {
      * 支付
      *
      * @param req 请求参数
-     * @return {@link AlipayTradeCreateResponse }
+     * @return {@link String }
      * @author yxx
      */
     @PostMapping("/pay")
-    public AlipayTradeCreateResponse pay(@Valid @RequestBody AliPayReq req) {
+    public String pay(@Valid @RequestBody AliPayReq req) {
         return aliPayService.pay(req.getTotalAmount());
     }
 

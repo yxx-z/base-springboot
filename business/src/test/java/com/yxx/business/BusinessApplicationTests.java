@@ -4,8 +4,10 @@ import cn.dev33.satoken.temp.SaTempUtil;
 import com.yxx.business.model.entity.Menu;
 import com.yxx.business.model.entity.User;
 import com.yxx.business.service.MenuService;
+import com.yxx.common.enums.business.AliPayEnum;
 import com.yxx.common.properties.MailProperties;
 import com.yxx.common.utils.email.MailUtils;
+import com.yxx.common.utils.enums.EnumUtils;
 import com.yxx.common.utils.redis.RedissonCache;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,4 +73,9 @@ class BusinessApplicationTests {
         System.out.println("timeout = " + timeout);
     }
 
+    @Test
+    void enumTest(){
+        String messageByCode = EnumUtils.getMessageByCode(AliPayEnum.class, "40006");
+        System.out.println("messageByCode = " + messageByCode);
+    }
 }

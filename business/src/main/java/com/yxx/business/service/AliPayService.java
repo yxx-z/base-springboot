@@ -1,6 +1,5 @@
 package com.yxx.business.service;
 
-import com.alipay.api.response.AlipayTradeCreateResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -14,10 +13,10 @@ public interface AliPayService {
      * 支付宝支付
      *
      * @param totalAmount 支付总额
-     * @return {@link AlipayTradeCreateResponse }
+     * @return {@link String }
      * @author yxx
      */
-    AlipayTradeCreateResponse pay(String totalAmount);
+    String pay(String totalAmount);
 
     /**
      * 支付宝支付异步回调

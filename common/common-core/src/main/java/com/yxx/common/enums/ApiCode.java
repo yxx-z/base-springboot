@@ -81,6 +81,8 @@ public enum ApiCode {
 
     KEY_LENGTH_ERROR(90004, "加密失败，key不能小于8位"),
 
+    ENUM_ERROR(90005, "处理枚举异常"),
+
 
     SYSTEM_ERROR(10000, "系统异常，请稍后重试"),
     ;
