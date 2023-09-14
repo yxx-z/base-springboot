@@ -14,7 +14,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yxx.business.model.dto.AliPayDto;
 import com.yxx.business.model.response.AliCreatPayRes;
-import com.yxx.business.service.AliPayService;
+import com.yxx.business.service.AliAppletPayService;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.enums.business.AliPayEnum;
 import com.yxx.common.exceptions.ApiException;
@@ -42,7 +42,7 @@ import java.util.Set;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AliPayServiceImpl implements AliPayService {
+public class AliAppletPayServiceImpl implements AliAppletPayService {
 
     private final AliProperties aliProperties;
 

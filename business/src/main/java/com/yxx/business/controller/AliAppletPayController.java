@@ -3,7 +3,7 @@ package com.yxx.business.controller;
 import com.yxx.business.model.request.AliPayReq;
 import com.yxx.business.model.request.AliRefundOfDuty;
 import com.yxx.business.model.response.AliCreatPayRes;
-import com.yxx.business.service.AliPayService;
+import com.yxx.business.service.AliAppletPayService;
 import com.yxx.common.annotation.response.ResponseResult;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -29,9 +29,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/aliPay")
 @RequiredArgsConstructor
-public class AliPayController {
+public class AliAppletPayController {
 
-    private final AliPayService aliPayService;
+    private final AliAppletPayService aliAppletPayService;
 
     /**
      * 支付创建，该接口会返回一个支付宝生成的订单号(非本系统生成)
@@ -43,7 +43,7 @@ public class AliPayController {
      */
     @PostMapping("/pay")
     public AliCreatPayRes pay(@Valid @RequestBody AliPayReq req) {
-        return aliPayService.pay(req.getTotalAmount());
+        return aliAppletPayService.pay(req.getTotalAmount());
     }
 
     /**
@@ -55,7 +55,7 @@ public class AliPayController {
      */
     @PostMapping(value = "/notifyUrl")
     public void notifyUrl(HttpServletRequest request, HttpServletResponse response) {
-        aliPayService.notifyUrl(request, response);
+        aliAppletPayService.notifyUrl(request, response);
     }
 
     /**
@@ -66,7 +66,7 @@ public class AliPayController {
      */
     @PostMapping("/refundOfDuty")
     public void refundOfDuty(@Valid @RequestBody AliRefundOfDuty req) {
-        aliPayService.alipayRefundOfDuty(req.getOutTradeNo(), req.getRefundAmount(), req.getRefundReason());
+        aliAppletPayService.alipayRefundOfDuty(req.getOutTradeNo(), req.getRefundAmount(), req.getRefundReason());
     }
 
 }

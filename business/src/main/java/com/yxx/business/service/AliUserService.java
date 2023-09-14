@@ -1,7 +1,7 @@
 package com.yxx.business.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.yxx.business.model.entity.AliUser;
+import com.yxx.business.model.entity.AliAppletUser;
 import com.yxx.business.model.request.AliQueryUserReq;
 import com.yxx.business.model.response.AliUserIdRes;
 import com.yxx.business.model.response.LoginRes;
@@ -10,7 +10,7 @@ import com.yxx.business.model.response.LoginRes;
  * @author yxx
  * @since 2023-09-14 10:30
  */
-public interface AliUserService extends IService<AliUser> {
+public interface AliUserService extends IService<AliAppletUser> {
     /**
      * 根据支付宝小程序授权码 获取用户唯一标识 userId
      *

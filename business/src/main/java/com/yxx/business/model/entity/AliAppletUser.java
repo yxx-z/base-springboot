@@ -13,7 +13,7 @@ import org.apache.logging.log4j.core.config.plugins.validation.constraints.NotBl
  * @since 2023-09-14 11:17
  */
 @Data
-public class AliUser extends BaseEntity{
+public class AliAppletUser extends BaseEntity{
     /**
      * 主键
      */

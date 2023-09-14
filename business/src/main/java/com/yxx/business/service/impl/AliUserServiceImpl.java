@@ -9,7 +9,7 @@ import com.alipay.api.response.AlipaySystemOauthTokenResponse;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yxx.business.mapper.AliUserMapper;
-import com.yxx.business.model.entity.AliUser;
+import com.yxx.business.model.entity.AliAppletUser;
 import com.yxx.business.model.request.AliQueryUserReq;
 import com.yxx.business.model.response.AliUserIdRes;
 import com.yxx.business.model.response.LoginRes;
@@ -35,7 +35,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AliUserServiceImpl extends ServiceImpl<AliUserMapper, AliUser> implements AliUserService {
+public class AliUserServiceImpl extends ServiceImpl<AliUserMapper, AliAppletUser> implements AliUserService {
 
     private final AliProperties aliProperties;
 
@@ -90,20 +90,20 @@ public class AliUserServiceImpl extends ServiceImpl<AliUserMapper, AliUser> impl
     @Override
     public LoginRes aliLogin(AliQueryUserReq req) {
         // 根据支付宝小程序用户唯一标识查询用户是否在数据库中
-        AliUser aliUserInfo = getOne(new LambdaQueryWrapper<AliUser>().eq(AliUser::getUserId, req.getUserId()));
+        AliAppletUser aliAppletUserInfo = getOne(new LambdaQueryWrapper<AliAppletUser>().eq(AliAppletUser::getUserId, req.getUserId()));
 
         // 如果不存在
-        if (ObjectUtil.isNull(aliUserInfo)) {
+        if (ObjectUtil.isNull(aliAppletUserInfo)) {
             // 新增到数据库中
-            AliUser aliUser = new AliUser();
-            BeanUtils.copyProperties(req, aliUser);
-            save(aliUser);
+            AliAppletUser aliAppletUser = new AliAppletUser();
+            BeanUtils.copyProperties(req, aliAppletUser);
+            save(aliAppletUser);
 
             // 如果有类似会员功能，自行增加角色查询
 
             // 登录
             AliLoginUser aliLoginUser = new AliLoginUser();
-            BeanUtils.copyProperties(aliUser, aliLoginUser);
+            BeanUtils.copyProperties(aliAppletUser, aliLoginUser);
             AliLoginUtils.login(aliLoginUser, LoginDevice.PC);
 
             // 返回token
@@ -114,7 +114,7 @@ public class AliUserServiceImpl extends ServiceImpl<AliUserMapper, AliUser> impl
         // 登录
         AliLoginUser aliLoginUser = new AliLoginUser();
         // 如果有类似会员功能，自行增加角色查询
-        BeanUtils.copyProperties(aliUserInfo, aliLoginUser);
+        BeanUtils.copyProperties(aliAppletUserInfo, aliLoginUser);
         AliLoginUtils.login(aliLoginUser, LoginDevice.PC);
 
         // 返回token

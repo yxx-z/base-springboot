@@ -8,7 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
  * @author yxx
  * @since 2023-09-14 13:58
  */
-public interface AliPayService {
+public interface AliAppletPayService {
 
     /**
      * 支付创建，该接口会返回一个支付宝生成的订单号(非本系统生成)

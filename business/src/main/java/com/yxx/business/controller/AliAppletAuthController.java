@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/aliAuth")
 @RequiredArgsConstructor
-public class AliAuthController {
+public class AliAppletAuthController {
 
     private final AliUserService aliUserService;
 
