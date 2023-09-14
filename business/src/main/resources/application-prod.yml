@@ -7,9 +7,9 @@ spring:
   # mysql 通用配置信息内容 使用HikariDataSource连接池
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://127.0.0.1:3306/base_springboot?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&useSSL=false&serverTimezone=Asia/Shanghai
-    username: root
-    password: Mysql@{110}
+    url: jdbc:mysql://${mysql_url}/base_springboot?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&useSSL=false&serverTimezone=Asia/Shanghai
+    username: ${mysql_username}
+    password: ${mysql_password}
     type: com.zaxxer.hikari.HikariDataSource
     hikari:
       minimum-idle: 10
@@ -30,9 +30,9 @@ spring:
     redis:
       # 设置初始数据库的数据为8
       database: 8
-      host: 127.0.0.1
-      port: 7288
-      password: Redis@{110}
+      host: ${redis_host}
+      port: ${redis_port}
+      password: ${redis_password}
       jedis:
         pool:
           # 连接池最大连接数（使用负值表示没有限制）
@@ -50,18 +50,18 @@ spring:
     # 编码
     default-encoding: UTF-8
     # 邮件服务器
-    host: smtp.email.cn
+    host: ${email_host}
     # 用户名(一般为邮箱号)
-    username: shuniversity@email.cn
+    username: ${email_username}
     # 邮件服务器端口
-    port: 25
+    port: ${email_port}
     # 专用密码
-    password: 2BCZKEGQgHyCZ5i4
+    password: ${email_password}
 
 # 邮箱设置
 mail:
   # 发件人邮箱
-  from: shuniversity@email.cn
+  from: ${email_username}
   # 发件人名称
   from-name: SpringBoot开发模版
   # 注册时邮箱验证码有效期
@@ -302,7 +302,7 @@ sa-token:
   token-style: uuid
   # 是否输出操作日志
   is-log: false
-  # jwt秘钥
+  # jwt秘钥 请更改为自己的，随意乱按几个字母数字就行
   jwt-secret-key: TUx8IaslTsibligsqvzLmNvbQECAwQF
   # 是否在初始化配置时打印版本字符画
   is-print: false
@@ -311,11 +311,33 @@ sa-token:
     # Redis数据库索引（默认为0）
     database: 2
     # Redis服务器地址
-    host: 127.0.0.1
+    host: ${redis_host}
     # Redis服务器连接端口
-    port: 7288
+    port: ${redis_port}
     # Redis服务器连接密码（默认为空）
-    password: Redis@{110}
+    password: ${redis_password}
     # 连接超时时间
     timeout: 10s
 
+# forest配置
+forest:
+  max-connections: 1000        # 连接池最大连接数
+  connect-timeout: 3000        # 连接超时时间，单位为毫秒
+  read-timeout: 3000           # 数据读取超时时间，单位为毫秒
+
+# 支付宝配置
+ali:
+  # 小程序appId
+  app_id: 2021004116690168
+  # 商户私钥
+  merchant_private_key: MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7jQaKvEhDZ39EtLBGsPBjSc4RICHfvZNPskLj3L/jDNGrzlVwdpbHOfdUtximavO3GsGyKFiNayeJ5E2ggAX7yTXmXAsJ1n/7g+gMDcp86zO8n//32seI9tXPRrnlhuXgWsDiiY1WGcVO9c7952J7XKlnBTUdEjfL78rjGxVr7gwUiLMygFy9DT2D0COT/sR9wIV9CfVtTOFzdlV70gHdmlr4tXbzQ5kibmtprgJZyMyeX1yxIvsvXSbCETy+ovnuoAD1Egn4rJ5d0//6st8nftA5RwGgMhFFP7ZASNTdmeX2MCpAHwT0pE5jW/6dUOuqRNfCuBV1P9eG/iQT0G7xAgMBAAECggEAOVXUkSccJFcIhjWCyimfY4sVjxC2qlKnLS7+2fALTVsG4jHy1q26TG+BGAndZEq/9NMeMdu5ron6jWIZBR7+NUn+y0yKJ1jGyVo63yx8IZI5v8leFCRy6YEkPfiOLgf+UIcN/nM0nQTF1+y3edF5vuLF+vORmDCQlCzbZnBKLTMTvHDT5k6fbr/jBZV1bJJGNEQ03gVQGrxs4cC+ing0PnjbFyVQL+weaHU56GbwuM1r8ZCo34vMAZQmQg5FRl0Fh+1p1iKPWeR/8NODbcSn/TS16cHsaS+ZjQPJTdS/nWNWmoruC6xGsmq2AOsLaTAS8IMYh7GE64nb54AV2CMwrQKBgQDieJt2IIcB49Ef/5R6NgJYBdLlKOWDZRdsIuGh+5AeCP/3HjM2rZHFarGaO+clIRYo2JH6L9eJn6D1BIpIvQ9jRCp2k8k8xe0u+QnOMwzhPlWhvbagWhpaXIwqXEL/pREdbfSL7VijDeK9iW8Xz7crz7gWBRfzAcPdIHpk/ixcHwKBgQDUAUwbsXvBBs7/R1QkuNoHd5P2wPRWBdnY89h1Dc+zKiKkw5FZmDIpUg7LNCEV4X0UQR/VUoHX/rg/gxNS9iMBkHHP/5TcUjiVAcUk3vDiepzRU+Q5hWshWgWc925syZYv6uUefPZr744Ar5erpwgOohXCE1zkC1y0oUQvoIvS7wKBgC5rXCodRq7rfDzbzRozoc1a/Dw+YrTI7sEacTcbchHF9Hk5dnPZpcxaLycW6izhGEKtCVbHoZ0y2/H8yT9ZiSLmoPGHHzNWumPrZcgfDJ/KgBDT6u/5J/enio9QM+dkdRqcJAjeUFGzkesZlWzDBZ90Rx40UxFbJkNX2d6DfqIvAoGBAKTLiVyxftARuc/nozmUUy6gvex+Gq/PhoJFMgnzPXM4motW1eI+EyfZeFRuZhV7HN4krVkF9JZwksoT2m6Pk7CAlmendRA5/W+eW5+IiNiTlNiGjI5F7nuTXW+hSj3YCR2gSo+DdY17Pfe8hnpQsUumpKEiqf898cca4EThWC8TAoGAQ7MmW2E88/KMQatRQKbgcqbAr5ic6NFDKqVD14JfQFmKXE4XR9Hsr8jWlYDL7EKsfA/AQnLX8PXAC5pt5qkx0m3szY2bVOU+X9xLa4xjC1mUe//HPVrj7TckVye0mNeMCY+/B+PEkWU6YkUl20GnMsazHwFa/5s5BSobz5uTSmU=
+  # 编码格式
+  charset: UTF-8
+  # 支付宝公钥
+  alipay_public_key: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2POcS56cYTICAC2if+GHr0ILeXzML4raQRADvkEjNT/TWcKq9jw+Q2by3qlY1OPzuHWIyLPXixczjhkIv1dg7Brga+A5lW4ft+uloK5CMbFGn0F7EEkFaXNOlecWm+qyIBDUw8+G/LMMOVataCcVV5m3iElKwLXNu2RWCpjpG7dk+NwtjldeYdc8sDBEdkqI9WDNGREy0Ey9bjMFmJL3ycOP6ncz+HF0RY64tLFNcOjcmNoIIgw9kgsIoyhSjdrvIUNHk5SDyr9wIgCWch+RqBVMms8hKKKr03UucnGESe0T3MjE5tSO6+E691QsUfdCgKD2A9W5vs9xUZXLOn2fHwIDAQAB
+  # 加密类型
+  sign_type: RSA2
+  # 支付宝网关
+  server_url: https://openapi.alipay.com/gateway.do
+  # 异步回调接口路径
+  notify_url: http://198.44.169.16:6059/aliPay/notifyUrl

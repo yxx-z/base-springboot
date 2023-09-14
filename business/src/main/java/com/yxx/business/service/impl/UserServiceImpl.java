@@ -254,7 +254,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return update(new LambdaUpdateWrapper<User>().eq(User::getEmail, email).set(User::getPassword, password));
     }
 
-
     @Override
     public User getUserByEmail(String email) {
         // 根据邮箱号获取用户信息

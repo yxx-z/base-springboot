@@ -165,6 +165,13 @@
             <version>${ttl.version}</version>
         </dependency>
 
+        <!-- 支付宝sdk -->
+        <dependency>
+            <groupId>com.alipay.sdk</groupId>
+            <artifactId>alipay-sdk-java</artifactId>
+            <version>${alipay.version}</version>
+        </dependency>
+
     </dependencies>
 
     <repositories>
