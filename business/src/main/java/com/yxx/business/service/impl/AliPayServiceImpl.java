@@ -9,6 +9,9 @@ import com.alipay.api.request.AlipayTradeCreateRequest;
 import com.alipay.api.request.AlipayTradeRefundRequest;
 import com.alipay.api.response.AlipayTradeCreateResponse;
 import com.alipay.api.response.AlipayTradeRefundResponse;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yxx.business.model.dto.AliPayDto;
 import com.yxx.business.service.AliPayService;
 import com.yxx.common.enums.ApiCode;
@@ -45,7 +48,8 @@ public class AliPayServiceImpl implements AliPayService {
     private final SnowflakeConfig snowflake;
 
     /**
-     * 支付
+     * 支付创建，该接口会返回一个支付宝生成的订单号(非本系统生成)
+     * 前端拿着该订单号调用my.tradePay方法即可在支付宝小程序中唤起支付弹窗
      *
      * @param totalAmount 支付总金额
      * @return {@link AlipayTradeCreateResponse }
@@ -61,7 +65,7 @@ public class AliPayServiceImpl implements AliPayService {
         //设置请求参数
         AlipayTradeCreateRequest request = new AlipayTradeCreateRequest();
 
-        //雪花算法订单号
+        //雪花算法订单号(正常业务中不会在这里生成订单号，我写在这里是为了方便测试)
         long oid = snowflake.snowflakeId();
         AliPayDto payDto = new AliPayDto();
         payDto.setTotalAmount(totalAmount);
@@ -83,8 +87,14 @@ public class AliPayServiceImpl implements AliPayService {
             log.info("response:{}", JacksonUtil.toJson(response));
             // 如果返回结果是正确的
             if (response.getCode().equals(AliPayEnum.SUCCESS.getCode())) {
-                // 返回描述
-                return response.getBody();
+                // 解析后支付宝返回结果，获取订单号
+                ObjectMapper objectMapper = JacksonUtil.getObjectMapper();
+                JsonNode jsonNode = objectMapper.readTree(response.getBody());
+                String tradeNo = jsonNode.get("alipay_trade_create_response").get("trade_no").asText();
+                log.info("tradeNo:{}", tradeNo);
+
+                // 返回支付宝生成的订单号
+                return tradeNo;
             } else {
                 // 如果返回结果是错误的
                 // 判断错误码是否在公共错误码中
@@ -99,7 +109,7 @@ public class AliPayServiceImpl implements AliPayService {
                 // 如果错误码不在公共错误码中，抛出系统异常
                 throw new ApiException(ApiCode.SYSTEM_ERROR);
             }
-        } catch (AlipayApiException e) {
+        } catch (AlipayApiException | JsonProcessingException e) {
             // 处理阿里返回结果异常
             e.printStackTrace();
             // 抛出系统异常提示
