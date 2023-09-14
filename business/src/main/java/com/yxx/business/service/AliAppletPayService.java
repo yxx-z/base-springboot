@@ -39,4 +39,11 @@ public interface AliAppletPayService {
      */
     void alipayRefundOfDuty(String outTradeNo, String refundAmount, String refundReason);
 
+    /**
+     * 关闭订单（长时间未支付，调用此方法关闭订单）
+     *
+     * @param outTradeNo 商户订单
+     * @author yxx
+     */
+    void close(String outTradeNo);
 }

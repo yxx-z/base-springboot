@@ -1,5 +1,6 @@
 package com.yxx.business.controller;
 
+import com.yxx.business.model.request.AliAppletCloseReq;
 import com.yxx.business.model.request.AliPayReq;
 import com.yxx.business.model.request.AliRefundOfDuty;
 import com.yxx.business.model.response.AliCreatPayRes;
@@ -67,6 +68,17 @@ public class AliAppletPayController {
     @PostMapping("/refundOfDuty")
     public void refundOfDuty(@Valid @RequestBody AliRefundOfDuty req) {
         aliAppletPayService.alipayRefundOfDuty(req.getOutTradeNo(), req.getRefundAmount(), req.getRefundReason());
+    }
+
+    /**
+     * 关闭订单（长时间未支付，调用此方法关闭订单）
+     *
+     * @param req 商户订单
+     * @author yxx
+     */
+    @PostMapping("/close")
+    public void close(@Valid @RequestBody AliAppletCloseReq req) {
+        aliAppletPayService.close(req.getOutTradeNo());
     }
 
 }

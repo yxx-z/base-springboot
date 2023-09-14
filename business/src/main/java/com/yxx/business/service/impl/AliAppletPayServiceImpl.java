@@ -3,10 +3,13 @@ package com.yxx.business.service.impl;
 import com.alipay.api.AlipayApiException;
 import com.alipay.api.AlipayClient;
 import com.alipay.api.DefaultAlipayClient;
+import com.alipay.api.domain.AlipayTradeCloseModel;
 import com.alipay.api.domain.AlipayTradeRefundModel;
 import com.alipay.api.internal.util.AlipaySignature;
+import com.alipay.api.request.AlipayTradeCloseRequest;
 import com.alipay.api.request.AlipayTradeCreateRequest;
 import com.alipay.api.request.AlipayTradeRefundRequest;
+import com.alipay.api.response.AlipayTradeCloseResponse;
 import com.alipay.api.response.AlipayTradeCreateResponse;
 import com.alipay.api.response.AlipayTradeRefundResponse;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -87,7 +90,7 @@ public class AliAppletPayServiceImpl implements AliAppletPayService {
             AlipayTradeCreateResponse response = alipayClient.execute(request);
             log.info("response:{}", JacksonUtil.toJson(response));
             // 如果返回结果是正确的
-            if (response.getCode().equals(AliPayEnum.SUCCESS.getCode())) {
+            if (response.isSuccess()) {
                 // 解析后支付宝返回结果，获取订单号
                 ObjectMapper objectMapper = JacksonUtil.getObjectMapper();
                 JsonNode jsonNode = objectMapper.readTree(response.getBody());
@@ -211,6 +214,50 @@ public class AliAppletPayServiceImpl implements AliAppletPayService {
             log.info("退款信息:{}", response.getMsg()); //这里打印的是退款的信息 是否退款成功的原因
         } catch (AlipayApiException e) {
             log.error("支付宝退款失败，异常信息:{}", e.getErrMsg());
+            throw new ApiException(ApiCode.SYSTEM_ERROR);
+        }
+    }
+
+    /**
+     * 关闭订单（长时间未支付，调用此方法关闭订单）
+     *
+     * @param outTradeNo 商户订单
+     * @author yxx
+     */
+    @Override
+    public void close(String outTradeNo) {
+        //获得初始化的AlipayClient
+        AlipayClient alipayClient = new DefaultAlipayClient(aliProperties.getServerUrl(), aliProperties.getAppId(),
+                aliProperties.getMerchantPrivateKey(),"json", aliProperties.getCharset(),
+                aliProperties.getAlipayPublicKey(), aliProperties.getSignType()
+        );
+        AlipayTradeCloseRequest request = new AlipayTradeCloseRequest();
+        AlipayTradeCloseModel model = new AlipayTradeCloseModel();
+        // 设置退款的商户订单号
+        model.setOutTradeNo(outTradeNo);
+        request.setBizModel(model);
+        AlipayTradeCloseResponse response;
+        try {
+            // 获得结果
+            response = alipayClient.execute(request);
+            if(response.isSuccess()){
+                log.info("关闭商户订单成功,商户订单号:{}", outTradeNo);
+            } else {
+                // 如果返回结果是错误的
+                // 判断错误码是否在公共错误码中
+                boolean include = EnumUtils.isInclude(AliPayEnum.class, response.getCode());
+                // 如果错误码在公共错误码中
+                if (include) {
+                    // 根据错误码code 获取message
+                    String message = EnumUtils.getMessageByCode(AliPayEnum.class, response.getCode());
+                    // 抛出提示
+                    throw new ApiException(Integer.valueOf(response.getCode()), message);
+                }
+                // 如果错误码不在公共错误码中，抛出系统异常
+                throw new ApiException(ApiCode.SYSTEM_ERROR);
+            }
+        } catch (AlipayApiException e) {
+            log.error("调用支付宝关闭订单失败，异常:{}",e.getErrMsg());
             throw new ApiException(ApiCode.SYSTEM_ERROR);
         }
     }
