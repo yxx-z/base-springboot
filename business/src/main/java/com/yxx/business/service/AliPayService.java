@@ -1,5 +1,6 @@
 package com.yxx.business.service;
 
+import com.alipay.api.response.AlipayTradeCreateResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -10,10 +11,11 @@ import jakarta.servlet.http.HttpServletResponse;
 public interface AliPayService {
 
     /**
-     * 支付宝支付
+     * 支付创建，该接口会返回一个支付宝生成的订单号(非本系统生成)
+     * 前端拿着该订单号调用my.tradePay方法即可在支付宝小程序中唤起支付弹窗
      *
-     * @param totalAmount 支付总额
-     * @return {@link String }
+     * @param totalAmount 支付总金额
+     * @return {@link AlipayTradeCreateResponse }
      * @author yxx
      */
     String pay(String totalAmount);
