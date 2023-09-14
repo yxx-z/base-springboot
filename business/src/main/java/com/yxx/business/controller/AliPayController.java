@@ -1,8 +1,8 @@
 package com.yxx.business.controller;
 
-import com.alipay.api.response.AlipayTradeCreateResponse;
 import com.yxx.business.model.request.AliPayReq;
 import com.yxx.business.model.request.AliRefundOfDuty;
+import com.yxx.business.model.response.AliCreatPayRes;
 import com.yxx.business.service.AliPayService;
 import com.yxx.common.annotation.response.ResponseResult;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,11 +38,11 @@ public class AliPayController {
      * 前端拿着该订单号调用my.tradePay方法即可在支付宝小程序中唤起支付弹窗
      *
      * @param req 请求参数
-     * @return {@link AlipayTradeCreateResponse }
+     * @return {@link AliCreatPayRes }
      * @author yxx
      */
     @PostMapping("/pay")
-    public String pay(@Valid @RequestBody AliPayReq req) {
+    public AliCreatPayRes pay(@Valid @RequestBody AliPayReq req) {
         return aliPayService.pay(req.getTotalAmount());
     }
 

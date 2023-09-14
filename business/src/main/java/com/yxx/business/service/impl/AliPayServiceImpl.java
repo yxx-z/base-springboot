@@ -13,6 +13,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yxx.business.model.dto.AliPayDto;
+import com.yxx.business.model.response.AliCreatPayRes;
 import com.yxx.business.service.AliPayService;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.enums.business.AliPayEnum;
@@ -52,11 +53,11 @@ public class AliPayServiceImpl implements AliPayService {
      * 前端拿着该订单号调用my.tradePay方法即可在支付宝小程序中唤起支付弹窗
      *
      * @param totalAmount 支付总金额
-     * @return {@link AlipayTradeCreateResponse }
+     * @return {@link AliCreatPayRes }
      * @author yxx
      */
     @Override
-    public String pay(String totalAmount) {
+    public AliCreatPayRes pay(String totalAmount) {
         //获得初始化的AlipayClient
         AlipayClient alipayClient = new DefaultAlipayClient(aliProperties.getServerUrl(), aliProperties.getAppId(),
                 aliProperties.getMerchantPrivateKey(), "json", aliProperties.getCharset(),
@@ -91,10 +92,15 @@ public class AliPayServiceImpl implements AliPayService {
                 ObjectMapper objectMapper = JacksonUtil.getObjectMapper();
                 JsonNode jsonNode = objectMapper.readTree(response.getBody());
                 String tradeNo = jsonNode.get("alipay_trade_create_response").get("trade_no").asText();
+                String outTradeNo = jsonNode.get("alipay_trade_create_response").get("out_trade_no").asText();
                 log.info("tradeNo:{}", tradeNo);
 
-                // 返回支付宝生成的订单号
-                return tradeNo;
+                AliCreatPayRes res = new AliCreatPayRes();
+                // 支付宝生成的订单号
+                res.setTradeNo(tradeNo);
+                // 本系统生成的订单号
+                res.setOutTradeNo(outTradeNo);
+                return res;
             } else {
                 // 如果返回结果是错误的
                 // 判断错误码是否在公共错误码中
