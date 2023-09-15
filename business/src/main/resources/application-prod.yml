@@ -341,8 +341,10 @@ ali:
   sign_type: RSA2
   # 支付宝网关
   server_url: https://openapi-sandbox.dl.alipaydev.com/gateway.do
-  # 异步回调接口路径
+  # 异步回调接口路径 支付后支付宝会调用此接口 可在此接口判断是否支付成功
   notify_url: http://198.44.169.16:6059/aliPay/notifyUrl
+  # 同步回调接口路径 支付成功后会跳转到该页面 一般该路径为前端路径，主要是告知用户支付成功
+  return_url: http://198.44.169.16
   # 返回格式
   format: json
 

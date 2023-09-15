@@ -5,21 +5,16 @@ import com.alipay.api.AlipayClient;
 import com.alipay.api.domain.AlipayTradeCloseModel;
 import com.alipay.api.domain.AlipayTradeRefundModel;
 import com.alipay.api.internal.util.AlipaySignature;
-import com.alipay.api.request.AlipayTradeCloseRequest;
-import com.alipay.api.request.AlipayTradeCreateRequest;
-import com.alipay.api.request.AlipayTradeRefundRequest;
-import com.alipay.api.request.AlipayTradeWapPayRequest;
-import com.alipay.api.response.AlipayTradeCloseResponse;
-import com.alipay.api.response.AlipayTradeCreateResponse;
-import com.alipay.api.response.AlipayTradeRefundResponse;
-import com.alipay.api.response.AlipayTradeWapPayResponse;
+import com.alipay.api.request.*;
+import com.alipay.api.response.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yxx.business.model.dto.AliPayDto;
 import com.yxx.business.model.response.AliCreatPayRes;
 import com.yxx.business.model.response.AliWapPayRes;
-import com.yxx.business.service.AliAppletPayService;
+import com.yxx.business.model.response.AliWebPayRes;
+import com.yxx.business.service.AliPayService;
 import com.yxx.common.config.AliPayConfig;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.enums.business.AliPayEnum;
@@ -49,7 +44,7 @@ import java.util.Set;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AliAppletPayServiceImpl implements AliAppletPayService {
+public class AliPayServiceImpl implements AliPayService {
 
     private final AliProperties aliProperties;
 
@@ -338,6 +333,74 @@ public class AliAppletPayServiceImpl implements AliAppletPayService {
             }
         } catch (AlipayApiException e) {
             log.error("支付宝手机支付调用失败,异常信息:{}", e.getErrMsg());
+            throw new ApiException(ApiCode.SYSTEM_ERROR);
+        } catch (JsonProcessingException e) {
+            log.error("处理json信息失败,异常信息:{}", e.getMessage());
+            throw new ApiException(ApiCode.SYSTEM_ERROR);
+        }
+    }
+
+    /**
+     * 电脑网站 支付宝支付
+     *
+     * @param totalAmount 支付总金额
+     * @return {@link AliWebPayRes }
+     * @author yxx
+     */
+    @Override
+    public AliWebPayRes webPay(BigDecimal totalAmount) {
+        AlipayClient alipayClient = aliPayConfig.defaultAlipayClient();
+        AlipayTradePagePayRequest request = aliPayConfig.alipayTradePagePayRequest();
+        // 必传参数
+        AliPayDto payDto = new AliPayDto();
+        payDto.setTotalAmount(totalAmount);
+        // String userId = AliLoginUtils.getLoginCode(); 线上用这个
+        payDto.setBuyerId("2088722012937522");
+        // 订单号生成（正常情况订单号不在这里生成，应该传递进来。这里为了方便测试）
+        String orderNum = snowflake.orderNum();
+        payDto.setOutTradeNo(orderNum);
+        payDto.setSubject("测试");
+        payDto.setProductCode("FAST_INSTANT_TRADE_PAY");
+
+        //对象转化为json字符串
+        String jsonStr = JacksonUtil.toJson(payDto);
+        log.info("jsonStr:{}", jsonStr);
+
+        //商户通过该接口进行交易的创建下单
+        request.setBizContent(jsonStr);
+
+        // 支付宝返回结果提权
+        AlipayTradePagePayResponse response;
+        try {
+            // 支付宝返回结果
+            response = alipayClient.pageExecute(request);
+            log.info("response:{}", JacksonUtil.toJson(response));
+            // 如果返回结果为成功
+            if(response.isSuccess()){
+                log.info("支付宝手机支付调用成功,商户订单号:{}", orderNum);
+                ObjectMapper jacksonMapper = JacksonUtil.getObjectMapper();
+                JsonNode jsonNode = jacksonMapper.readTree(JacksonUtil.toJson(response));
+                AliWebPayRes res = new AliWebPayRes();
+                String body = jsonNode.get("body").asText();
+                res.setBody(body);
+                return res;
+            } else {
+                // 如果返回结果是错误的
+                // 判断错误码是否在公共错误码中
+                log.error("支付宝手机支付调用失败,商户订单号:{}", orderNum);
+                boolean include = EnumUtils.isInclude(AliPayEnum.class, response.getCode());
+                // 如果错误码在公共错误码中
+                if (include) {
+                    // 根据错误码code 获取message
+                    String message = EnumUtils.getMessageByCode(AliPayEnum.class, response.getCode());
+                    // 抛出提示
+                    throw new ApiException(Integer.valueOf(response.getCode()), message);
+                }
+                // 如果错误码不在公共错误码中，抛出系统异常
+                throw new ApiException(ApiCode.SYSTEM_ERROR);
+            }
+        } catch (AlipayApiException e) {
+            log.error("支付宝电脑网页支付调用失败,异常信息:{}", e.getErrMsg());
             throw new ApiException(ApiCode.SYSTEM_ERROR);
         } catch (JsonProcessingException e) {
             log.error("处理json信息失败,异常信息:{}", e.getMessage());
