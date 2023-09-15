@@ -325,6 +325,17 @@ forest:
   connect-timeout: 3000        # 连接超时时间，单位为毫秒
   read-timeout: 3000           # 数据读取超时时间，单位为毫秒
 
+netty:
+  websocket:
+    # Websocket服务端口
+    port: 1024
+    # 绑定的网卡
+    ip: 0.0.0.0
+    # 消息帧最大体积
+    max-frame-size: 10240
+    # URI路径
+    path: /channel
+
 # 支付宝配置
 ali:
   # 小程序appId
