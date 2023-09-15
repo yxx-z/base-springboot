@@ -1,7 +1,7 @@
 package com.yxx.business.model.request;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
-import org.apache.logging.log4j.core.config.plugins.validation.constraints.NotBlank;
 
 /**
  * 支付宝获取userId请求参数

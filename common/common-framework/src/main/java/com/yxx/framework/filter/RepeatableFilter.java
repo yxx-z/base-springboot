@@ -34,7 +34,7 @@ public class RepeatableFilter implements Filter {
                 log.info(traceId);
             } else {
                 SnowflakeConfig snowflake = ApplicationUtils.getBean(SnowflakeConfig.class);
-                AppContext.getContext().setTraceId(String.valueOf(snowflake.snowflakeId()));
+                AppContext.getContext().setTraceId(snowflake.orderNum());
             }
         }
         if (null == requestWrapper) {

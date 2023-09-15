@@ -1,8 +1,12 @@
 package com.yxx.business.service;
 
+import com.alipay.api.response.AlipayTradeWapPayResponse;
 import com.yxx.business.model.response.AliCreatPayRes;
+import com.yxx.business.model.response.AliWapPayRes;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
+import java.math.BigDecimal;
 
 /**
  * @author yxx
@@ -18,7 +22,7 @@ public interface AliAppletPayService {
      * @return {@link AliCreatPayRes }
      * @author yxx
      */
-    AliCreatPayRes pay(String totalAmount);
+    AliCreatPayRes pay(BigDecimal totalAmount);
 
     /**
      * 支付宝支付异步回调
@@ -46,4 +50,13 @@ public interface AliAppletPayService {
      * @author yxx
      */
     void close(String outTradeNo);
+
+    /**
+     * 手机网站调用支付支付
+     *
+     * @param totalAmount 总金额
+     * @return {@link AliWapPayRes }
+     * @author yxx
+     */
+    AliWapPayRes aliWapPay(BigDecimal totalAmount);
 }

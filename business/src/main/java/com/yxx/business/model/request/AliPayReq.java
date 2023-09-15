@@ -1,7 +1,9 @@
 package com.yxx.business.model.request;
 
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-import org.apache.logging.log4j.core.config.plugins.validation.constraints.NotBlank;
+
+import java.math.BigDecimal;
 
 /**
  * 支付宝支付参数
@@ -16,6 +18,6 @@ public class AliPayReq {
     /**
      * 支付总金额
      */
-    @NotBlank(message = "支付金额不能为空")
-    private String totalAmount;
+    @NotNull(message = "支付金额不能为空")
+    private BigDecimal totalAmount;
 }

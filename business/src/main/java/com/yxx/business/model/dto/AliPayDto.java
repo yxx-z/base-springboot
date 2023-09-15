@@ -3,6 +3,8 @@ package com.yxx.business.model.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
+import java.math.BigDecimal;
+
 /**
  * 支付宝支付参数
  *
@@ -22,7 +24,7 @@ public class AliPayDto {
      * 交易总金额
      */
     @JsonProperty(value = "total_amount")
-    private String totalAmount;
+    private BigDecimal totalAmount;
 
     /**
      * 标题
@@ -34,5 +36,10 @@ public class AliPayDto {
      */
     @JsonProperty(value = "buyer_id")
     private String buyerId;
+
+    /**
+     *
+     */
+    private String productCode;
 
 }

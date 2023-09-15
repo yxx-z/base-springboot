@@ -1,7 +1,7 @@
 package com.yxx.business.model.request;
 
 import lombok.Data;
-import org.apache.logging.log4j.core.config.plugins.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 /**
  * 前端获取的支付宝授权信息

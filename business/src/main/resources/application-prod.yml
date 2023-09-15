@@ -7,9 +7,9 @@ spring:
   # mysql 通用配置信息内容 使用HikariDataSource连接池
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://${mysql_url}/base_springboot?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&useSSL=false&serverTimezone=Asia/Shanghai
-    username: ${mysql_username}
-    password: ${mysql_password}
+    url: jdbc:mysql://198.44.169.16:3306/base_springboot?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: Mysql@{110}
     type: com.zaxxer.hikari.HikariDataSource
     hikari:
       minimum-idle: 10
@@ -30,9 +30,9 @@ spring:
     redis:
       # 设置初始数据库的数据为8
       database: 8
-      host: ${redis_host}
-      port: ${redis_port}
-      password: ${redis_password}
+      host: 198.44.169.16
+      port: 7288
+      password: Redis@{110}
       jedis:
         pool:
           # 连接池最大连接数（使用负值表示没有限制）
@@ -50,18 +50,18 @@ spring:
     # 编码
     default-encoding: UTF-8
     # 邮件服务器
-    host: ${email_host}
+    host: smtp.email.cn
     # 用户名(一般为邮箱号)
-    username: ${email_username}
+    username: shuniversity@email.cn
     # 邮件服务器端口
-    port: ${email_port}
+    port: 25
     # 专用密码
-    password: ${email_password}
+    password: 2BCZKEGQgHyCZ5i4
 
 # 邮箱设置
 mail:
   # 发件人邮箱
-  from: ${email_username}
+  from: shuniversity@email.cn
   # 发件人名称
   from-name: SpringBoot开发模版
   # 注册时邮箱验证码有效期
@@ -265,7 +265,7 @@ reset-password:
 # 是否校验ip异常
 ip:
   # 开启后则校验ip异常情况 (异地换设备登录) 发送邮件通知
-  check: true
+  check: false
 
 # 网站域名
 web:
@@ -311,11 +311,11 @@ sa-token:
     # Redis数据库索引（默认为0）
     database: 2
     # Redis服务器地址
-    host: ${redis_host}
+    host: 198.44.169.16
     # Redis服务器连接端口
-    port: ${redis_port}
+    port: 7288
     # Redis服务器连接密码（默认为空）
-    password: ${redis_password}
+    password: Redis@{110}
     # 连接超时时间
     timeout: 10s
 
@@ -329,6 +329,8 @@ forest:
 ali:
   # 小程序appId
   app_id: 9021000127674048
+  #商户公钥
+  merchant_public_key: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAo2XnNH1Ym2mANXrJVhozeiCgya8G6za0fOWeHTQJvs9itpm3M8TRbkBJUC45GHNOo2TuMPOpU29PFC9/lIGiNCARfMaA53KUYtuydlyZLQXxyyB/mX/C192rqauK7Ql+lmjmIDwQsqTxXi5Cmw9jasm0JUkCP5qNbZvy78taZgYyb7uPYc1VpAC3wR36JQJPaScg0A0Ia/nnx+CLHKPQgB4AoFML1F4kx4yBaGqEuAk++0xxFKW0rLxxfjprmFGg5yAXr/zhKpeua7NCmF/+Nvit/S0/KZog3rbe88A9iwuTAg0h9iyb7tWH/+2rcp9KPYQ4ibOhor5U+kw2kHbuYQIDAQAB
   # 商户私钥
   merchant_private_key: MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQCjZec0fVibaYA1eslWGjN6IKDJrwbrNrR85Z4dNAm+z2K2mbczxNFuQElQLjkYc06jZO4w86lTb08UL3+UgaI0IBF8xoDncpRi27J2XJktBfHLIH+Zf8LX3aupq4rtCX6WaOYgPBCypPFeLkKbD2NqybQlSQI/mo1tm/Lvy1pmBjJvu49hzVWkALfBHfolAk9pJyDQDQhr+efH4Isco9CAHgCgUwvUXiTHjIFoaoS4CT77THEUpbSsvHF+OmuYUaDnIBev/OEql65rs0KYX/42+K39LT8pmiDett7zwD2LC5MCDSH2LJvu1Yf/7atyn0o9hDiJs6GivlT6TDaQdu5hAgMBAAECggEBAKNX3ICpiambFvLfc2QivzEoavQTh3wd7OIqfRy+h7t7ADiAhBc5ew+XLnL8MlGR+5v16vN+sdfZnxkTvptL2EX5hOHSYsx8y3/kFoyiVvIeTi/8pfJiOPqo+9Gazj/VzPk5lkvFIAAmSbAX2Le/82euier4CEpjC1z2mC5FgHIZyGxRwRSinKMOc0KkigxWnjfUmugTAKgjF40oiaRRFR0JrFo9tfGI682ZCajYSsubnAldlv2rj5/OnutWgJt314TtDD11uOehvq3lVkV0KAyRrfeXj/5SRxG1bFJnUcxmsUdQsu+89xQTlgXebIaEFnqwhp0D/yH7arnzYqa+QEECgYEA1sOfjubFPOv8O5u0Hr3octIrmxqD2lCU5Mp2+7WS4IDbXGH1iciEpR5Vzf2YHyCxnAcDz6blphuQ3dCmPBuwI09/5R7TyIhAHqpUq8FW0NC9jEwqYrSaXzFLvHnxD4fPVIzQW1s86EVDvE0gfyh7o4LhcFRqsBlFQ/Q1sCYmy0kCgYEAwsV254mYmUzlnEv1OCTUwl1h+WBYSF1orZooVEBcCbpAMacNCEKdIF7gwxw5/3MQQXRPgaLh3Qu9YumesGc8SU2RjjMrbHXdQ2l3XLR56iT9DRAMIKG1JyrB7JCPZ5Q8pc+1ODvR/2i90DW3dx1WXOTNPGNGGyfog3UbhTkWMlkCgYBrqYnVg46hKdQ6taWoO5/J396IVNSAnyDlSTI4oR/OeAp/14PV3LXSaNCvAVA/Wo5vH30jnhFGIk+PQ0fynhbAvNvqqneU8eji9pSXvcady+cZ7Bzbeppg2j+TbrYQCQ9A3Y6eHbD856w7O5bs6AiDQdtuCoOpYCG/HS/E7HtKMQKBgQDBohKeCXs+HObAxfsaP/OM782xYIkkGEkzHekuKXXW7eVX953LMn6HagvFrVAzl673g6xvUwF9Amjb5youcdPLhGRKnLB0+ZBprnZOIdZ6Yx94VxXXcyxnrehxSR5oeUT6C088gqw5YWYjkuO8ddwgKg+oE4HlCX3tAwXDIofgsQKBgQCvV1Je/AgROj9iNFViDboNXf/dOnriVUhjq5czTnVgERjDIAq5RqnQ4eRh5G5TrQAisFhv7I0ex1k9tvOdzAYlnio/DZ8Wu5ET1iPNw3G4FMMEFfsG8pqkX7ndkpKrXuAvibTO6JskGQSQlEJ8TG7yqbBCH8ZlqnHJhy/MR0n/cA==
   # 编码格式
@@ -341,3 +343,6 @@ ali:
   server_url: https://openapi-sandbox.dl.alipaydev.com/gateway.do
   # 异步回调接口路径
   notify_url: http://198.44.169.16:6059/aliPay/notifyUrl
+  # 返回格式
+  format: json
+

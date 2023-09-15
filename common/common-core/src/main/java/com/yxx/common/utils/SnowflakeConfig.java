@@ -8,6 +8,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import jakarta.annotation.PostConstruct;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 /**
  * @author yxx
  */
@@ -30,6 +33,13 @@ public class SnowflakeConfig {
     public void init() {
         workerId = NetUtil.ipv4ToLong(NetUtil.getLocalhostStr());
         log.info("当前机器的workId:{}", workerId);
+    }
+
+    public String orderNum() {
+        // 获取当前日期，格式化为yyyyMMdd
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+        String currentDate = dateFormat.format(new Date());
+        return currentDate + snowflakeId();
     }
 
     public synchronized long snowflakeId() {

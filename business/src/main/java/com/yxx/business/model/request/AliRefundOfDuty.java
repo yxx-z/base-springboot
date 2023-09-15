@@ -1,7 +1,7 @@
 package com.yxx.business.model.request;
 
 import lombok.Data;
-import org.apache.logging.log4j.core.config.plugins.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 /**
  * 支付宝退款请求参数

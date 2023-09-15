@@ -26,6 +26,11 @@ public class AliProperties {
     private String merchantPrivateKey;
 
     /**
+     * 商户公钥
+     */
+    private String merchantPublicKey;
+
+    /**
      * 编码格式
      */
     private String charset;
@@ -46,7 +51,17 @@ public class AliProperties {
     private String serverUrl;
 
     /**
-     * 回调地址
+     * 异步回调地址
      */
     private String notifyUrl;
+
+    /**
+     * 同步回调地址
+     */
+    private String returnUrl;
+
+    /**
+     * 返回格式
+     */
+    private String format;
 }
