@@ -1,8 +1,8 @@
 package com.yxx.business.service;
 
-import com.alipay.api.response.AlipayTradeWapPayResponse;
 import com.yxx.business.model.response.AliCreatPayRes;
 import com.yxx.business.model.response.AliWapPayRes;
+import com.yxx.business.model.response.AliWebPayRes;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -12,7 +12,7 @@ import java.math.BigDecimal;
  * @author yxx
  * @since 2023-09-14 13:58
  */
-public interface AliAppletPayService {
+public interface AliPayService {
 
     /**
      * 支付创建，该接口会返回一个支付宝生成的订单号(非本系统生成)
@@ -59,4 +59,13 @@ public interface AliAppletPayService {
      * @author yxx
      */
     AliWapPayRes aliWapPay(BigDecimal totalAmount);
+
+    /**
+     * 电脑网站 支付宝支付
+     *
+     * @param totalAmount 支付总金额
+     * @return {@link AliWebPayRes }
+     * @author yxx
+     */
+    AliWebPayRes webPay(BigDecimal totalAmount);
 }

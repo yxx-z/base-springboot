@@ -38,8 +38,9 @@ public class AliPayDto {
     private String buyerId;
 
     /**
-     *
+     * 产品码
      */
+    @JsonProperty(value = "product_code")
     private String productCode;
 
 }

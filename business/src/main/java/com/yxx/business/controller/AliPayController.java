@@ -1,12 +1,12 @@
 package com.yxx.business.controller;
 
-import com.alipay.api.response.AlipayTradeWapPayResponse;
 import com.yxx.business.model.request.AliAppletCloseReq;
 import com.yxx.business.model.request.AliPayReq;
 import com.yxx.business.model.request.AliRefundOfDuty;
 import com.yxx.business.model.response.AliCreatPayRes;
 import com.yxx.business.model.response.AliWapPayRes;
-import com.yxx.business.service.AliAppletPayService;
+import com.yxx.business.model.response.AliWebPayRes;
+import com.yxx.business.service.AliPayService;
 import com.yxx.common.annotation.auth.ReleaseToken;
 import com.yxx.common.annotation.response.ResponseResult;
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,9 +33,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/aliPay")
 @RequiredArgsConstructor
-public class AliAppletPayController {
+public class AliPayController {
 
-    private final AliAppletPayService aliAppletPayService;
+    private final AliPayService aliPayService;
 
     /**
      * 支付创建，该接口会返回一个支付宝生成的订单号(非本系统生成)
@@ -47,7 +47,7 @@ public class AliAppletPayController {
      */
     @PostMapping("/pay")
     public AliCreatPayRes pay(@Valid @RequestBody AliPayReq req) {
-        return aliAppletPayService.pay(req.getTotalAmount());
+        return aliPayService.pay(req.getTotalAmount());
     }
 
     /**
@@ -59,7 +59,19 @@ public class AliAppletPayController {
      */
     @PostMapping("/wapPay")
     public AliWapPayRes wapPay(@Valid @RequestBody AliPayReq req) {
-        return aliAppletPayService.aliWapPay(req.getTotalAmount());
+        return aliPayService.aliWapPay(req.getTotalAmount());
+    }
+
+    /**
+     * 电脑网站 支付宝支付
+     *
+     * @param req 请求参数
+     * @return {@link AliWebPayRes }
+     * @author yxx
+     */
+    @PostMapping("/webPay")
+    public AliWebPayRes webPay(@Valid @RequestBody AliPayReq req) {
+        return aliPayService.webPay(req.getTotalAmount());
     }
 
     /**
@@ -72,7 +84,7 @@ public class AliAppletPayController {
     @ReleaseToken
     @PostMapping(value = "/notifyUrl")
     public void notifyUrl(HttpServletRequest request, HttpServletResponse response) {
-        aliAppletPayService.notifyUrl(request, response);
+        aliPayService.notifyUrl(request, response);
     }
 
     /**
@@ -83,7 +95,7 @@ public class AliAppletPayController {
      */
     @PostMapping("/refundOfDuty")
     public void refundOfDuty(@Valid @RequestBody AliRefundOfDuty req) {
-        aliAppletPayService.alipayRefundOfDuty(req.getOutTradeNo(), req.getRefundAmount(), req.getRefundReason());
+        aliPayService.alipayRefundOfDuty(req.getOutTradeNo(), req.getRefundAmount(), req.getRefundReason());
     }
 
     /**
@@ -94,7 +106,7 @@ public class AliAppletPayController {
      */
     @PostMapping("/close")
     public void close(@Valid @RequestBody AliAppletCloseReq req) {
-        aliAppletPayService.close(req.getOutTradeNo());
+        aliPayService.close(req.getOutTradeNo());
     }
 
 }

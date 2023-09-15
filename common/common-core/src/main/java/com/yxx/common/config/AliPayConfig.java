@@ -2,6 +2,7 @@ package com.yxx.common.config;
 
 import com.alipay.api.AlipayClient;
 import com.alipay.api.DefaultAlipayClient;
+import com.alipay.api.request.AlipayTradePagePayRequest;
 import com.alipay.api.request.AlipayTradeWapPayRequest;
 import com.yxx.common.properties.AliProperties;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +23,7 @@ public class AliPayConfig {
     private final AliProperties aliProperties;
 
     /**
-     * 设置网页支付请求基础参数
+     * 设置手机网页支付请求基础参数
      *
      * @return {@link AlipayTradeWapPayRequest }
      * @author yxx
@@ -35,6 +36,22 @@ public class AliPayConfig {
         // 同步回调地址
         wapPayRequest.setReturnUrl(aliProperties.getReturnUrl());
         return wapPayRequest;
+    }
+
+    /**
+     * 设置电脑网页支付请求基础参数
+     *
+     * @return {@link AlipayTradeWapPayRequest }
+     * @author yxx
+     */
+    @Bean
+    public AlipayTradePagePayRequest alipayTradePagePayRequest() {
+        AlipayTradePagePayRequest webRequest = new AlipayTradePagePayRequest();
+        // 异步回调地址
+        webRequest.setNotifyUrl(aliProperties.getNotifyUrl());
+        // 同步回调地址
+        webRequest.setReturnUrl(aliProperties.getReturnUrl());
+        return webRequest;
     }
 
     /**
