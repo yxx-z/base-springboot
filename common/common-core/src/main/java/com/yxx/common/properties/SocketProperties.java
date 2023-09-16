@@ -22,5 +22,6 @@ public class SocketProperties {
     // 路径
     private String path;
     // 消息帧最大体积
-    private Long maxFrameSize;
+    private Integer maxFrameSize;
+    private String url;
 }
