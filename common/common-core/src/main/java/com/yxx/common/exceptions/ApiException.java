@@ -2,12 +2,14 @@ package com.yxx.common.exceptions;
 
 import com.yxx.common.enums.ApiCode;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 /**
  * @author yxx
  * @description: 自定义异常类
  */
 @Data
+@EqualsAndHashCode(callSuper=false)
 public class ApiException extends RuntimeException {
 
     /**

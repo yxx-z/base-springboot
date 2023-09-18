@@ -347,14 +347,3 @@ ali:
   return_url: http://198.44.169.16
   # 返回格式
   format: json
-
-netty:
-  websocket:
-    # Websocket服务端口
-    port: 1024
-    # 绑定的网卡
-    ip: 0.0.0.0
-    # 消息帧最大体积
-    max-frame-size: 10240
-    # URI路径
-    path: /chat
