@@ -103,3 +103,11 @@ MailUtils
 <p>
     &nbsp;&nbsp;&nbsp;发送邮件工具
 </p>
+
+### 感谢
+
+本项目使用 JetBrains 提供的开源许可证，基于 IntelliJ IDEA 开发，感谢！
+
+![JetBrains 徽标（主要） logo](https://resources.jetbrains.com/storage/products/company/brand/logos/jb_beam.svg)
+
+![IntelliJ IDEA logo](https://resources.jetbrains.com/storage/products/company/brand/logos/IntelliJ_IDEA.svg)
