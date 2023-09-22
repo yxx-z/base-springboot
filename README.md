@@ -106,7 +106,7 @@ MailUtils
 
 ### 感谢
 
-本项目使用 JetBrains 提供的开源许可证，基于 IntelliJ IDEA 开发，感谢！
+本项目使用 <a href="https://www.jetbrains.com/" style="text-decoration:none">JetBrains</a> 提供的开源许可证，基于 IntelliJ IDEA 开发，感谢！
 
 ![JetBrains 徽标（主要） logo](https://resources.jetbrains.com/storage/products/company/brand/logos/jb_beam.svg)
 
