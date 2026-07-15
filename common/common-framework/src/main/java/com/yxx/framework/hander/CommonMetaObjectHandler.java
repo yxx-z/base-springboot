@@ -15,6 +15,9 @@ import java.time.LocalDateTime;
  */
 @Slf4j
 public class CommonMetaObjectHandler implements MetaObjectHandler {
+    /** 未登录任务、初始化脚本等系统行为使用的审计用户编号。 */
+    private static final Long SYSTEM_USER_ID = 0L;
+
     @Value("${app.name}")
     private String appName;
 
@@ -56,13 +59,17 @@ public class CommonMetaObjectHandler implements MetaObjectHandler {
     public Long currentUid() {
         try {
             if ("user".equals(appName)) {
-                return LoginUtils.getUserId();
-            } else {
-                return LoginAdminUtils.getUserId();
+                Long userId = LoginUtils.getUserId();
+                return userId == null ? SYSTEM_USER_ID : userId;
             }
-        } catch (Exception ignore) {
-            log.error("生成uid错误");
+            if ("admin".equals(appName)) {
+                Long userId = LoginAdminUtils.getUserId();
+                return userId == null ? SYSTEM_USER_ID : userId;
+            }
+            log.warn("无法识别应用类型 app.name={}，审计用户使用系统账号", appName);
+        } catch (RuntimeException exception) {
+            log.debug("当前线程不存在登录上下文，审计用户使用系统账号", exception);
         }
-        return 1L;
+        return SYSTEM_USER_ID;
     }
 }

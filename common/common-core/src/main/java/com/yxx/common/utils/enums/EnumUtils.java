@@ -32,7 +32,7 @@ public class EnumUtils {
                 }
             }
         } catch (InvocationTargetException | NoSuchMethodException | IllegalAccessException e) {
-            log.error(String.valueOf(e));
+            log.error("读取枚举编码失败，enumClass={}", clzz.getName(), e);
         }
         return include;
     }
@@ -63,9 +63,8 @@ public class EnumUtils {
                     }
                 }
             } catch (NoSuchFieldException | IllegalAccessException e) {
-                // 处理异常
-                e.printStackTrace();
-                throw new ApiException(ApiCode.ENUM_ERROR);
+                log.error("读取枚举消息失败，enumClass={}", enumClass.getName(), e);
+                throw new ApiException(ApiCode.ENUM_ERROR, e);
             }
         }
         return "未知错误";

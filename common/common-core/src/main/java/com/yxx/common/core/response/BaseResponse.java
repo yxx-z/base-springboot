@@ -1,121 +1,70 @@
 package com.yxx.common.core.response;
 
 import com.yxx.common.enums.ApiCode;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
+import java.io.Serial;
 import java.io.Serializable;
 
 /**
- * @author yxx
- * @description: 返回结果实体类
+ * 统一 API 响应。
+ *
+ * @param <T> 响应数据类型
  */
-@Data
-public class BaseResponse implements Serializable {
+@Getter
+public class BaseResponse<T> implements Serializable {
 
+    @Serial
     private static final long serialVersionUID = 1L;
 
-    /**
-     * 返回码
-     */
+    /** 业务状态码。 */
     private Integer code;
-
-    /**
-     * 返回消息
-     */
+    /** 面向调用方的响应消息。 */
     private String message;
-
-    /**
-     * 返回数据
-     */
-    private Object data;
-
+    /** 响应数据。 */
+    private T data;
+    /** 请求链路标识。 */
+    @Setter
     private String traceId;
 
     private BaseResponse() {
-
     }
 
-    public BaseResponse(ApiCode apiCode, Object data) {
-        this.code = apiCode.code();
-        this.message = apiCode.message();
-        this.data = data;
+    public static BaseResponse<Void> success() {
+        return success(null, null);
     }
 
-    private void setResultCode(ApiCode apiCode) {
-        this.code = apiCode.code();
-        this.message = apiCode.message();
+    public static <T> BaseResponse<T> success(T data) {
+        return success(data, null);
     }
 
-    /**
-     * 返回数据
-     *
-     * @return 返回成功
-     */
-    public static BaseResponse success() {
-        BaseResponse result = new BaseResponse();
-        result.setResultCode(ApiCode.SUCCESS);
-        return result;
+    public static <T> BaseResponse<T> success(T data, String traceId) {
+        BaseResponse<T> response = new BaseResponse<>();
+        response.code = ApiCode.SUCCESS.code();
+        response.message = ApiCode.SUCCESS.message();
+        response.data = data;
+        response.traceId = traceId;
+        return response;
     }
 
-    /**
-     * 返回成功
-     *
-     * @param data 自定义返回结果
-     * @return 返回成功
-     */
-    public static BaseResponse success(Object data, String traceId) {
-        BaseResponse result = new BaseResponse();
-        result.setResultCode(ApiCode.SUCCESS);
-        result.setData(data);
-        result.setTraceId(traceId);
-        return result;
+    public static BaseResponse<Void> fail(Integer code, String message) {
+        return fail(code, message, null);
     }
 
-    public static BaseResponse success(Object data) {
-        BaseResponse result = new BaseResponse();
-        result.setResultCode(ApiCode.SUCCESS);
-        result.setData(data);
-        return result;
+    public static BaseResponse<Void> fail(Integer code, String message, String traceId) {
+        BaseResponse<Void> response = new BaseResponse<>();
+        response.code = code;
+        response.message = message;
+        response.traceId = traceId;
+        return response;
     }
 
-    /**
-     * 返回失败
-     *
-     * @param code    状态码
-     * @param message 描述信息
-     * @return 返回失败结果
-     */
-    public static BaseResponse fail(Integer code, String message, String traceId) {
-        BaseResponse result = new BaseResponse();
-        result.setCode(code);
-        result.setMessage(message);
-        result.setTraceId(traceId);
-        return result;
+    public static BaseResponse<Void> fail(ApiCode apiCode) {
+        return fail(apiCode, null);
     }
 
-    public static BaseResponse fail(Integer code, String message) {
-        BaseResponse result = new BaseResponse();
-        result.setCode(code);
-        result.setMessage(message);
-        return result;
-    }
-
-    /**
-     * 返回失败
-     *
-     * @param apiCode 状态枚举类
-     * @return 返回失败结果
-     */
-    public static BaseResponse fail(ApiCode apiCode, String traceId) {
-        BaseResponse result = new BaseResponse();
-        result.setResultCode(apiCode);
-        result.setTraceId(traceId);
-        return result;
-    }
-
-    public static BaseResponse fail(ApiCode apiCode) {
-        BaseResponse result = new BaseResponse();
-        result.setResultCode(apiCode);
-        return result;
+    public static BaseResponse<Void> fail(ApiCode apiCode, String traceId) {
+        return fail(apiCode.code(), apiCode.message(), traceId);
     }
 }

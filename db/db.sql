@@ -11,8 +11,11 @@ CREATE TABLE `admin_menu` (
   `menu_code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '菜单标识',
   `menu_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '菜单名称',
   `is_delete` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '0' COMMENT '是否删除: 0- 否; 1- 是',
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='管理段-菜单表';
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE KEY `uk_admin_menu_code` (`menu_code`),
+  KEY `idx_admin_menu_parent_id` (`parent_id`),
+  CONSTRAINT `fk_admin_menu_parent` FOREIGN KEY (`parent_id`) REFERENCES `admin_menu` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='管理端-菜单表';
 
 -- ----------------------------
 -- Table structure for admin_role
@@ -26,8 +29,9 @@ CREATE TABLE `admin_role` (
   `is_delete` char(2) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '0' COMMENT '是否删除：0-未删除；1-已删除',
   `update_time` datetime NOT NULL COMMENT '修改时间',
   `create_time` datetime NOT NULL COMMENT '创建时间',
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='管理段-角色表';
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE KEY `uk_admin_role_code` (`code`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='管理端-角色表';
 
 -- ----------------------------
 -- Table structure for admin_role_menu
@@ -38,8 +42,12 @@ CREATE TABLE `admin_role_menu` (
   `role_id` int NOT NULL COMMENT '角色id',
   `menu_id` int NOT NULL COMMENT '菜单id',
   `is_delete` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '0' COMMENT '是否删除：0-否；1-是',
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='管理段-角色—菜单关联表';
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE KEY `uk_admin_role_menu` (`role_id`, `menu_id`),
+  KEY `idx_admin_role_menu_menu_id` (`menu_id`),
+  CONSTRAINT `fk_admin_role_menu_role` FOREIGN KEY (`role_id`) REFERENCES `admin_role` (`id`),
+  CONSTRAINT `fk_admin_role_menu_menu` FOREIGN KEY (`menu_id`) REFERENCES `admin_menu` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='管理端-角色<-->菜单关联表';
 
 -- ----------------------------
 -- Table structure for admin_user
@@ -60,8 +68,10 @@ CREATE TABLE `admin_user` (
   `create_uid` bigint NOT NULL COMMENT '创建人',
   `update_uid` bigint NOT NULL COMMENT '修改人',
   `is_delete` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '0' COMMENT '是否删除:0-未删除；1-已删除',
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='管理段-用户表';
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE KEY `uk_admin_user_login_code` (`login_code`),
+  UNIQUE KEY `uk_admin_user_email` (`email`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='管理端-用户表';
 
 -- ----------------------------
 -- Table structure for admin_user_role
@@ -74,8 +84,12 @@ CREATE TABLE `admin_user_role` (
   `is_delete` char(2) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '0' COMMENT '是否删除：0-未删除；1-已删除',
   `update_time` datetime NOT NULL COMMENT '修改时间',
   `create_time` datetime NOT NULL COMMENT '创建时间',
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='管理段-用户角色关联表';
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE KEY `uk_admin_user_role` (`user_id`, `role_id`),
+  KEY `idx_admin_user_role_role_id` (`role_id`),
+  CONSTRAINT `fk_admin_user_role_user` FOREIGN KEY (`user_id`) REFERENCES `admin_user` (`id`),
+  CONSTRAINT `fk_admin_user_role_role` FOREIGN KEY (`role_id`) REFERENCES `admin_role` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='管理端-用户<-->角色关联表';
 
 -- ----------------------------
 -- Table structure for menu
@@ -87,7 +101,10 @@ CREATE TABLE `menu` (
   `menu_code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '菜单标识',
   `menu_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL COMMENT '菜单名称',
   `is_delete` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '0' COMMENT '是否删除: 0- 否; 1- 是',
-  PRIMARY KEY (`id`) USING BTREE
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE KEY `uk_menu_code` (`menu_code`),
+  KEY `idx_menu_parent_id` (`parent_id`),
+  CONSTRAINT `fk_menu_parent` FOREIGN KEY (`parent_id`) REFERENCES `menu` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='菜单表';
 
 -- ----------------------------
@@ -113,8 +130,11 @@ CREATE TABLE `operate_admin_log` (
   `create_uid` bigint DEFAULT NULL COMMENT '创建人',
   `create_time` datetime NOT NULL COMMENT '创建时间',
   `is_delete` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '0' COMMENT '是否删除 0-否 1-是',
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='操作日志表';
+  PRIMARY KEY (`id`) USING BTREE,
+  KEY `idx_operate_admin_log_user_time` (`user_id`, `create_time`),
+  KEY `idx_operate_admin_log_type_time` (`type`, `create_time`),
+  KEY `idx_operate_admin_log_trace_id` (`trace_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='管理端-操作日志表';
 
 -- ----------------------------
 -- Table structure for operate_log
@@ -139,7 +159,10 @@ CREATE TABLE `operate_log` (
   `create_uid` bigint DEFAULT NULL COMMENT '创建人',
   `create_time` datetime NOT NULL COMMENT '创建时间',
   `is_delete` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '0' COMMENT '是否删除 0-否 1-是',
-  PRIMARY KEY (`id`) USING BTREE
+  PRIMARY KEY (`id`) USING BTREE,
+  KEY `idx_operate_log_user_time` (`user_id`, `create_time`),
+  KEY `idx_operate_log_type_time` (`type`, `create_time`),
+  KEY `idx_operate_log_trace_id` (`trace_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='操作日志表';
 
 -- ----------------------------
@@ -154,7 +177,8 @@ CREATE TABLE `role` (
   `is_delete` char(2) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '0' COMMENT '是否删除：0-未删除；1-已删除',
   `update_time` datetime NOT NULL COMMENT '修改时间',
   `create_time` datetime NOT NULL COMMENT '创建时间',
-  PRIMARY KEY (`id`) USING BTREE
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE KEY `uk_role_code` (`code`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='角色表';
 
 -- ----------------------------
@@ -166,8 +190,12 @@ CREATE TABLE `role_menu` (
   `role_id` int NOT NULL COMMENT '角色id',
   `menu_id` int NOT NULL COMMENT '菜单id',
   `is_delete` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '0' COMMENT '是否删除：0-否；1-是',
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='角色—菜单关联表';
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE KEY `uk_role_menu` (`role_id`, `menu_id`),
+  KEY `idx_role_menu_menu_id` (`menu_id`),
+  CONSTRAINT `fk_role_menu_role` FOREIGN KEY (`role_id`) REFERENCES `role` (`id`),
+  CONSTRAINT `fk_role_menu_menu` FOREIGN KEY (`menu_id`) REFERENCES `menu` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='角色<-->菜单关联表';
 
 -- ----------------------------
 -- Table structure for user
@@ -188,7 +216,9 @@ CREATE TABLE `user` (
   `create_uid` bigint NOT NULL COMMENT '创建人',
   `update_uid` bigint NOT NULL COMMENT '修改人',
   `is_delete` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '0' COMMENT '是否删除:0-未删除；1-已删除',
-  PRIMARY KEY (`id`) USING BTREE
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE KEY `uk_user_login_code` (`login_code`),
+  UNIQUE KEY `uk_user_email` (`email`)
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户表';
 
 -- ----------------------------
@@ -202,7 +232,11 @@ CREATE TABLE `user_role` (
   `is_delete` char(2) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT '0' COMMENT '是否删除：0-未删除；1-已删除',
   `update_time` datetime NOT NULL COMMENT '修改时间',
   `create_time` datetime NOT NULL COMMENT '创建时间',
-  PRIMARY KEY (`id`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户角色关联表';
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE KEY `uk_user_role` (`user_id`, `role_id`),
+  KEY `idx_user_role_role_id` (`role_id`),
+  CONSTRAINT `fk_user_role_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`),
+  CONSTRAINT `fk_user_role_role` FOREIGN KEY (`role_id`) REFERENCES `role` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户<-->角色关联表';
 
 SET FOREIGN_KEY_CHECKS = 1;

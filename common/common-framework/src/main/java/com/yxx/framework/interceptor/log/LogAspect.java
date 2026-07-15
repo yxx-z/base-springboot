@@ -1,300 +1,167 @@
 package com.yxx.framework.interceptor.log;
 
 import cn.dev33.satoken.stp.StpUtil;
-import cn.hutool.core.date.DatePattern;
-import cn.hutool.core.date.LocalDateTimeUtil;
-import cn.hutool.extra.spring.SpringUtil;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.yxx.common.annotation.log.OperationLog;
-import com.yxx.common.constant.Constant;
-import com.yxx.common.constant.EmailSubjectConstant;
-import com.yxx.common.constant.RedisConstant;
 import com.yxx.common.core.model.LogDTO;
 import com.yxx.common.core.model.LoginUser;
 import com.yxx.common.enums.LogTypeEnum;
 import com.yxx.common.properties.IpProperties;
-import com.yxx.common.properties.MailProperties;
-import com.yxx.common.properties.MyWebProperties;
 import com.yxx.common.utils.ServletUtils;
-import com.yxx.common.utils.agent.UserAgentUtil;
+import com.yxx.common.utils.auth.LoginAdminUtils;
 import com.yxx.common.utils.auth.LoginUtils;
-import com.yxx.common.utils.email.MailUtils;
 import com.yxx.common.utils.ip.AddressUtil;
 import com.yxx.common.utils.ip.IpUtil;
-import com.yxx.common.utils.redis.RedissonCache;
+import com.yxx.common.utils.satoken.StpAdminUtil;
 import com.yxx.framework.context.AppContext;
+import com.yxx.framework.log.SensitiveDataSanitizer;
 import com.yxx.framework.service.OperationLogService;
 import com.yxx.framework.service.impl.OperationLogDefaultServiceImpl;
-import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
-import org.aspectj.lang.JoinPoint;
-import org.aspectj.lang.ProceedingJoinPoint;
-import org.aspectj.lang.annotation.*;
-import org.aspectj.lang.reflect.MethodSignature;
-import org.slf4j.MDC;
-import org.springframework.beans.factory.NoSuchBeanDefinitionException;
-import org.springframework.stereotype.Component;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
-
 import jakarta.servlet.http.HttpServletRequest;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.Arrays;
-import java.util.concurrent.CompletableFuture;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.annotation.Pointcut;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.stereotype.Component;
 
 /**
- * @author yxx
- * @since 2022/11/12 03:21
+ * HTTP 访问日志与业务操作审计切面。
+ *
+ * <p>访问日志只记录定位问题所需的元数据和脱敏参数，不再打印完整响应对象，
+ * 避免密码、Token、支付信息和大对象进入日志系统。</p>
  */
 @Slf4j
 @Aspect
 @Component
 @RequiredArgsConstructor
 public class LogAspect {
-    private final MailUtils mailUtils;
 
-    private final MailProperties mailProperties;
-
-    private final RedissonCache redissonCache;
-
+    private final ObjectProvider<OperationLogService> operationLogServiceProvider;
+    private final SensitiveDataSanitizer sanitizer;
     private final IpProperties ipProperties;
 
-    private final MyWebProperties myWebProperties;
+    @Value("${app.name}")
+    private String appName;
 
-    /**
-     * 用来记录请求进入的时间，防止多线程时出错，这里用了ThreadLocal
-     */
-    ThreadLocal<Long> startTime = new ThreadLocal<>();
-
-    private OperationLogService logService;
-
-    /**
-     * 定义切入点，controller下面的所有类的所有公有方法
-     */
+    /** Controller 公共方法切点。 */
     @Pointcut("execution(public * com.yxx..controller.*.*(..))")
-    public void requestLog() {
-        // document why this method is empty
+    public void controllerMethod() {
+        // 切点声明方法无需实现。
     }
 
     /**
-     * 方法之前执行，日志打印请求信息
+     * 记录一次 HTTP 请求的入口、执行结果和耗时。
      *
-     * @param joinPoint joinPoint
+     * @param point Controller 连接点
+     * @return Controller 返回值
+     * @throws Throwable 保持原始业务异常语义
      */
-    @Before("requestLog()")
-    public void doBefore(JoinPoint joinPoint) {
-        MDC.put(AppContext.KEY_TRACE_ID, AppContext.getContext().getTraceId());
-        startTime.set(System.currentTimeMillis());
-        ServletRequestAttributes servletRequestAttributes = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
-        HttpServletRequest request = servletRequestAttributes.getRequest();
-        //打印当前的请求路径
-        log.info("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
-        log.info("RequestMapping:[{}]", request.getRequestURI());
-
-
-        //这里是从token中获取用户信息，打印当前的访问用户，代码不通用
-        if (StpUtil.isLogin()) {
-            Object loginId = StpUtil.getLoginId();
-            log.info("User is:" + loginId);
-        }
-
-        // 打印请求参数，如果需要打印其他的信息可以到request中去拿
-        log.info("RequestParam:{}", Arrays.toString(joinPoint.getArgs()));
-        log.info("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
-        // 获取请求ip
-        String requestIp = IpUtil.getRequestIp();
-        // 判断是否登录
-        boolean isLogin = StpUtil.isLogin();
-        if (isLogin) {
-            LoginUser loginUser = LoginUtils.getLoginUser();
-            log.info("异步前");
-            // 获取agent
-            String requestAgent = request.getHeader("user-agent");
-            CompletableFuture.runAsync(() -> checkIpUnusual(requestIp, loginUser, requestAgent));
-            log.info("异步后");
-        }
-    }
-
-    /**
-     * 方法返回之前执行，打印才返回值以及方法消耗时间
-     *
-     * @param response 返回值
-     */
-    @AfterReturning(returning = "response", pointcut = "requestLog()")
-    public void doAfterRunning(Object response) {
-        try {
-            //打印返回值信息
-            log.info("++++++++++++++++++++++++++++++++++++++++++++");
-            ObjectMapper jsonMapper = new ObjectMapper();
-            jsonMapper.registerModule(new JavaTimeModule());
-            log.info("Response:[{}]", jsonMapper.writeValueAsString(response));
-            //打印请求耗时
-            log.info("Request spend times : [{}ms]", System.currentTimeMillis() - startTime.get());
-            log.info("++++++++++++++++++++++++++++++++++++++++++++");
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            startTime.remove();
-        }
-    }
-
-    public OperationLogService getLogService() {
-        try {
-            if (null == logService) {
-                logService = SpringUtil.getBean(OperationLogService.class);
-            }
-        } catch (NoSuchBeanDefinitionException e) {
-            log.warn("Please implement this OperationLogService interface");
-            logService = new OperationLogDefaultServiceImpl();
-        }
-        return logService;
-    }
-
-    @Around("@annotation(operationLog)")
-    @SneakyThrows
-    public Object around(ProceedingJoinPoint point, OperationLog operationLog) {
-        String strClassName = point.getTarget().getClass().getName();
-        String strMethodName = point.getSignature().getName();
-        log.info("[类名]:{},[方法]:{}", strClassName, strMethodName);
-
-        // 方法开始时间
-        Long beginTime = System.currentTimeMillis();
-        LogTypeEnum type = LogTypeEnum.NORMAL;
-        String exception = null;
-        Object obj;
-        try {
-            obj = point.proceed();
-        } catch (Exception e) {
-            type = LogTypeEnum.ERROR;
-            exception = e.getMessage();
-            throw e;
-        } finally {
-            // 结束时间
-            Long endTime = System.currentTimeMillis();
-            Long time = endTime - beginTime;
-            MethodSignature signature = (MethodSignature) point.getSignature();
-            log.info("signature:[{}]", signature);
-            String module = operationLog.module();
-            String title = operationLog.title();
-            String traceId = AppContext.getContext().getTraceId();
-            String spanId = null;
-            LogDTO dto = createLog(module, title, type, time, traceId, spanId, exception);
-            getLogService().saveLog(dto);
-        }
-
-        return obj;
-    }
-
-    private LogDTO createLog(String module, String title, LogTypeEnum logType, Long time,
-                             String traceId, String spanId, String exception) {
+    @Around("controllerMethod()")
+    public Object recordRequest(ProceedingJoinPoint point) throws Throwable {
         HttpServletRequest request = ServletUtils.getRequest();
+        long startNanos = System.nanoTime();
+        log.info("请求开始 method={} uri={} handler={} params={}",
+                request.getMethod(), request.getRequestURI(), point.getSignature().toShortString(),
+                sanitizer.sanitizeArguments(point.getArgs()));
+        try {
+            Object result = point.proceed();
+            log.info("请求完成 method={} uri={} resultType={} durationMs={}",
+                    request.getMethod(), request.getRequestURI(), resultType(result), elapsedMillis(startNanos));
+            return result;
+        } catch (Throwable throwable) {
+            log.warn("请求失败 method={} uri={} exceptionType={} durationMs={}",
+                    request.getMethod(), request.getRequestURI(), throwable.getClass().getSimpleName(),
+                    elapsedMillis(startNanos));
+            throw throwable;
+        }
+    }
+
+    /**
+     * 保存带有 {@link OperationLog} 注解的业务操作审计记录。
+     *
+     * <p>审计保存异常只记录到服务端日志，不能覆盖业务方法原本的成功或失败结果。</p>
+     *
+     * @param point        业务连接点
+     * @param operationLog 操作日志配置
+     * @return 业务返回值
+     * @throws Throwable 保持原始业务异常语义
+     */
+    @Around("@annotation(operationLog)")
+    public Object recordOperation(ProceedingJoinPoint point, OperationLog operationLog) throws Throwable {
+        long startNanos = System.nanoTime();
+        LogTypeEnum type = LogTypeEnum.NORMAL;
+        String exceptionMessage = null;
+        try {
+            return point.proceed();
+        } catch (Throwable throwable) {
+            type = LogTypeEnum.ERROR;
+            exceptionMessage = sanitizer.sanitizeText(throwable.getMessage());
+            throw throwable;
+        } finally {
+            try {
+                operationLogService().saveLog(createLog(
+                        operationLog, type, elapsedMillis(startNanos), exceptionMessage));
+            } catch (Exception auditException) {
+                log.error("保存操作审计日志失败，module={}，title={}",
+                        operationLog.module(), operationLog.title(), auditException);
+            }
+        }
+    }
+
+    private LogDTO createLog(OperationLog operationLog, LogTypeEnum type, long time, String exceptionMessage) {
+        HttpServletRequest request = ServletUtils.getRequest();
+        LoginUser loginUser = currentLoginUser();
 
         LogDTO logDTO = new LogDTO();
-        logDTO.setModule(module);
-        logDTO.setTitle(title);
-        logDTO.setType(logType.getCode());
-
-        String ip = IpUtil.getRequestIp();
-        log.info("当前IP为{}", ip);
+        logDTO.setModule(operationLog.module());
+        logDTO.setTitle(operationLog.title());
+        logDTO.setType(type.getCode());
+        logDTO.setIp(IpUtil.getRequestIp());
         if (Boolean.TRUE.equals(ipProperties.getCheck())) {
-            String ipHomePlace = AddressUtil.getIpHomePlace(ip, 2);
-            logDTO.setIpHomePlace(ipHomePlace);
+            logDTO.setIpHomePlace(AddressUtil.getIpHomePlace(logDTO.getIp(), 2));
         }
-        logDTO.setIp(ip);
         logDTO.setUserAgent(request.getHeader("user-agent"));
         logDTO.setMethod(request.getMethod());
         logDTO.setTime(time);
-        logDTO.setException(exception);
+        logDTO.setException(exceptionMessage);
+        logDTO.setParams(sanitizer.sanitizeText(ServletUtils.getRequestParms(request)));
+        logDTO.setRequestUri(request.getRequestURI());
+        logDTO.setTraceId(AppContext.getTraceId());
 
-        if (StpUtil.isLogin()) {
-            LoginUser loginUser = (LoginUser) StpUtil.getTokenSession().get(Constant.LOGIN_USER_KEY);
+        if (loginUser != null) {
             logDTO.setUserId(loginUser.getId());
             logDTO.setCreateUid(loginUser.getId());
         }
-        logDTO.setParams(ServletUtils.getRequestParms(request));
-        logDTO.setRequestUri(request.getRequestURI());
-        logDTO.setTraceId(traceId);
-        logDTO.setSpanId(spanId);
         return logDTO;
     }
 
-    /**
-     * 检查ip是否异常
-     *
-     * @param requestIp 请求ip
-     * @author yxx
-     */
-    private void checkIpUnusual(String requestIp, LoginUser loginUser, String requestAgent) {
-        if (Boolean.TRUE.equals(ipProperties.getCheck())) {
-            log.info("开始校验ip是否异常~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            // 如果是有效ip 进行校验
-            if (AddressUtil.isValidIPv4(requestIp) || AddressUtil.isIPv6Address(requestIp)) {
-                // 判断ip是否是ipv6
-                boolean iPv6Address = AddressUtil.isIPv6Address(requestIp);
-                if (iPv6Address) {
-                    log.info("该ip：{},为ipv6暂不解析", requestIp);
-                }
-                // 如果已经登录 并且是ipv4 则判断ip是否异常
-                if (AddressUtil.isValidIPv4(requestIp)) {
-                    log.info("校验ipv4");
-                    // 获取登录时ip属地
-                    String ipHomePlace = loginUser.getIpHomePlace();
-                    // 登录时设备名称
-                    String loginAgent = loginUser.getAgent();
-                    // 判断是否发送过ip异常邮件 如果没发送过，进行ip异常校验
-                    boolean exists = redissonCache.exists(RedisConstant.IP_UNUSUAL_OPERATE + loginUser.getId());
-                    if (!exists) {
-                        // 当前操作的ip
-                        String currentIpHomePlace = AddressUtil.getIpHomePlace(requestIp, 2);
-                        String agent = UserAgentUtil.getAgent(requestAgent);
-                        // 判断当前ip归属地和登录时ip归属地是否一致，如果不一致，发送邮件告知用户
-                        if (!currentIpHomePlace.equals(ipHomePlace) && !loginAgent.equals(agent)) {
-                            log.info("校验完成，ip行为异常");
-                            // 邮件正文
-                            String unusual = AddressUtil.getIpHomePlace(requestIp, 3);
-                            String time = LocalDateTimeUtil.format(LocalDateTime.now(), DatePattern.NORM_DATETIME_PATTERN);
-                            String emailContent = mailProperties.getIpUnusualContent().replace("{time}", time)
-                                    .replace("{ip}", requestIp)
-                                    .replace("{address}", unusual)
-                                    .replace("{agent}", agent)
-                                    .replace("{formName}", mailProperties.getFromName())
-                                    .replace("{form}", mailProperties.getFrom()
-                                    .replace("{domain}", myWebProperties.getDomain()));
-                            // 发送邮件
-                            mailUtils.baseSendMail(loginUser.getEmail(), EmailSubjectConstant.IP_UNUSUAL, emailContent, true);
-                            // 加入redis(一天提醒一次)
-                            // 今天剩余时间
-                            Long residueTime = theRestOfTheDaySecond();
-                            redissonCache.put(RedisConstant.IP_UNUSUAL_OPERATE + loginUser.getId(), Boolean.TRUE, residueTime);
-                        }
-                    }
-                }
-            } else {
-                log.info("ip地址：{} 无法解析", requestIp);
-            }
-            log.info("校验ip是否异常结束~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+    private LoginUser currentLoginUser() {
+        if (StpAdminUtil.TYPE.equals(appName) && StpAdminUtil.isLogin()) {
+            return LoginAdminUtils.getLoginUser();
         }
+        if (StpUtil.isLogin()) {
+            return LoginUtils.getLoginUser();
+        }
+        return null;
     }
 
     /**
-     * 今天剩余时间(单位秒)
+     * 获取应用提供的审计持久化实现；未提供时降级为结构化日志输出。
      *
-     * @return {@link Long }
-     * @author yxx
+     * @return 操作日志服务
      */
-    public static Long theRestOfTheDaySecond() {
-        // 获取当前日期和时间
-        LocalDateTime now = LocalDateTime.now();
+    private OperationLogService operationLogService() {
+        return operationLogServiceProvider.getIfAvailable(OperationLogDefaultServiceImpl::new);
+    }
 
-        // 获取今晚的十二点整时间
-        LocalDateTime midnight = now.toLocalDate().atTime(LocalTime.MAX);
+    private long elapsedMillis(long startNanos) {
+        return (System.nanoTime() - startNanos) / 1_000_000L;
+    }
 
-        // 计算当前时间距离今晚十二点整的秒数
-        Duration duration = Duration.between(now, midnight);
-        return duration.getSeconds();
+    private String resultType(Object result) {
+        return result == null ? "void" : result.getClass().getSimpleName();
     }
 }

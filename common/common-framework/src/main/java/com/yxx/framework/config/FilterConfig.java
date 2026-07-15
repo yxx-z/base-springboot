@@ -17,12 +17,13 @@ import org.springframework.core.Ordered;
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 public class FilterConfig {
     @Bean
-    public FilterRegistrationBean<RepeatableFilter> someFilterRegistration() {
+    public FilterRegistrationBean<RepeatableFilter> requestContextFilterRegistration() {
         FilterRegistrationBean<RepeatableFilter> registration = new FilterRegistrationBean<>();
         registration.setFilter(new RepeatableFilter());
         registration.addUrlPatterns("/*");
         registration.setName("repeatableFilter");
-        registration.setOrder(Ordered.LOWEST_PRECEDENCE);
+        // TraceId 必须在鉴权、异常处理和业务日志之前完成初始化。
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
         return registration;
     }
 

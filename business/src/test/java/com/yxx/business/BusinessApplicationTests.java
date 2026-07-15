@@ -1,81 +1,42 @@
 package com.yxx.business;
 
-import cn.dev33.satoken.temp.SaTempUtil;
-import com.yxx.business.model.entity.Menu;
-import com.yxx.business.model.entity.User;
-import com.yxx.business.service.MenuService;
-import com.yxx.common.enums.business.AliPayEnum;
-import com.yxx.common.properties.MailProperties;
-import com.yxx.common.utils.email.MailUtils;
-import com.yxx.common.utils.enums.EnumUtils;
-import com.yxx.common.utils.redis.RedissonCache;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.yaml.snakeyaml.LoaderOptions;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
 
-import java.util.List;
+import java.io.IOException;
+import java.io.InputStream;
 
-@SpringBootTest
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+/**
+ * 业务应用最小结构测试。
+ *
+ * <p>测试阶段不连接开发人员本机的 MySQL、Redis 和邮件服务器。完整基础设施联调应放入
+ * 独立集成测试阶段，并通过 Testcontainers 或 CI 服务容器提供依赖。</p>
+ */
 class BusinessApplicationTests {
-    @Autowired
-    private RedissonCache redissonCache;
-    @Autowired
-    private MenuService menuService;
-    @Autowired
-    private MailUtils mailUtils;
-
-    @Autowired
-    private MailProperties mailProperties;
-
-    String key = "test";
-    String userKey = "user";
 
     @Test
-    void redisPutTest() {
-        redissonCache.put(key, "测试呀");
-
-        User user = new User();
-        user.setLoginCode("120");
-        user.setLoginName("护士");
-        user.setPassword("120");
-        redissonCache.put(userKey, user);
+    void shouldExposeApplicationEntryPoint() {
+        assertNotNull(BusinessApplication.class);
     }
 
     @Test
-    void redisGetTest(){
-        String string = redissonCache.getString(key);
-        System.out.println("string = " + string);
-
-        User value = redissonCache.get(userKey);
-        System.out.println("user = " + value);
+    void shouldParseAllYamlConfigurationsWithoutDuplicateKeys() throws IOException {
+        assertValidYaml("application.yml");
+        assertValidYaml("application-dev.yml");
+        assertValidYaml("application-prod.yml");
     }
 
-    @Test
-    void redisRemoveTest(){
-        redissonCache.remove(key);
-        redissonCache.remove(userKey);
-    }
-
-    @Test
-    void menuTree(){
-        List<Menu> menus = menuService.menuTree();
-        System.out.println("menus = " + menus);
-    }
-
-    @Test
-    void mailTest() {
-        mailUtils.baseSendMail("yangxx@88.com", "主题", "test", false);
-    }
-
-    @Test
-    void tokenTest(){
-        long timeout = SaTempUtil.getTimeout("asldfjaklsjfk");
-        System.out.println("timeout = " + timeout);
-    }
-
-    @Test
-    void enumTest(){
-        String messageByCode = EnumUtils.getMessageByCode(AliPayEnum.class, "40006");
-        System.out.println("messageByCode = " + messageByCode);
+    private void assertValidYaml(String resourceName) throws IOException {
+        LoaderOptions options = new LoaderOptions();
+        options.setAllowDuplicateKeys(false);
+        Yaml yaml = new Yaml(new SafeConstructor(options));
+        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(resourceName)) {
+            assertNotNull(inputStream, "找不到配置文件：" + resourceName);
+            yaml.load(inputStream);
+        }
     }
 }

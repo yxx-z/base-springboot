@@ -4,9 +4,6 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.yxx.common.annotation.auth.ReleaseToken;
 import com.yxx.common.annotation.response.ResponseResult;
 import com.yxx.common.utils.satoken.StpAdminUtil;
-import com.yxx.framework.context.AppContext;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
@@ -14,6 +11,8 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpMethod;
+
 import java.lang.reflect.Method;
 
 /**
@@ -31,8 +30,11 @@ public class ResponseResultInterceptor implements HandlerInterceptor {
     private String appName;
 
     @Override
-    public boolean preHandle(@NotNull HttpServletRequest request, @NotNull HttpServletResponse response,
-                             @NotNull Object handler) {
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        // 浏览器的 CORS 预检请求不携带业务 Token，应交由跨域配置直接处理。
+        if (HttpMethod.OPTIONS.matches(request.getMethod())) {
+            return true;
+        }
         if (handler instanceof HandlerMethod handlerMethod) {
             final Class<?> clazz = handlerMethod.getBeanType();
             final Method method = handlerMethod.getMethod();
@@ -45,16 +47,18 @@ public class ResponseResultInterceptor implements HandlerInterceptor {
                 request.setAttribute(RESPONSE_RESULT_ANN, method.getAnnotation(ResponseResult.class));
             }
 
-            // 判断方法上是否加了放行token校验的注解
-            if ("user".equals(appName) && !method.isAnnotationPresent(ReleaseToken.class)) {
+            boolean releaseToken = clazz.isAnnotationPresent(ReleaseToken.class)
+                    || method.isAnnotationPresent(ReleaseToken.class);
+
+            // 未显式放行的接口必须按照当前应用类型执行登录校验。
+            if ("user".equals(appName) && !releaseToken) {
                 StpUtil.checkLogin();
             }
 
-            if ("admin".equals(appName) && !method.isAnnotationPresent(ReleaseToken.class)) {
+            if ("admin".equals(appName) && !releaseToken) {
                 StpAdminUtil.checkLogin();
             }
         }
-        MDC.put(AppContext.KEY_TRACE_ID, AppContext.getContext().getTraceId());
         return true;
     }
 }

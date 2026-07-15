@@ -15,8 +15,6 @@ public class ErrorResponse {
 
     private String message;
 
-    private String exception;
-
     /**
      * @param apiCode 状态枚举类
      * @param e       异常
@@ -38,7 +36,6 @@ public class ErrorResponse {
         ErrorResponse errorResult = new ErrorResponse();
         errorResult.setCode(apiCode.code());
         errorResult.setMessage(apiCode.message());
-        errorResult.setException(e.getClass().getName());
         return errorResult;
     }
 

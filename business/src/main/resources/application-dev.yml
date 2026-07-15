@@ -4,12 +4,13 @@ spring:
   config:
     activate:
       on-profile: dev
+
   # mysql 通用配置信息内容 使用HikariDataSource连接池
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://127.0.0.1:3306/base_springboot?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&useSSL=false&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://192.168.120.140:3306/baichuan?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&useSSL=false&serverTimezone=Asia/Shanghai
     username: root
-    password: admin123
+    password: "fyGmr,]e9tJ5"
     type: com.zaxxer.hikari.HikariDataSource
     hikari:
       minimum-idle: 10
@@ -30,9 +31,9 @@ spring:
     redis:
       # 设置初始数据库的数据为8
       database: 14
-      host: 127.0.0.1
+      host: 192.168.120.140
       port: 6379
-      # password:
+      password: "@a1a}hm%gZME"
       jedis:
         pool:
           # 连接池最大连接数（使用负值表示没有限制）
@@ -311,19 +312,13 @@ sa-token:
     # Redis数据库索引（默认为0）
     database: 13
     # Redis服务器地址
-    host: 127.0.0.1
+    host: 192.168.120.140
     # Redis服务器连接端口
     port: 6379
     # Redis服务器连接密码（默认为空）
-    password:
+    password: "@a1a}hm%gZME"
     # 连接超时时间
     timeout: 10s
-
-# forest配置
-forest:
-  max-connections: 1000        # 连接池最大连接数
-  connect-timeout: 3000        # 连接超时时间，单位为毫秒
-  read-timeout: 3000           # 数据读取超时时间，单位为毫秒
 
 # 支付宝配置
 ali:
@@ -341,3 +336,8 @@ ali:
   server_url: https://openapi.alipay.com/gateway.do
   # 异步回调接口路径
   notify_url: http://198.44.169.16:6059/aliPay/notifyUrl
+
+logging:
+  level:
+    # 仅开发环境打印 Mapper 调试日志，排查完成后应及时关闭。
+    com.yxx.business.mapper: debug

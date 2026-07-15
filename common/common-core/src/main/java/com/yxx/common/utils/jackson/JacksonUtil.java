@@ -89,7 +89,7 @@ public abstract class JacksonUtil {
         try {
             t = getObjectMapper().readValue(json, clazz);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("JSON 转换对象失败，targetType={}", clazz.getName(), e);
         }
         return t;
     }

@@ -56,8 +56,4 @@ public class ApiException extends RuntimeException {
         this.message = message;
     }
 
-    @Override
-    public synchronized Throwable fillInStackTrace() {
-        return this;
-    }
 }

@@ -58,6 +58,13 @@ spring:
     # 专用密码
     password: 2BCZKEGQgHyCZ5i4
 
+framework:
+  web:
+    cors:
+      # 生产环境必须通过环境变量声明可信前端来源，禁止使用通配符。
+      allowed-origin-patterns:
+        - ${CORS_ALLOWED_ORIGIN_PATTERN:https://example.com}
+
 # 邮箱设置
 mail:
   # 发件人邮箱
@@ -318,12 +325,6 @@ sa-token:
     password: Redis@{110}
     # 连接超时时间
     timeout: 10s
-
-# forest配置
-forest:
-  max-connections: 1000        # 连接池最大连接数
-  connect-timeout: 3000        # 连接超时时间，单位为毫秒
-  read-timeout: 3000           # 数据读取超时时间，单位为毫秒
 
 # 支付宝配置
 ali:

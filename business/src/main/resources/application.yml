@@ -3,7 +3,8 @@ server:
 
 spring:
   profiles:
-    active: @profileActive@
+    # 默认使用开发环境；生产部署必须通过 SPRING_PROFILES_ACTIVE 显式覆盖。
+    active: ${SPRING_PROFILES_ACTIVE:dev}
 
 app:
   name: user
@@ -13,5 +14,5 @@ logging:
     path: ./logs
     name: business
   level:
-    # mapper包下打印debug级别日志
-    com.yxx.business.mapper: debug
+    # 默认不记录 SQL 参数；开发环境可在 application-dev.yml 中临时开启 DEBUG。
+    com.yxx.business.mapper: info

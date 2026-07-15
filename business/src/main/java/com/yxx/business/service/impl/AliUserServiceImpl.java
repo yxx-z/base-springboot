@@ -18,7 +18,7 @@ import com.yxx.common.constant.LoginDevice;
 import com.yxx.common.core.model.AliLoginUser;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.exceptions.ApiException;
-import com.yxx.common.properties.AliProperties;
+import com.yxx.business.properties.AliProperties;
 import com.yxx.common.utils.auth.AliLoginUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

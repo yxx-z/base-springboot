@@ -15,11 +15,11 @@ import com.yxx.business.model.response.AliCreatPayRes;
 import com.yxx.business.model.response.AliWapPayRes;
 import com.yxx.business.model.response.AliWebPayRes;
 import com.yxx.business.service.AliPayService;
-import com.yxx.common.config.AliPayConfig;
+import com.yxx.business.config.AliPayConfig;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.enums.business.AliPayEnum;
 import com.yxx.common.exceptions.ApiException;
-import com.yxx.common.properties.AliProperties;
+import com.yxx.business.properties.AliProperties;
 import com.yxx.common.utils.SnowflakeConfig;
 import com.yxx.common.utils.enums.EnumUtils;
 import com.yxx.common.utils.jackson.JacksonUtil;
@@ -117,10 +117,8 @@ public class AliPayServiceImpl implements AliPayService {
                 throw new ApiException(ApiCode.SYSTEM_ERROR);
             }
         } catch (AlipayApiException | JsonProcessingException e) {
-            // 处理阿里返回结果异常
-            e.printStackTrace();
-            // 抛出系统异常提示
-            throw new ApiException(ApiCode.SYSTEM_ERROR);
+            log.error("创建支付宝交易失败", e);
+            throw new ApiException(ApiCode.SYSTEM_ERROR, e);
         }
     }
 

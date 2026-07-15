@@ -1,6 +1,6 @@
 spring:
   application:
-    name: business
+    name: admin
   config:
     activate:
       on-profile: prod
@@ -57,6 +57,13 @@ spring:
     port: 25
     # 专用密码
     password: 2BCZKEGQgHyCZ5i4
+
+framework:
+  web:
+    cors:
+      # 生产环境必须通过环境变量声明可信前端来源，禁止使用通配符。
+      allowed-origin-patterns:
+        - ${CORS_ALLOWED_ORIGIN_PATTERN:https://example.com}
 
 # 邮箱设置
 mail:
@@ -318,4 +325,3 @@ sa-token:
     password:
     # 连接超时时间
     timeout: 10s
-

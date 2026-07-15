@@ -38,16 +38,17 @@ import com.yxx.common.utils.redis.RedissonCache;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.DigestUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -74,6 +75,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     private final MyWebProperties myWebProperties;
 
+    /**
+     * 统一密码编码器，确保注册、登录、修改和重置密码采用同一套 BCrypt 策略。
+     */
+    private final PasswordEncoder passwordEncoder;
+
+    /** 安全通知等非核心链路任务统一使用的有界线程池。 */
+    @Qualifier("applicationTaskExecutor")
+    private final Executor applicationTaskExecutor;
+
     @Override
     public LoginRes login(LoginReq request) {
         // 根据登录账号获取用户信息
@@ -82,9 +92,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 如果用户信息不存在，抛出异常
         ApiAssert.isTrue(ApiCode.USER_NOT_EXIST, ObjectUtil.isNotNull(user));
         // 加密请求参数中的密码
-        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         // 如果请求参数中的密码加密后和数据库中不一致，抛出异常
-        ApiAssert.isTrue(ApiCode.PASSWORD_ERROR, encoder.matches(request.getPassword(), user.getPassword()));
+        ApiAssert.isTrue(ApiCode.PASSWORD_ERROR, passwordEncoder.matches(request.getPassword(), user.getPassword()));
 
         // 初始化登录信息
         LoginUser loginUser = new LoginUser();
@@ -126,7 +135,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             BeanUtils.copyProperties(user, checkUser);
 
             // 异地登录校验
-            CompletableFuture.runAsync(() -> checkRemoteLogin(checkUser, ipHomePlace, requestIp, agent));
+            CompletableFuture.runAsync(
+                    () -> checkRemoteLogin(checkUser, ipHomePlace, requestIp, agent),
+                    applicationTaskExecutor);
 
             user.setAgent(agent);
             user.setIpHomePlace(ipHomePlace);
@@ -163,10 +174,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 如果存在该账号信息 表示用户已存在，抛出提示
         ApiAssert.isTrue(ApiCode.USER_EXIST,
                 ObjectUtil.isNull(userByLoginCode) && ObjectUtil.isNull(userByEmail));
-        // 创建 BCryptPasswordEncoder 对象
-        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
         // 对密码进行哈希
-        String password = encoder.encode(req.getPassword());
+        String password = passwordEncoder.encode(req.getPassword());
 
 
         // 初始化用户类
@@ -232,6 +241,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return Boolean.TRUE;
     }
 
+    @Transactional(rollbackFor = Exception.class)
     @Override
     public Boolean resetPwd(ResetPwdReq req) {
         // 获取临时token的存活时间 -1 代表永久，-2 代表token无效
@@ -245,13 +255,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 如果用户为空，抛出提示
         ApiAssert.isTrue(ApiCode.DATE_ERROR, ObjectUtil.isNotNull(user));
 
-        // 删除临时token
-        SaTempUtil.deleteToken(req.getToken());
-
-        // 加密密码
-        String password = DigestUtils.md5DigestAsHex(req.getNewPassword().getBytes());
+        // 使用统一 BCrypt 编码器生成新密码，避免重置密码后无法通过登录校验。
+        String password = passwordEncoder.encode(req.getNewPassword());
         // 根据邮箱修改密码
-        return update(new LambdaUpdateWrapper<User>().eq(User::getEmail, email).set(User::getPassword, password));
+        boolean updated = update(new LambdaUpdateWrapper<User>().eq(User::getEmail, email).set(User::getPassword, password));
+        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, updated);
+
+        // 数据库更新成功后再销毁一次性令牌，防止更新失败时用户无法重新提交。
+        SaTempUtil.deleteToken(req.getToken());
+        return Boolean.TRUE;
     }
 
     @Override
@@ -265,13 +277,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 根据登录id 获取该用户详情
         User user = getById(LoginUtils.getUserId());
 
-        // 加密请求参数中的旧密码
-        String password = DigestUtils.md5DigestAsHex(req.getPassword().getBytes());
         // 匹对请求参数中的旧密码是否正确
-        ApiAssert.isFalse(ApiCode.ORIGINAL_PASSWORD_ERROR, user.getPassword().equals(password));
+        ApiAssert.isTrue(ApiCode.ORIGINAL_PASSWORD_ERROR, passwordEncoder.matches(req.getPassword(), user.getPassword()));
 
-        // 加密新密码
-        String newPassword = DigestUtils.md5DigestAsHex(req.getNewPassword().getBytes());
+        // 新密码继续使用统一 BCrypt 策略保存。
+        String newPassword = passwordEncoder.encode(req.getNewPassword());
         // 根据用户id修改新密码
         return update(new LambdaUpdateWrapper<User>().eq(User::getId, user.getId()).set(User::getPassword, newPassword));
     }

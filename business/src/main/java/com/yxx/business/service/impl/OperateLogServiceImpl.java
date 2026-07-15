@@ -23,7 +23,7 @@ import org.springframework.stereotype.Service;
 public class OperateLogServiceImpl extends ServiceImpl<OperateLogMapper, OperateLog>
         implements OperateLogService, OperationLogService {
 
-    @Async
+    @Async("applicationTaskExecutor")
     @Override
     public void saveLog(LogDTO dto) {
         // 初始化日志类

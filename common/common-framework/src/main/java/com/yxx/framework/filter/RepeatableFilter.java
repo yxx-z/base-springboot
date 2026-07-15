@@ -1,47 +1,85 @@
 package com.yxx.framework.filter;
 
-import cn.hutool.core.text.CharSequenceUtil;
-import com.yxx.common.utils.ApplicationUtils;
 import com.yxx.common.utils.RepeatedlyRequestWrapper;
-import com.yxx.common.utils.SnowflakeConfig;
 import com.yxx.framework.context.AppContext;
-import jakarta.servlet.*;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.extern.slf4j.Slf4j;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.MDC;
 import org.springframework.http.MediaType;
 
 import java.io.IOException;
+import java.util.UUID;
+import java.util.regex.Pattern;
 
 /**
- * Repeatable过滤器
+ * 请求上下文与可重复读取请求体过滤器。
  *
- * @author yxx
- * @since 2022/4/13 17:29
+ * <p>该过滤器负责为每个请求初始化 TraceId，并在请求完成后可靠清理线程上下文。
+ * 对 JSON 请求额外包装请求体，以支持操作日志等基础设施重复读取参数。</p>
  */
-@Slf4j
 public class RepeatableFilter implements Filter {
+
+    /**
+     * 仅接受长度为 8 至 64 的安全字符，避免客户端通过请求头污染日志内容。
+     */
+    private static final Pattern TRACE_ID_PATTERN = Pattern.compile("^[A-Za-z0-9_-]{8,64}$");
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
-        ServletRequest requestWrapper = null;
-        if (request instanceof HttpServletRequest httpServletRequest
-                && StringUtils.startsWithIgnoreCase(request.getContentType(), MediaType.APPLICATION_JSON_VALUE)) {
-            requestWrapper = new RepeatedlyRequestWrapper(httpServletRequest, response);
-            String traceId = httpServletRequest.getHeader("Trace-Id");
-            if (CharSequenceUtil.isNotBlank(traceId)) {
-                log.info(traceId);
-            } else {
-                SnowflakeConfig snowflake = ApplicationUtils.getBean(SnowflakeConfig.class);
-                AppContext.getContext().setTraceId(snowflake.orderNum());
-            }
-        }
-        if (null == requestWrapper) {
+        if (!(request instanceof HttpServletRequest httpRequest)
+                || !(response instanceof HttpServletResponse httpResponse)) {
             chain.doFilter(request, response);
-        } else {
-            chain.doFilter(requestWrapper, response);
+            return;
+        }
+
+        String traceId = resolveTraceId(httpRequest);
+        AppContext.setTraceId(traceId);
+        MDC.put(AppContext.KEY_TRACE_ID, traceId);
+        httpResponse.setHeader(AppContext.KEY_TRACE_ID, traceId);
+
+        ServletRequest requestToUse = wrapJsonRequestIfNecessary(httpRequest, response);
+        try {
+            chain.doFilter(requestToUse, response);
+        } finally {
+            // Tomcat 工作线程会被重复使用，必须在 finally 中同时清理业务上下文和 MDC。
+            MDC.remove(AppContext.KEY_TRACE_ID);
+            AppContext.clear();
         }
     }
 
+    /**
+     * 解析客户端 TraceId；格式不可信或未传入时生成新的随机标识。
+     *
+     * @param request HTTP 请求
+     * @return 可安全写入日志的 TraceId
+     */
+    private String resolveTraceId(HttpServletRequest request) {
+        String candidate = StringUtils.trim(request.getHeader(AppContext.KEY_TRACE_ID));
+        if (candidate != null && TRACE_ID_PATTERN.matcher(candidate).matches()) {
+            return candidate;
+        }
+        return UUID.randomUUID().toString().replace("-", "");
+    }
+
+    /**
+     * JSON 请求需要支持重复读取请求体，其他请求保持 Servlet 容器原始行为。
+     *
+     * @param request  HTTP 请求
+     * @param response Servlet 响应
+     * @return 实际进入过滤器链的请求对象
+     */
+    private ServletRequest wrapJsonRequestIfNecessary(HttpServletRequest request, ServletResponse response)
+            throws IOException {
+        if (StringUtils.startsWithIgnoreCase(request.getContentType(), MediaType.APPLICATION_JSON_VALUE)) {
+            return new RepeatedlyRequestWrapper(request, response);
+        }
+        return request;
+    }
 }

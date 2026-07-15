@@ -1,14 +1,16 @@
 package com.yxx.framework.advice;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yxx.common.annotation.response.ResponseResult;
 import com.yxx.common.core.response.BaseResponse;
 import com.yxx.common.core.response.ErrorResponse;
 import com.yxx.framework.context.AppContext;
 import lombok.extern.slf4j.Slf4j;
-import org.jetbrains.annotations.NotNull;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -26,6 +28,12 @@ import jakarta.servlet.http.HttpServletRequest;
 @ControllerAdvice
 public class ResponseResultHandler implements ResponseBodyAdvice<Object> {
 
+    private final ObjectMapper objectMapper;
+
+    public ResponseResultHandler(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
+
     /**
      * 标记名称
      */
@@ -40,9 +48,11 @@ public class ResponseResultHandler implements ResponseBodyAdvice<Object> {
      * @return return
      */
     @Override
-    public boolean supports(@NotNull MethodParameter arg0, @NotNull Class<? extends HttpMessageConverter<?>> arg1) {
+    public boolean supports(MethodParameter arg0, Class<? extends HttpMessageConverter<?>> arg1) {
         ServletRequestAttributes sra = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        assert sra != null;
+        if (sra == null) {
+            return false;
+        }
         HttpServletRequest request = sra.getRequest();
         // 判断请求是否有包装标记
         ResponseResult responseResultAnn = (ResponseResult) request.getAttribute(RESPONSE_RESULT_ANN);
@@ -62,19 +72,29 @@ public class ResponseResultHandler implements ResponseBodyAdvice<Object> {
      * @return the body that was passed in or a modified (possibly new) instance
      */
     @Override
-    public Object beforeBodyWrite(Object body, @NotNull MethodParameter arg1, @NotNull MediaType arg2,
-                                  @NotNull Class<? extends HttpMessageConverter<?>> arg3,
-                                  @NotNull ServerHttpRequest arg4, @NotNull ServerHttpResponse arg5) {
-        String traceId = AppContext.getContext().getTraceId();
+    public Object beforeBodyWrite(Object body, MethodParameter arg1, MediaType arg2,
+                                  Class<? extends HttpMessageConverter<?>> arg3,
+                                  ServerHttpRequest arg4, ServerHttpResponse arg5) {
+        String traceId = AppContext.getTraceId();
+        Object wrappedBody;
         if (body instanceof ErrorResponse error) {
-            return BaseResponse.fail(error.getCode(), error.getMessage(), traceId);
-        } else if (body instanceof BaseResponse baseResponse) {
+            wrappedBody = BaseResponse.fail(error.getCode(), error.getMessage(), traceId);
+        } else if (body instanceof BaseResponse<?> baseResponse) {
             baseResponse.setTraceId(traceId);
-            return body;
-        } else if (body instanceof String) {
-            return BaseResponse.success(body, traceId);
+            wrappedBody = body;
+        } else {
+            wrappedBody = BaseResponse.success(body, traceId);
         }
 
-        return BaseResponse.success(body, traceId);
+        // StringHttpMessageConverter 只能写出字符串，需显式序列化统一响应对象。
+        if (StringHttpMessageConverter.class.isAssignableFrom(arg3)) {
+            arg5.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+            try {
+                return objectMapper.writeValueAsString(wrappedBody);
+            } catch (JsonProcessingException exception) {
+                throw new IllegalStateException("统一响应序列化失败", exception);
+            }
+        }
+        return wrappedBody;
     }
 }
