@@ -4,10 +4,9 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yxx.admin.mapper.AdminRolePermissionMapper;
 import com.yxx.admin.model.entity.AdminRolePermission;
 import com.yxx.admin.service.AdminRolePermissionService;
-import com.yxx.admin.model.entity.AdminUserRole;
 import com.yxx.admin.service.AdminUserRoleService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.yxx.security.context.LoginSessionService;
+import com.yxx.security.context.SessionInvalidationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +22,7 @@ public class AdminRolePermissionServiceImpl
         implements AdminRolePermissionService {
 
     private final AdminUserRoleService userRoleService;
-    private final LoginSessionService loginSessionService;
+    private final SessionInvalidationService sessionInvalidationService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -39,11 +38,20 @@ public class AdminRolePermissionServiceImpl
             }).toList();
             saveBatch(relations);
         }
-        userRoleService.list(new LambdaQueryWrapper<AdminUserRole>()
-                        .eq(AdminUserRole::getRoleId, roleId))
+        userRoleService.listUserIdsByRoleId(roleId).stream()
+                .forEach(sessionInvalidationService::invalidateAdminAfterCommit);
+    }
+
+    @Override
+    public List<Integer> listPermissionIdsByRoleIds(Collection<Integer> roleIds) {
+        if (roleIds == null || roleIds.isEmpty()) {
+            return List.of();
+        }
+        return list(new LambdaQueryWrapper<AdminRolePermission>()
+                        .in(AdminRolePermission::getRoleId, roleIds))
                 .stream()
-                .map(AdminUserRole::getUserId)
+                .map(AdminRolePermission::getPermissionId)
                 .distinct()
-                .forEach(loginSessionService::invalidateAdmin);
+                .toList();
     }
 }

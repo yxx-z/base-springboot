@@ -6,6 +6,7 @@ import com.yxx.business.auth.command.AlipayAuthenticationCommand;
 import com.yxx.business.model.response.LoginRes;
 import com.yxx.common.annotation.response.ResponseResult;
 import com.yxx.framework.audit.annotation.AuditLog;
+import com.yxx.framework.audit.model.AuditEventType;
 import com.yxx.security.annotation.AllowAnonymous;
 import com.yxx.security.constant.LoginDeviceType;
 import jakarta.validation.Valid;
@@ -44,7 +45,8 @@ public class AliAppletAuthController {
      * @return 登录 Token
      */
     @AllowAnonymous
-    @AuditLog(module = "鉴权模块", action = "支付宝授权登录", recordRequest = false)
+    @AuditLog(module = "鉴权模块", action = "支付宝授权登录",
+            eventType = AuditEventType.AUTHENTICATION, recordRequest = false)
     @PostMapping("/login")
     public LoginRes login(@Valid @RequestBody AlipayLoginReq req) {
         String token = authenticationService.login(

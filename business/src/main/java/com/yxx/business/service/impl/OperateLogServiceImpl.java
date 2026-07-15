@@ -6,7 +6,7 @@ import com.yxx.business.mapper.OperateLogMapper;
 import com.yxx.business.model.request.OperateLogReq;
 import com.yxx.business.model.response.OperateLogResp;
 import com.yxx.business.service.OperateLogService;
-import com.yxx.common.core.model.OperateLog;
+import com.yxx.business.model.entity.OperateLog;
 import com.yxx.framework.audit.model.AuditEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
@@ -27,13 +27,14 @@ public class OperateLogServiceImpl extends ServiceImpl<OperateLogMapper, Operate
      *
      * @param event 审计事件
      */
-    @Async("applicationTaskExecutor")
+    @Async("auditTaskExecutor")
     @EventListener
     public void saveAuditEvent(AuditEvent event) {
         OperateLog operateLog = new OperateLog();
         operateLog.setUserId(event.actor() == null ? null : event.actor().actorId());
         operateLog.setCreateUid(event.actor() == null ? null : event.actor().actorId());
         operateLog.setType(event.type());
+        operateLog.setEventType(event.eventType().name());
         operateLog.setModule(event.module());
         operateLog.setTitle(event.action());
         operateLog.setResource(event.resource());

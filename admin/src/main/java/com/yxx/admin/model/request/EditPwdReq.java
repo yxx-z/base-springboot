@@ -18,13 +18,13 @@ public class EditPwdReq {
      * 旧密码
      */
     @NotBlank(message = "旧密码不能为空")
-    @Length(min = 8, max = 15, message = "旧密码的长度为8-20位")
+    @Length(min = 8, max = 20, message = "旧密码的长度应为8-20位")
     private String password;
 
     /**
      * 新密码
      */
     @NotBlank(message = "新密码不能为空")
-    @Length(min = 8, max = 15, message = "新密码的长度应为8-20位")
+    @Length(min = 8, max = 20, message = "新密码的长度应为8-20位")
     private String newPassword;
 }

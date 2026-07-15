@@ -33,6 +33,9 @@ public class AdminUser extends BaseEntity implements Serializable{
      */
     private String password;
 
+    /** 管理员状态：1-正常，0-停用。 */
+    private Boolean status;
+
     /**
      * 手机号
      */

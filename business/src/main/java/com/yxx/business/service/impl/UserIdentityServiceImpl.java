@@ -21,6 +21,7 @@ public class UserIdentityServiceImpl extends ServiceImpl<UserIdentityMapper, Use
         return Optional.ofNullable(getOne(new LambdaQueryWrapper<UserIdentity>()
                 .eq(UserIdentity::getIdentityType, identityType)
                 .eq(UserIdentity::getIdentifier, identifier)
+                .eq(UserIdentity::getVerified, Boolean.TRUE)
                 .eq(UserIdentity::getStatus, Boolean.TRUE)));
     }
 
@@ -29,6 +30,7 @@ public class UserIdentityServiceImpl extends ServiceImpl<UserIdentityMapper, Use
         return Optional.ofNullable(getOne(new LambdaQueryWrapper<UserIdentity>()
                 .eq(UserIdentity::getUserId, userId)
                 .eq(UserIdentity::getIdentityType, identityType)
+                .eq(UserIdentity::getVerified, Boolean.TRUE)
                 .eq(UserIdentity::getStatus, Boolean.TRUE)));
     }
 }

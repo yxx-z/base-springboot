@@ -5,6 +5,7 @@ import com.yxx.admin.model.response.LoginRes;
 import com.yxx.admin.service.AdminUserService;
 import com.yxx.common.annotation.response.ResponseResult;
 import com.yxx.framework.audit.annotation.AuditLog;
+import com.yxx.framework.audit.model.AuditEventType;
 import com.yxx.security.annotation.AllowAnonymous;
 import com.yxx.security.satoken.StpAdminUtil;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +39,8 @@ public class AdminAuthController {
      * @author yxx
      */
     @AllowAnonymous
-    @AuditLog(module = "鉴权模块", action = "管理员密码登录", recordRequest = false)
+    @AuditLog(module = "鉴权模块", action = "管理员密码登录",
+            eventType = AuditEventType.AUTHENTICATION, recordRequest = false)
     @PostMapping("/login")
     public LoginRes login(@Valid @RequestBody LoginReq request) {
         return adminUserService.login(request);
@@ -49,7 +51,7 @@ public class AdminAuthController {
      *
      * @author yxx
      */
-    @AuditLog(module = "鉴权模块", action = "管理员退出")
+    @AuditLog(module = "鉴权模块", action = "管理员退出", eventType = AuditEventType.AUTHENTICATION)
     @PostMapping("/logout")
     public void logout() {
         StpAdminUtil.logout();

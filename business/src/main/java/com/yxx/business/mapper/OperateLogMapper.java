@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yxx.business.model.request.OperateLogReq;
 import com.yxx.business.model.response.OperateLogResp;
-import com.yxx.common.core.model.OperateLog;
+import com.yxx.business.model.entity.OperateLog;
 import org.apache.ibatis.annotations.Param;
 
 /**

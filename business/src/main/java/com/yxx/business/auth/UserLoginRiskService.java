@@ -15,6 +15,7 @@ import com.yxx.common.utils.ServletUtils;
 import com.yxx.common.utils.agent.UserAgentUtil;
 import com.yxx.common.utils.email.MailUtils;
 import com.yxx.common.utils.ip.AddressUtil;
+import com.yxx.common.utils.ip.ClientIpResolver;
 import com.yxx.common.utils.ip.IpUtil;
 import com.yxx.common.utils.redis.RedissonCache;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +45,8 @@ public class UserLoginRiskService {
     private final MailUtils mailUtils;
     private final MailProperties mailProperties;
     private final MyWebProperties webProperties;
+    private final ClientIpResolver clientIpResolver;
+    private final AddressUtil addressUtil;
 
     @Qualifier("applicationTaskExecutor")
     private final Executor applicationTaskExecutor;
@@ -62,8 +65,8 @@ public class UserLoginRiskService {
             return;
         }
 
-        String requestIp = IpUtil.getRequestIp();
-        String ipRegion = AddressUtil.getIpHomePlace(requestIp, 2);
+        String requestIp = clientIpResolver.resolve(ServletUtils.getRequest());
+        String ipRegion = addressUtil.getIpHomePlace(requestIp, 2);
         User previousSnapshot = new User();
         BeanUtils.copyProperties(user, previousSnapshot);
 
@@ -76,7 +79,7 @@ public class UserLoginRiskService {
     }
 
     private void checkRemoteLogin(User user, String currentRegion, String requestIp, String currentAgent) {
-        if (!AddressUtil.isValidIPv4(requestIp)) {
+        if (!IpUtil.isValidIPv4(requestIp)) {
             return;
         }
         if (redissonCache.exists(RedisConstant.IP_UNUSUAL_LOGIN + user.getId())) {
@@ -90,7 +93,7 @@ public class UserLoginRiskService {
             return;
         }
 
-        String unusualAddress = AddressUtil.getIpHomePlace(requestIp, 3);
+        String unusualAddress = addressUtil.getIpHomePlace(requestIp, 3);
         String time = LocalDateTimeUtil.format(LocalDateTime.now(), DatePattern.NORM_DATETIME_PATTERN);
         String content = mailProperties.getIpUnusualContent()
                 .replace("{time}", time)

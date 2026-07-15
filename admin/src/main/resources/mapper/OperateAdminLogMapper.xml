@@ -4,26 +4,39 @@
 
     <select id="authLogPage" resultType="com.yxx.admin.model.response.OperateLogResp">
         SELECT
-            id,
-            module,
-            title,
-            resource,
-            ip,
-            type,
-            exception,
-            create_time
+            operate_admin_log.id,
+            admin_user.login_code,
+            admin_user.login_name,
+            operate_admin_log.module,
+            operate_admin_log.title,
+            operate_admin_log.resource,
+            operate_admin_log.ip,
+            operate_admin_log.type,
+            operate_admin_log.exception,
+            operate_admin_log.create_time
         FROM
             operate_admin_log
+            LEFT JOIN admin_user ON operate_admin_log.user_id = admin_user.id
         <where>
-            module = "鉴权模块"
+            operate_admin_log.is_delete = 0
+            AND operate_admin_log.event_type = 'AUTHENTICATION'
             <if test="req.startTime != null">
-                AND create_time &gt;= #{req.startTime}
-                <if test="req.endTime != null">
-                    AND create_time &lt;= #{req.endTime}
-                </if>
+                AND operate_admin_log.create_time &gt;= #{req.startTime}
+            </if>
+            <if test="req.endTime != null">
+                AND operate_admin_log.create_time &lt;= #{req.endTime}
+            </if>
+            <if test="req.loginCode != null and req.loginCode != ''">
+                AND admin_user.login_code LIKE CONCAT('%', #{req.loginCode}, '%')
+            </if>
+            <if test="req.loginName != null and req.loginName != ''">
+                AND admin_user.login_name LIKE CONCAT('%', #{req.loginName}, '%')
+            </if>
+            <if test="req.title != null and req.title != ''">
+                AND operate_admin_log.title LIKE CONCAT('%', #{req.title}, '%')
             </if>
         </where>
-        ORDER BY id DESC
+        ORDER BY operate_admin_log.id DESC
     </select>
 
     <select id="operationLogPage" resultType="com.yxx.admin.model.response.OperateLogResp">
@@ -43,12 +56,21 @@
             LEFT JOIN admin_user ON operate_admin_log.user_id = admin_user.id
         <where>
             operate_admin_log.is_delete = 0
-            AND operate_admin_log.module != "鉴权模块"
+            AND operate_admin_log.event_type != 'AUTHENTICATION'
             <if test="req.startTime != null">
                 AND operate_admin_log.create_time &gt;= #{req.startTime}
-                <if test="req.endTime != null">
-                    AND operate_admin_log.create_time &lt;= #{req.endTime}
-                </if>
+            </if>
+            <if test="req.endTime != null">
+                AND operate_admin_log.create_time &lt;= #{req.endTime}
+            </if>
+            <if test="req.loginCode != null and req.loginCode != ''">
+                AND admin_user.login_code LIKE CONCAT('%', #{req.loginCode}, '%')
+            </if>
+            <if test="req.loginName != null and req.loginName != ''">
+                AND admin_user.login_name LIKE CONCAT('%', #{req.loginName}, '%')
+            </if>
+            <if test="req.title != null and req.title != ''">
+                AND operate_admin_log.title LIKE CONCAT('%', #{req.title}, '%')
             </if>
         </where>
         ORDER BY operate_admin_log.id DESC

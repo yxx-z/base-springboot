@@ -295,12 +295,12 @@ sa-token:
   token-name: Authorization
   # token前缀
   token-prefix: Bearer
-  # token有效期，单位s 默认30天, -1代表永不过期
-  timeout: 2592000
+  # 用户端token最长有效期：7天
+  timeout: 604800
   # 是否打开自动续签 (如果此值为true, 框架会在每次直接或间接调用 getLoginId() 时进行一次过期检查与续签操作)
   autoRenew: true
   # token临时有效期 (指定时间内无操作就视为token过期) 单位: 秒
-  active-timeout: -1
+  active-timeout: 7200
   # 是否允许同一账号并发登录 (为true时允许一起登录, 为false时新登录挤掉旧登录)
   is-concurrent: false
   # 在多人登录同一账号时，是否共用一个token (为true时所有登录共用一个token, 为false时每次登录新建一个token)
@@ -309,8 +309,6 @@ sa-token:
   token-style: uuid
   # 是否输出操作日志
   is-log: false
-  # jwt秘钥 请更改为自己的，随意乱按几个字母数字就行
-  jwt-secret-key: TUx8IaslTsibligsqvzLmNvbQECAwQF
   # 是否在初始化配置时打印版本字符画
   is-print: false
   # 登录逻辑缓存和业务逻辑缓存分离
@@ -326,12 +324,10 @@ sa-token:
     # 连接超时时间
     timeout: 10s
 
-# 支付宝配置
+# 支付宝 OAuth 授权登录配置
 ali:
   # 小程序appId
   app_id: 9021000127674048
-  #商户公钥
-  merchant_public_key: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAo2XnNH1Ym2mANXrJVhozeiCgya8G6za0fOWeHTQJvs9itpm3M8TRbkBJUC45GHNOo2TuMPOpU29PFC9/lIGiNCARfMaA53KUYtuydlyZLQXxyyB/mX/C192rqauK7Ql+lmjmIDwQsqTxXi5Cmw9jasm0JUkCP5qNbZvy78taZgYyb7uPYc1VpAC3wR36JQJPaScg0A0Ia/nnx+CLHKPQgB4AoFML1F4kx4yBaGqEuAk++0xxFKW0rLxxfjprmFGg5yAXr/zhKpeua7NCmF/+Nvit/S0/KZog3rbe88A9iwuTAg0h9iyb7tWH/+2rcp9KPYQ4ibOhor5U+kw2kHbuYQIDAQAB
   # 商户私钥
   merchant_private_key: MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQCjZec0fVibaYA1eslWGjN6IKDJrwbrNrR85Z4dNAm+z2K2mbczxNFuQElQLjkYc06jZO4w86lTb08UL3+UgaI0IBF8xoDncpRi27J2XJktBfHLIH+Zf8LX3aupq4rtCX6WaOYgPBCypPFeLkKbD2NqybQlSQI/mo1tm/Lvy1pmBjJvu49hzVWkALfBHfolAk9pJyDQDQhr+efH4Isco9CAHgCgUwvUXiTHjIFoaoS4CT77THEUpbSsvHF+OmuYUaDnIBev/OEql65rs0KYX/42+K39LT8pmiDett7zwD2LC5MCDSH2LJvu1Yf/7atyn0o9hDiJs6GivlT6TDaQdu5hAgMBAAECggEBAKNX3ICpiambFvLfc2QivzEoavQTh3wd7OIqfRy+h7t7ADiAhBc5ew+XLnL8MlGR+5v16vN+sdfZnxkTvptL2EX5hOHSYsx8y3/kFoyiVvIeTi/8pfJiOPqo+9Gazj/VzPk5lkvFIAAmSbAX2Le/82euier4CEpjC1z2mC5FgHIZyGxRwRSinKMOc0KkigxWnjfUmugTAKgjF40oiaRRFR0JrFo9tfGI682ZCajYSsubnAldlv2rj5/OnutWgJt314TtDD11uOehvq3lVkV0KAyRrfeXj/5SRxG1bFJnUcxmsUdQsu+89xQTlgXebIaEFnqwhp0D/yH7arnzYqa+QEECgYEA1sOfjubFPOv8O5u0Hr3octIrmxqD2lCU5Mp2+7WS4IDbXGH1iciEpR5Vzf2YHyCxnAcDz6blphuQ3dCmPBuwI09/5R7TyIhAHqpUq8FW0NC9jEwqYrSaXzFLvHnxD4fPVIzQW1s86EVDvE0gfyh7o4LhcFRqsBlFQ/Q1sCYmy0kCgYEAwsV254mYmUzlnEv1OCTUwl1h+WBYSF1orZooVEBcCbpAMacNCEKdIF7gwxw5/3MQQXRPgaLh3Qu9YumesGc8SU2RjjMrbHXdQ2l3XLR56iT9DRAMIKG1JyrB7JCPZ5Q8pc+1ODvR/2i90DW3dx1WXOTNPGNGGyfog3UbhTkWMlkCgYBrqYnVg46hKdQ6taWoO5/J396IVNSAnyDlSTI4oR/OeAp/14PV3LXSaNCvAVA/Wo5vH30jnhFGIk+PQ0fynhbAvNvqqneU8eji9pSXvcady+cZ7Bzbeppg2j+TbrYQCQ9A3Y6eHbD856w7O5bs6AiDQdtuCoOpYCG/HS/E7HtKMQKBgQDBohKeCXs+HObAxfsaP/OM782xYIkkGEkzHekuKXXW7eVX953LMn6HagvFrVAzl673g6xvUwF9Amjb5youcdPLhGRKnLB0+ZBprnZOIdZ6Yx94VxXXcyxnrehxSR5oeUT6C088gqw5YWYjkuO8ddwgKg+oE4HlCX3tAwXDIofgsQKBgQCvV1Je/AgROj9iNFViDboNXf/dOnriVUhjq5czTnVgERjDIAq5RqnQ4eRh5G5TrQAisFhv7I0ex1k9tvOdzAYlnio/DZ8Wu5ET1iPNw3G4FMMEFfsG8pqkX7ndkpKrXuAvibTO6JskGQSQlEJ8TG7yqbBCH8ZlqnHJhy/MR0n/cA==
   # 编码格式
@@ -342,9 +338,5 @@ ali:
   sign_type: RSA2
   # 支付宝网关
   server_url: https://openapi-sandbox.dl.alipaydev.com/gateway.do
-  # 异步回调接口路径 支付后支付宝会调用此接口 可在此接口判断是否支付成功
-  notify_url: http://198.44.169.16:6059/aliPay/notifyUrl
-  # 同步回调接口路径 支付成功后会跳转到该页面 一般该路径为前端路径，主要是告知用户支付成功
-  return_url: http://198.44.169.16
   # 返回格式
   format: json

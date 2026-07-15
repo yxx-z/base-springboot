@@ -1,0 +1,19 @@
+spring:
+  main:
+    web-application-type: none
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${BOOTSTRAP_DB_URL}
+    username: ${BOOTSTRAP_DB_USERNAME}
+    password: ${BOOTSTRAP_DB_PASSWORD}
+
+bootstrap:
+  admin:
+    login-code: ${BOOTSTRAP_ADMIN_LOGIN_CODE}
+    login-name: ${BOOTSTRAP_ADMIN_LOGIN_NAME}
+    email: ${BOOTSTRAP_ADMIN_EMAIL}
+    password: ${BOOTSTRAP_ADMIN_PASSWORD}
+
+logging:
+  level:
+    root: info

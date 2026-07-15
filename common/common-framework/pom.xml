@@ -12,34 +12,36 @@
 
     <artifactId>common-framework</artifactId>
     <packaging>jar</packaging>
-    <description>Web、安全、数据访问、缓存、日志及异步执行基础设施</description>
+    <description>基础设施聚合入口与跨领域异步执行配置</description>
 
     <dependencies>
         <dependency>
             <groupId>com.yxx</groupId>
-            <artifactId>common-core</artifactId>
+            <artifactId>common-web</artifactId>
         </dependency>
         <dependency>
             <groupId>com.yxx</groupId>
             <artifactId>common-security</artifactId>
         </dependency>
-
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-aop</artifactId>
+            <groupId>com.yxx</groupId>
+            <artifactId>common-cache</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <groupId>com.yxx</groupId>
+            <artifactId>common-mail</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-jsqlparser</artifactId>
-            <version>${mybatis-plus.version}</version>
+            <groupId>com.yxx</groupId>
+            <artifactId>common-ip</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.springframework.security</groupId>
-            <artifactId>spring-security-crypto</artifactId>
+            <groupId>com.yxx</groupId>
+            <artifactId>common-data</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.yxx</groupId>
+            <artifactId>common-audit</artifactId>
         </dependency>
 
         <dependency>

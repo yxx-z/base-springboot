@@ -16,30 +16,38 @@
 ```text
 base-springboot
 ├── common
-│   ├── common-core       公共契约、模型、枚举、注解和跨应用复用能力
-│   ├── common-security   统一认证主体、安全上下文、Sa-Token 适配和安全注解
-│   └── common-framework  Web、安全、数据访问、缓存、日志和异步基础设施
-├── business              用户端业务及支付宝等业务专属集成
+│   ├── common-core       纯 Java 公共契约、错误码和基础工具
+│   ├── common-cache      Redis、Redisson 和缓存序列化
+│   ├── common-security   登录主体、Sa-Token、密码与会话安全
+│   ├── common-web        Servlet、统一响应、JSON 和 Web 拦截器
+│   ├── common-ip         可信代理客户端 IP 与归属地解析
+│   ├── common-mail       邮件发送和邮件配置
+│   ├── common-data       MyBatis-Plus 和审计字段填充
+│   ├── common-audit      审计注解、事件和切面
+│   └── common-framework  基础设施聚合入口和异步执行器
+├── business              用户端业务及支付宝 OAuth 登录
 ├── admin                 管理端业务
-└── db                    数据库基线脚本
+└── db                    数据库迁移说明
 ```
 
 模块依赖方向固定为：
 
 ```text
-admin / business -> common-framework -> common-security -> common-core
+admin / business -> common-framework -> 各职责模块 -> common-core
 ```
 
 约束原则：
 
 - `common-core` 不允许依赖具体业务模块。
-- `common-framework` 负责组装 Spring 基础设施，不承载用户、订单、支付等业务规则。
+- `common-core` 不依赖 Spring Web、MyBatis、Redis、邮件和第三方平台 SDK。
+- `common-framework` 只作为基础设施聚合入口，不承载用户、订单、支付等业务规则。
 - 支付宝等业务专属 SDK 只能由 `business` 声明，不能进入管理端运行时依赖。
+- 基础框架只提供支付宝 OAuth 登录，不内置脱离订单领域的支付、退款或支付回调示例。
 - 启动模块只声明自己实际需要的依赖，版本统一由根 POM 管理。
 
 ## 本地运行
 
-1. 创建 MySQL 数据库并执行 `db/db.sql`。
+1. 创建空 MySQL 数据库。应用启动时由 Flyway 自动执行各自迁移。
 2. 按实际环境维护 `application-dev.yml` 中的 MySQL、Redis、邮件配置。
 3. 启动业务端：
 
@@ -83,10 +91,12 @@ export CORS_ALLOWED_ORIGIN_PATTERN=https://your-frontend.example.com
 ### 认证与密码
 
 - 用户端和管理端使用独立 Sa-Token 登录体系。
+- Token 使用 Redis 有状态 Session；用户端最长 7 天、空闲 2 小时，管理端最长 8 小时、空闲 30 分钟。
 - 权限查询必须根据 `loginType` 读取对应 Session。
 - 注册、登录、修改密码和重置密码统一使用 BCrypt。
 - `@AllowAnonymous` 可标注在 Controller 类或方法上，其他接口默认要求登录。
 - 用户端采用“系统用户主体 + 多登录身份”模型，密码、支付宝等策略最终统一映射到内部用户 ID。
+- 登录身份必须同时满足 `status=true` 和 `verified=true`。
 - 登录时生成角色和权限快照；角色或权限变更后必须注销受影响账号的全部会话。
 
 ### TraceId 与日志
@@ -100,15 +110,15 @@ export CORS_ALLOWED_ORIGIN_PATTERN=https://your-frontend.example.com
 
 - 分页大小上限为 200，MyBatis-Plus 同时在拦截器层执行最终限制。
 - 禁止无条件全表更新和删除。
-- 数据库脚本为账号、邮箱、角色编码和关联关系建立唯一约束及必要索引。
+- business 和 admin 分别维护 Flyway 迁移与历史表，可以使用独立数据库，也可在过渡期共享数据库。
 - Redis 连接由 Starter 统一管理，业务代码不得自行创建第二套 RedissonClient。
 - Redis JSON 多态反序列化仅允许项目类型及必要 JDK 类型。
 
 ### 异步任务
 
 - 禁止直接使用 `CompletableFuture` 公共线程池。
-- 基础框架提供有界 `applicationTaskExecutor`，包含明确的容量、拒绝策略、优雅停机和 MDC 传播。
+- 基础框架提供有界 `applicationTaskExecutor` 和独立的 `auditTaskExecutor`，包含明确的容量、拒绝策略、优雅停机和 MDC 传播。
 
 ## 数据库升级提醒
 
-`db/db.sql` 是新环境基线脚本。已有数据库升级前应先检查并清理重复账号、重复邮箱及重复角色关系，再通过正式迁移工具增加唯一约束和外键，不能直接在生产库重复执行基线脚本。
+已经发布的 Flyway 迁移文件禁止修改。所有表、字段、索引和初始化数据变化都必须新增更高版本迁移，详细约定见 `db/README.md`。

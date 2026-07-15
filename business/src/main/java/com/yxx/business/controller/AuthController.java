@@ -6,6 +6,7 @@ import com.yxx.business.auth.command.PasswordAuthenticationCommand;
 import com.yxx.business.model.request.LoginReq;
 import com.yxx.business.model.response.LoginRes;
 import com.yxx.framework.audit.annotation.AuditLog;
+import com.yxx.framework.audit.model.AuditEventType;
 import com.yxx.common.annotation.response.ResponseResult;
 import com.yxx.security.annotation.AllowAnonymous;
 import com.yxx.security.constant.LoginDeviceType;
@@ -40,7 +41,8 @@ public class AuthController {
      * @author yxx
      */
     @AllowAnonymous
-    @AuditLog(module = "鉴权模块", action = "用户密码登录", recordRequest = false)
+    @AuditLog(module = "鉴权模块", action = "用户密码登录",
+            eventType = AuditEventType.AUTHENTICATION, recordRequest = false)
     @PostMapping("/login")
     public LoginRes login(@Valid @RequestBody LoginReq request) {
         String token = authenticationService.login(
@@ -54,7 +56,7 @@ public class AuthController {
      *
      * @author yxx
      */
-    @AuditLog(module = "鉴权模块", action = "用户退出")
+    @AuditLog(module = "鉴权模块", action = "用户退出", eventType = AuditEventType.AUTHENTICATION)
     @PostMapping("/logout")
     public void logout() {
         StpUtil.logout();

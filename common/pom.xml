@@ -13,7 +13,13 @@
     </parent>
     <modules>
         <module>common-core</module>
+        <module>common-cache</module>
         <module>common-security</module>
+        <module>common-web</module>
+        <module>common-ip</module>
+        <module>common-mail</module>
+        <module>common-data</module>
+        <module>common-audit</module>
         <module>common-framework</module>
     </modules>
 

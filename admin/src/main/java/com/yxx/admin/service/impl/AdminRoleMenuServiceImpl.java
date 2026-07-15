@@ -9,11 +9,17 @@ import com.yxx.admin.model.entity.AdminRole;
 import com.yxx.admin.service.AdminMenuService;
 import com.yxx.admin.service.AdminRoleMenuService;
 import com.yxx.admin.service.AdminRoleService;
+import com.yxx.admin.model.response.AdminMenuRes;
+import com.yxx.common.utils.TreeUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -27,26 +33,75 @@ public class AdminRoleMenuServiceImpl extends ServiceImpl<AdminRoleMenuMapper, A
     private final AdminMenuService adminMenuService;
 
     @Override
-    public List<String> loginUserMenu(List<String> roleCodeList) {
-        // 如果角色code集合不为空
-        if (!roleCodeList.isEmpty()) {
-            // 根据角色code集合获取角色集合
-            List<AdminRole> adminRoleList = adminRoleService.list(new LambdaQueryWrapper<AdminRole>().in(AdminRole::getCode, roleCodeList));
-            // 根据角色集合 获取角色id集合
-            List<Integer> roleIdList = adminRoleList.stream().map(AdminRole::getId).collect(Collectors.toList());
-            // 根据角色id集合 获取 角色菜单 集合
-            List<AdminRoleMenu> adminRoleMenuList = list(new LambdaQueryWrapper<AdminRoleMenu>().in(AdminRoleMenu::getRoleId, roleIdList));
-
-            // 如果角色菜单集合不为空
-            if (!adminRoleMenuList.isEmpty()) {
-                // 根据角色菜单集合 获取菜单id集合
-                List<Integer> menuIdList = adminRoleMenuList.stream().map(AdminRoleMenu::getMenuId).collect(Collectors.toList());
-                // 根据菜单id集合 获取菜单集合
-                List<AdminMenu> adminMenuList = adminMenuService.list(new LambdaQueryWrapper<AdminMenu>().in(AdminMenu::getId, menuIdList));
-                // 根据菜单集合 获取菜单code集合 并返回
-                return adminMenuList.stream().map(AdminMenu::getMenuCode).collect(Collectors.toList());
-            }
+    public List<AdminMenuRes> currentMenuTree(Collection<String> roleCodes) {
+        if (roleCodes == null || roleCodes.isEmpty()) {
+            return List.of();
         }
-        return new ArrayList<>();
+        List<Integer> roleIds = adminRoleService.list(new LambdaQueryWrapper<AdminRole>()
+                        .in(AdminRole::getCode, roleCodes))
+                .stream()
+                .map(AdminRole::getId)
+                .toList();
+        if (roleIds.isEmpty()) {
+            return List.of();
+        }
+
+        Set<Integer> selectedMenuIds = list(new LambdaQueryWrapper<AdminRoleMenu>()
+                        .in(AdminRoleMenu::getRoleId, roleIds))
+                .stream()
+                .map(AdminRoleMenu::getMenuId)
+                .collect(Collectors.toCollection(HashSet::new));
+        if (selectedMenuIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<AdminMenu> availableMenus = adminMenuService.list(new LambdaQueryWrapper<AdminMenu>()
+                .eq(AdminMenu::getStatus, Boolean.TRUE)
+                .eq(AdminMenu::getVisible, Boolean.TRUE));
+        Map<Integer, AdminMenu> menuIndex = new HashMap<>();
+        availableMenus.forEach(menu -> menuIndex.put(menu.getId(), menu));
+        Set<Integer> visibleIds = new HashSet<>();
+        for (Integer menuId : selectedMenuIds) {
+            addMenuAndAncestors(menuId, menuIndex, visibleIds);
+        }
+
+        List<AdminMenu> visibleMenus = availableMenus.stream()
+                .filter(menu -> visibleIds.contains(menu.getId()))
+                .toList();
+        List<AdminMenu> tree = TreeUtil.buildAscTree(
+                visibleMenus, AdminMenu::getParentId, AdminMenu::getId,
+                AdminMenu::setChildren, null, AdminMenu::getSort);
+        return tree.stream().map(this::toResponse).toList();
+    }
+
+    private void addMenuAndAncestors(Integer menuId,
+                                     Map<Integer, AdminMenu> menuIndex,
+                                     Set<Integer> visibleIds) {
+        Integer currentId = menuId;
+        Set<Integer> path = new HashSet<>();
+        while (currentId != null && path.add(currentId)) {
+            AdminMenu menu = menuIndex.get(currentId);
+            if (menu == null) {
+                return;
+            }
+            visibleIds.add(currentId);
+            currentId = menu.getParentId();
+        }
+        if (currentId != null) {
+            throw new IllegalStateException("管理端菜单数据存在循环父子关系，menuId=" + menuId);
+        }
+    }
+
+    private AdminMenuRes toResponse(AdminMenu menu) {
+        AdminMenuRes response = new AdminMenuRes();
+        response.setCode(menu.getMenuCode());
+        response.setName(menu.getMenuName());
+        response.setPath(menu.getPath());
+        response.setComponent(menu.getComponent());
+        response.setIcon(menu.getIcon());
+        response.setChildren(menu.getChildren() == null
+                ? List.of()
+                : menu.getChildren().stream().map(this::toResponse).toList());
+        return response;
     }
 }

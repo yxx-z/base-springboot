@@ -7,8 +7,10 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
  * 业务应用最小结构测试。
@@ -28,6 +30,16 @@ class BusinessApplicationTests {
         assertValidYaml("application.yml");
         assertValidYaml("application-dev.yml");
         assertValidYaml("application-prod.yml");
+    }
+
+    @Test
+    void shouldProvideNonDestructiveBusinessMigration() throws IOException {
+        String resourceName = "db/migration/business/V1__init_business_schema.sql";
+        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(resourceName)) {
+            assertNotNull(inputStream, "找不到迁移文件：" + resourceName);
+            String sql = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+            assertFalse(sql.toUpperCase().contains("DROP TABLE"), "Flyway 基线迁移禁止删除表");
+        }
     }
 
     private void assertValidYaml(String resourceName) throws IOException {

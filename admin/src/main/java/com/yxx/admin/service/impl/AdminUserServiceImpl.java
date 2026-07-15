@@ -28,6 +28,7 @@ import com.yxx.common.utils.ServletUtils;
 import com.yxx.common.utils.agent.UserAgentUtil;
 import com.yxx.common.utils.email.MailUtils;
 import com.yxx.common.utils.ip.AddressUtil;
+import com.yxx.common.utils.ip.ClientIpResolver;
 import com.yxx.common.utils.ip.IpUtil;
 import com.yxx.common.utils.redis.RedissonCache;
 import lombok.RequiredArgsConstructor;
@@ -41,14 +42,17 @@ import org.springframework.transaction.annotation.Transactional;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import com.yxx.security.constant.LoginMode;
 import com.yxx.security.constant.SecurityRealm;
 import com.yxx.security.context.LoginSessionService;
+import com.yxx.security.context.OneTimeTemporaryTokenService;
+import com.yxx.security.context.PasswordLoginProtectionService;
+import com.yxx.security.context.SessionInvalidationService;
 import com.yxx.security.model.LoginPrincipal;
+import com.yxx.security.model.PasswordResetTokenPayload;
 
 /**
  * @author yxx
@@ -62,6 +66,12 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
 
     private final LoginSessionService loginSessionService;
 
+    private final SessionInvalidationService sessionInvalidationService;
+
+    private final OneTimeTemporaryTokenService oneTimeTemporaryTokenService;
+
+    private final PasswordLoginProtectionService loginProtectionService;
+
     private final RedissonCache redissonCache;
 
     private final MailUtils mailUtils;
@@ -74,6 +84,10 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
 
     private final MyWebProperties myWebProperties;
 
+    private final ClientIpResolver clientIpResolver;
+
+    private final AddressUtil addressUtil;
+
     /**
      * 管理端与用户端共享统一密码编码策略，避免不同入口产生不兼容的密码格式。
      */
@@ -85,17 +99,20 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
 
     @Override
     public LoginRes login(LoginReq request) {
+        HttpServletRequest servletRequest = ServletUtils.getRequest();
+        String requestIp = clientIpResolver.resolve(servletRequest);
+        loginProtectionService.checkAllowed(SecurityRealm.ADMIN, request.getLoginCode(), requestIp);
+
         // 根据登录账号获取用户信息
         AdminUser user = getOne(
                 new LambdaQueryWrapper<AdminUser>().eq(AdminUser::getLoginCode, request.getLoginCode()));
-        // 如果用户信息不存在，抛出异常
-        ApiAssert.isTrue(ApiCode.USER_NOT_EXIST, ObjectUtil.isNotNull(user));
-        // 加密请求参数中的密码
-        // 如果请求参数中的密码加密后和数据库中不一致，抛出异常
-        ApiAssert.isTrue(ApiCode.PASSWORD_ERROR, passwordEncoder.matches(request.getPassword(), user.getPassword()));
+        if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            loginProtectionService.recordFailure(SecurityRealm.ADMIN, request.getLoginCode(), requestIp);
+            throw new com.yxx.common.exceptions.ApiException(ApiCode.AUTHENTICATION_FAILED);
+        }
+        ApiAssert.isTrue(ApiCode.ACCOUNT_DISABLED, Boolean.TRUE.equals(user.getStatus()));
+        loginProtectionService.recordSuccess(SecurityRealm.ADMIN, request.getLoginCode());
 
-        // 获取请求头
-        HttpServletRequest servletRequest = ServletUtils.getRequest();
         // 获取登录设备信息
         String requestAgent = servletRequest.getHeader("user-agent");
         // 解析登录设备
@@ -103,9 +120,8 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
         // 如果校验ip
         if (Boolean.TRUE.equals(ipProperties.getCheck())) {
             // 得到请求时的ip
-            String requestIp = IpUtil.getRequestIp();
             // 获取ip归属地
-            String ipHomePlace = AddressUtil.getIpHomePlace(requestIp, 2);
+            String ipHomePlace = addressUtil.getIpHomePlace(requestIp, 2);
             // 新建checkUser并将user信息赋值过来，下面异步校验使用。
             // 直接用user会有异步信息还未执行的时候，下面的用户信息已经更新的问题
             AdminUser checkUser = new AdminUser();
@@ -143,66 +159,66 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
 
     @Override
     public Boolean resetPwdEmail(ResetPwdEmailReq req) {
-        // 校验邮件是否已经发送过
-        ApiAssert.isFalse(ApiCode.MAIL_EXIST, redissonCache.exists(RedisConstant.RESET_PWD_CONTENT + req.getEmail()));
-
-        // 根据邮箱 获取用户
         AdminUser user = getUserByEmail(req.getEmail());
-        // 如果用户不存在，抛出提示
-        ApiAssert.isTrue(ApiCode.EMAIL_NOT_REGISTER, ObjectUtil.isNotNull(user));
+        if (user == null) {
+            // 管理端同样隐藏账号存在性，防止外部枚举管理员邮箱。
+            return Boolean.TRUE;
+        }
+        long tokenSeconds = TimeUnit.MINUTES.toSeconds(resetPwdProperties.getResetPwdTime());
+        String sendingKey = RedisConstant.ADMIN_RESET_PWD_CONTENT + req.getEmail();
+        ApiAssert.isTrue(ApiCode.MAIL_EXIST,
+                redissonCache.putStringIfAbsent(sendingKey, "sending", tokenSeconds));
 
-        // 从redis中获取该邮箱号今日找回密码次数
-        Integer number = redissonCache.get(RedisConstant.RESET_PWD_NUM + req.getEmail());
-        // 如果找回次数不为空，并且大于等于设置的最大次数，抛出异常
-        ApiAssert.isFalse(ApiCode.RESET_PWD_MAX, number != null && number >= resetPwdProperties.getMaxNumber());
+        String countKey = RedisConstant.ADMIN_RESET_PWD_NUM + req.getEmail();
+        long count = redissonCache.increment(countKey, DateUtils.theRestOfTheDaySecond());
+        if (count > resetPwdProperties.getMaxNumber()) {
+            redissonCache.decrement(countKey);
+            redissonCache.remove(sendingKey);
+            throw new com.yxx.common.exceptions.ApiException(ApiCode.RESET_PWD_MAX);
+        }
 
-        // 创建临时token 临时时间15分钟
-        String token = SaTempUtil.createToken(req.getEmail(), resetPwdProperties.getResetPwdTime());
-        // 找回密码路径 拼接token
-        String resetPassHref = resetPwdProperties.getBasePath() + "?token=" + token;
-        // 邮件内容
-        String emailContent = resetPwdProperties.getResetPwdContent().replace("{url}", resetPassHref)
-                .replace("{time}", String.valueOf(resetPwdProperties.getResetPwdTime()))
-                .replace("{domain}", myWebProperties.getDomain())
-                .replace("{formName}", mailProperties.getFromName())
-                .replace("{form}", mailProperties.getFrom());
-        // 发送html格式邮件
-        mailUtils.baseSendMail(req.getEmail(), EmailSubjectConstant.RESET_PWD, emailContent, true);
-
-        // 将临时token 存入redis中
-        redissonCache.putString(RedisConstant.RESET_PWD_CONTENT + req.getEmail(), token, 900, TimeUnit.SECONDS);
-
-        // 防止恶意刷邮件
-        // 今天剩余时间
-        Long time = DateUtils.theRestOfTheDaySecond();
-        // 添加找回密码次数到redis中 找回密码次数+1
-        redissonCache.put(RedisConstant.RESET_PWD_NUM + req.getEmail(), Optional.ofNullable(number).map(x -> ++x).orElse(1), time);
-
-        return Boolean.TRUE;
+        try {
+            PasswordResetTokenPayload payload = new PasswordResetTokenPayload(
+                    SecurityRealm.ADMIN, user.getId(), user.getEmail());
+            String token = SaTempUtil.createToken(payload, tokenSeconds);
+            String resetPassHref = resetPwdProperties.getBasePath() + "?token=" + token;
+            String emailContent = resetPwdProperties.getResetPwdContent().replace("{url}", resetPassHref)
+                    .replace("{time}", String.valueOf(resetPwdProperties.getResetPwdTime()))
+                    .replace("{domain}", myWebProperties.getDomain())
+                    .replace("{formName}", mailProperties.getFromName())
+                    .replace("{form}", mailProperties.getFrom());
+            mailUtils.baseSendMail(req.getEmail(), EmailSubjectConstant.RESET_PWD, emailContent, true);
+            redissonCache.putString(sendingKey, token, tokenSeconds);
+            return Boolean.TRUE;
+        } catch (RuntimeException exception) {
+            redissonCache.decrement(countKey);
+            redissonCache.remove(sendingKey);
+            throw exception;
+        }
     }
 
     @Transactional(rollbackFor = Exception.class)
     @Override
     public Boolean resetPwd(ResetPwdReq req) {
-        // 获取临时token的存活时间 -1 代表永久，-2 代表token无效
-        long timeout = SaTempUtil.getTimeout(req.getToken());
-        // 如果token无效，抛出提示
-        ApiAssert.isFalse(ApiCode.RESET_PWD_TOKEN_ERROR, timeout == -2);
-        // 获取token对应的邮箱
-        String email = SaTempUtil.parseToken(req.getToken(), String.class);
-        // 根据邮箱获取用户
-        AdminUser user = getUserByEmail(email);
-        // 如果用户为空，抛出提示
-        ApiAssert.isTrue(ApiCode.DATE_ERROR, ObjectUtil.isNotNull(user));
+        // 原子取得一次性令牌消费权，避免同一个重置链接被并发使用。
+        PasswordResetTokenPayload payload = oneTimeTemporaryTokenService
+                .reserve(req.getToken(), PasswordResetTokenPayload.class)
+                .filter(value -> SecurityRealm.ADMIN.equals(value.realm()))
+                .orElse(null);
+        ApiAssert.isTrue(ApiCode.RESET_PWD_TOKEN_ERROR, payload != null);
+        AdminUser user = getById(payload.subjectId());
+        ApiAssert.isTrue(ApiCode.USER_NOT_EXIST,
+                ObjectUtil.isNotNull(user) && payload.email().equals(user.getEmail()));
 
         // 使用统一 BCrypt 编码器生成新密码。
         String password = passwordEncoder.encode(req.getNewPassword());
         // 根据邮箱修改密码
-        boolean updated = update(new LambdaUpdateWrapper<AdminUser>().eq(AdminUser::getEmail, email).set(AdminUser::getPassword, password));
+        boolean updated = update(new LambdaUpdateWrapper<AdminUser>()
+                .eq(AdminUser::getId, user.getId())
+                .set(AdminUser::getPassword, password));
         ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, updated);
 
-        // 仅在数据库更新成功后销毁一次性令牌。
-        SaTempUtil.deleteToken(req.getToken());
+        sessionInvalidationService.invalidateAdminAfterCommit(user.getId());
         return Boolean.TRUE;
     }
 
@@ -214,6 +230,7 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Boolean editPwd(EditPwdReq req) {
         // 根据登录id 获取该用户详情
         Long userId = loginSessionService.currentAdmin()
@@ -227,13 +244,18 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
         // 新密码继续使用统一 BCrypt 策略保存。
         String newPassword = passwordEncoder.encode(req.getNewPassword());
         // 根据用户id修改新密码
-        return update(new LambdaUpdateWrapper<AdminUser>().eq(AdminUser::getId, user.getId()).set(AdminUser::getPassword, newPassword));
+        boolean updated = update(new LambdaUpdateWrapper<AdminUser>()
+                .eq(AdminUser::getId, user.getId())
+                .set(AdminUser::getPassword, newPassword));
+        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, updated);
+        sessionInvalidationService.invalidateAdminAfterCommit(userId);
+        return Boolean.TRUE;
     }
 
     void checkRemoteLogin(AdminUser user, String ipHomePlace, String requestIp, String requestAgent) {
         if (Boolean.TRUE.equals(ipProperties.getCheck())) {
             log.info("异地登录校验~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            if (AddressUtil.isValidIPv4(requestIp)) {
+            if (IpUtil.isValidIPv4(requestIp)) {
                 // 判断是否发送过异常登录通知
                 boolean exists = redissonCache.exists(RedisConstant.IP_UNUSUAL_LOGIN + user.getId());
                 // 如果没有发送过，进行校验
@@ -242,7 +264,7 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
                     if (CharSequenceUtil.isNotBlank(user.getAgent()) && !user.getAgent().equals(requestAgent) &&
                             CharSequenceUtil.isNotBlank(user.getIpHomePlace()) && !user.getIpHomePlace().equals(ipHomePlace)) {
                         // 获取ip归属地
-                        String unusual = AddressUtil.getIpHomePlace(requestIp, 3);
+                        String unusual = addressUtil.getIpHomePlace(requestIp, 3);
                         // 邮件正文
                         String time = LocalDateTimeUtil.format(LocalDateTime.now(), DatePattern.NORM_DATETIME_PATTERN);
                         String emailContent = mailProperties.getIpUnusualContent().replace("{time}", time)

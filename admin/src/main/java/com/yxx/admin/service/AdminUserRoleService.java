@@ -1,25 +1,15 @@
 package com.yxx.admin.service;
 
-import com.baomidou.mybatisplus.extension.service.IService;
 import com.yxx.admin.model.entity.AdminUser;
-import com.yxx.admin.model.entity.AdminUserRole;
 
-import java.util.List;
 import java.util.Collection;
+import java.util.List;
 
 /**
  * @author yxx
  * @since 2023-05-17 10:00
  */
-public interface AdminUserRoleService extends IService<AdminUserRole> {
-
-    /**
-     * 根据用户信息 获取该用户角色权限
-     *
-     * @param user 用户信息
-     * @return 用户角色code集合
-     */
-    List<String> loginUserRoleManage(AdminUser user);
+public interface AdminUserRoleService {
 
     /**
      * 设置默认角色: 用户
@@ -37,4 +27,10 @@ public interface AdminUserRoleService extends IService<AdminUserRole> {
      * @param roleIds 新角色主键集合
      */
     void replaceRoles(Long userId, Collection<Integer> roleIds);
+
+    /** 查询拥有指定角色的管理员主键，用于权限变更后的会话失效。 */
+    List<Long> listUserIdsByRoleId(Integer roleId);
+
+    /** 查询指定管理员当前拥有的角色主键。 */
+    List<Integer> listRoleIdsByUserId(Long userId);
 }

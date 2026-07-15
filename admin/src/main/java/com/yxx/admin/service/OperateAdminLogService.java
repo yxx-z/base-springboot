@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yxx.admin.model.request.OperateLogReq;
 import com.yxx.admin.model.response.OperateLogResp;
-import com.yxx.common.core.model.OperateAdminLog;
+import com.yxx.admin.model.entity.OperateAdminLog;
 
 /**
  * 操作日志表 服务类

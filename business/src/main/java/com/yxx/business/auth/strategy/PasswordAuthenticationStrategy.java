@@ -8,8 +8,13 @@ import com.yxx.business.model.entity.UserIdentity;
 import com.yxx.business.service.UserIdentityService;
 import com.yxx.business.service.UserService;
 import com.yxx.common.enums.ApiCode;
+import com.yxx.common.exceptions.ApiException;
 import com.yxx.common.utils.ApiAssert;
+import com.yxx.common.utils.ServletUtils;
+import com.yxx.common.utils.ip.ClientIpResolver;
 import com.yxx.security.constant.LoginMode;
+import com.yxx.security.constant.SecurityRealm;
+import com.yxx.security.context.PasswordLoginProtectionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -24,6 +29,8 @@ public class PasswordAuthenticationStrategy implements UserAuthenticationStrateg
     private final UserIdentityService userIdentityService;
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordLoginProtectionService loginProtectionService;
+    private final ClientIpResolver clientIpResolver;
 
     @Override
     public String loginMode() {
@@ -34,17 +41,22 @@ public class PasswordAuthenticationStrategy implements UserAuthenticationStrateg
     public AuthenticatedUser authenticate(UserAuthenticationCommand command) {
         ApiAssert.isTrue(ApiCode.PARAM_IS_INVALID, command instanceof PasswordAuthenticationCommand);
         PasswordAuthenticationCommand passwordCommand = (PasswordAuthenticationCommand) command;
+        String clientIp = clientIpResolver.resolve(ServletUtils.getRequest());
+        loginProtectionService.checkAllowed(SecurityRealm.USER, passwordCommand.account(), clientIp);
 
         UserIdentity identity = userIdentityService
                 .findIdentity(LoginMode.PASSWORD, passwordCommand.account())
                 .orElse(null);
-        ApiAssert.isTrue(ApiCode.USER_NOT_EXIST, identity != null);
-        ApiAssert.isTrue(ApiCode.PASSWORD_ERROR,
-                passwordEncoder.matches(passwordCommand.password(), identity.getCredential()));
+        if (identity == null
+                || !passwordEncoder.matches(passwordCommand.password(), identity.getCredential())) {
+            loginProtectionService.recordFailure(SecurityRealm.USER, passwordCommand.account(), clientIp);
+            throw new ApiException(ApiCode.AUTHENTICATION_FAILED);
+        }
 
         User user = userService.getById(identity.getUserId());
-        ApiAssert.isTrue(ApiCode.USER_NOT_EXIST,
-                user != null && Boolean.TRUE.equals(user.getStatus()));
+        ApiAssert.isTrue(ApiCode.AUTHENTICATION_FAILED, user != null);
+        ApiAssert.isTrue(ApiCode.ACCOUNT_DISABLED, Boolean.TRUE.equals(user.getStatus()));
+        loginProtectionService.recordSuccess(SecurityRealm.USER, passwordCommand.account());
         return new AuthenticatedUser(user, identity.getIdentifier(), loginMode());
     }
 }

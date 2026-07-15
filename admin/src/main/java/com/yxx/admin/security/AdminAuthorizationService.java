@@ -1,10 +1,7 @@
 package com.yxx.admin.security;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yxx.admin.model.entity.AdminPermission;
 import com.yxx.admin.model.entity.AdminRole;
-import com.yxx.admin.model.entity.AdminRolePermission;
-import com.yxx.admin.model.entity.AdminUserRole;
 import com.yxx.admin.service.AdminPermissionService;
 import com.yxx.admin.service.AdminRolePermissionService;
 import com.yxx.admin.service.AdminRoleService;
@@ -36,9 +33,7 @@ public class AdminAuthorizationService {
      * @return 授权快照
      */
     public Snapshot load(Long userId) {
-        List<Integer> roleIds = userRoleService.list(new LambdaQueryWrapper<AdminUserRole>()
-                        .eq(AdminUserRole::getUserId, userId))
-                .stream().map(AdminUserRole::getRoleId).distinct().toList();
+        List<Integer> roleIds = userRoleService.listRoleIdsByUserId(userId);
         if (roleIds.isEmpty()) {
             return new Snapshot(Collections.emptySet(), Collections.emptySet());
         }
@@ -46,10 +41,7 @@ public class AdminAuthorizationService {
         Set<String> roles = roleService.listByIds(roleIds).stream()
                 .map(AdminRole::getCode)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-        List<Integer> permissionIds = rolePermissionService.list(
-                        new LambdaQueryWrapper<AdminRolePermission>()
-                                .in(AdminRolePermission::getRoleId, roleIds))
-                .stream().map(AdminRolePermission::getPermissionId).distinct().toList();
+        List<Integer> permissionIds = rolePermissionService.listPermissionIdsByRoleIds(roleIds);
         if (permissionIds.isEmpty()) {
             return new Snapshot(roles, Collections.emptySet());
         }

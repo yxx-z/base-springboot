@@ -1,11 +1,8 @@
 package com.yxx.business.auth;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yxx.business.auth.model.AuthorizationSnapshot;
 import com.yxx.business.model.entity.Permission;
 import com.yxx.business.model.entity.Role;
-import com.yxx.business.model.entity.RolePermission;
-import com.yxx.business.model.entity.UserRole;
 import com.yxx.business.service.PermissionService;
 import com.yxx.business.service.RolePermissionService;
 import com.yxx.business.service.RoleService;
@@ -40,12 +37,7 @@ public class UserAuthorizationService {
      * @return 授权快照
      */
     public AuthorizationSnapshot load(Long userId) {
-        List<Integer> roleIds = userRoleService.list(new LambdaQueryWrapper<UserRole>()
-                        .eq(UserRole::getUserId, userId))
-                .stream()
-                .map(UserRole::getRoleId)
-                .distinct()
-                .toList();
+        List<Integer> roleIds = userRoleService.listRoleIdsByUserId(userId);
         if (roleIds.isEmpty()) {
             return new AuthorizationSnapshot(Collections.emptySet(), Collections.emptySet());
         }
@@ -54,12 +46,7 @@ public class UserAuthorizationService {
                 .map(Role::getCode)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
 
-        List<Integer> permissionIds = rolePermissionService.list(
-                        new LambdaQueryWrapper<RolePermission>().in(RolePermission::getRoleId, roleIds))
-                .stream()
-                .map(RolePermission::getPermissionId)
-                .distinct()
-                .toList();
+        List<Integer> permissionIds = rolePermissionService.listPermissionIdsByRoleIds(roleIds);
         if (permissionIds.isEmpty()) {
             return new AuthorizationSnapshot(roles, Collections.emptySet());
         }

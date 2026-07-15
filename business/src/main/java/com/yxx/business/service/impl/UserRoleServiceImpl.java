@@ -12,14 +12,13 @@ import com.yxx.business.service.UserRoleService;
 import com.yxx.business.security.UserSecurityCodes;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.utils.ApiAssert;
+import com.yxx.security.context.SessionInvalidationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Collection;
-import com.yxx.security.context.LoginSessionService;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Collection;
+import java.util.List;
 
 /**
  * @author yxx
@@ -30,29 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole> implements UserRoleService {
     private final RoleService roleService;
 
-    private final LoginSessionService loginSessionService;
-
-    @Override
-    public List<String> loginUserRoleManage(User user) {
-        // 初始化返回角色code集合
-        List<String> roleList = new LinkedList<>();
-        // 根据用户id 获取该用户的角色集合
-        List<UserRole> userRoleList = list(new LambdaQueryWrapper<UserRole>().eq(UserRole::getUserId, user.getId()));
-        // 如果没有角色不让登录，请取消下面一行代码注释
-        // ApiAssert.isTrue(ApiCode.USER_NOT_ROLE, !userRoleList.isEmpty());
-
-        // 一次批量加载全部角色，避免每个用户角色关系再执行一次数据库查询。
-        List<Integer> roleIds = userRoleList.stream().map(UserRole::getRoleId).distinct().toList();
-        if (!roleIds.isEmpty()) {
-            roleService.listByIds(roleIds).stream()
-                    .map(Role::getCode)
-                    .distinct()
-                    .forEach(roleList::add);
-        }
-
-        // 返回角色code集合
-        return roleList;
-    }
+    private final SessionInvalidationService sessionInvalidationService;
 
     @Override
     public Boolean setDefaultRole(User user) {
@@ -85,6 +62,24 @@ public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole> i
             saveBatch(relations);
         }
         // 当前项目采用登录时权限快照，角色变更后必须注销旧会话。
-        loginSessionService.invalidateUser(userId);
+        sessionInvalidationService.invalidateUserAfterCommit(userId);
+    }
+
+    @Override
+    public List<Long> listUserIdsByRoleId(Integer roleId) {
+        return list(new LambdaQueryWrapper<UserRole>().eq(UserRole::getRoleId, roleId))
+                .stream()
+                .map(UserRole::getUserId)
+                .distinct()
+                .toList();
+    }
+
+    @Override
+    public List<Integer> listRoleIdsByUserId(Long userId) {
+        return list(new LambdaQueryWrapper<UserRole>().eq(UserRole::getUserId, userId))
+                .stream()
+                .map(UserRole::getRoleId)
+                .distinct()
+                .toList();
     }
 }

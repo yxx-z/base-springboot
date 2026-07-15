@@ -2,7 +2,9 @@ package com.yxx.business.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yxx.business.model.entity.RoleMenu;
+import com.yxx.business.model.response.MenuRes;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -11,10 +13,10 @@ import java.util.List;
  */
 public interface RoleMenuService extends IService<RoleMenu> {
     /**
-     * 根据角色code集合 获取菜单code集合
+     * 根据当前用户角色构建已启用、可见的导航菜单树。
      *
-     * @param roleCodeList 角色code集合
-     * @return 菜单code集合
+     * @param roleCodes 当前用户角色编码
+     * @return 用户导航菜单树
      */
-    List<String> loginUserMenu(List<String> roleCodeList);
+    List<MenuRes> currentMenuTree(Collection<String> roleCodes);
 }

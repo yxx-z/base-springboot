@@ -31,7 +31,6 @@
         <redisson.version>3.45.1</redisson.version>
         <hutool.version>5.8.38</hutool.version>
         <ip2region.version>2.6.4</ip2region.version>
-        <commons-io.version>2.19.0</commons-io.version>
         <alipay.version>4.40.472.ALL</alipay.version>
         <lombok.version>1.18.38</lombok.version>
 
@@ -63,6 +62,36 @@
             <dependency>
                 <groupId>com.yxx</groupId>
                 <artifactId>common-security</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.yxx</groupId>
+                <artifactId>common-cache</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.yxx</groupId>
+                <artifactId>common-web</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.yxx</groupId>
+                <artifactId>common-ip</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.yxx</groupId>
+                <artifactId>common-mail</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.yxx</groupId>
+                <artifactId>common-data</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.yxx</groupId>
+                <artifactId>common-audit</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>

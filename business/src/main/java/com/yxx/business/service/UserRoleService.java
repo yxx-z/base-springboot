@@ -1,25 +1,15 @@
 package com.yxx.business.service;
 
-import com.baomidou.mybatisplus.extension.service.IService;
 import com.yxx.business.model.entity.User;
-import com.yxx.business.model.entity.UserRole;
 
-import java.util.List;
 import java.util.Collection;
+import java.util.List;
 
 /**
  * @author yxx
  * @since 2023-05-17 10:00
  */
-public interface UserRoleService extends IService<UserRole> {
-
-    /**
-     * 根据用户信息 获取该用户角色权限
-     *
-     * @param user 用户信息
-     * @return 用户角色code集合
-     */
-    List<String> loginUserRoleManage(User user);
+public interface UserRoleService {
 
     /**
      * 设置默认角色: 用户
@@ -37,4 +27,10 @@ public interface UserRoleService extends IService<UserRole> {
      * @param roleIds 新角色主键集合
      */
     void replaceRoles(Long userId, Collection<Integer> roleIds);
+
+    /** 查询拥有指定角色的用户主键，用于权限变更后的会话失效。 */
+    List<Long> listUserIdsByRoleId(Integer roleId);
+
+    /** 查询指定用户当前拥有的角色主键。 */
+    List<Integer> listRoleIdsByUserId(Long userId);
 }

@@ -12,14 +12,13 @@ import com.yxx.admin.service.AdminUserRoleService;
 import com.yxx.admin.security.AdminSecurityCodes;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.utils.ApiAssert;
+import com.yxx.security.context.SessionInvalidationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Collection;
-import com.yxx.security.context.LoginSessionService;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Collection;
+import java.util.List;
 
 /**
  * @author yxx
@@ -30,32 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminUserRoleServiceImpl extends ServiceImpl<AdminUserRoleMapper, AdminUserRole> implements AdminUserRoleService {
     private final AdminRoleService adminRoleService;
 
-    private final LoginSessionService loginSessionService;
-
-    @Override
-    public List<String> loginUserRoleManage(AdminUser user) {
-        // 初始化返回角色code集合
-        List<String> roleList = new LinkedList<>();
-        // 根据用户id 获取该用户的角色集合
-        List<AdminUserRole> adminUserRoleList = list(new LambdaQueryWrapper<AdminUserRole>().eq(AdminUserRole::getUserId, user.getId()));
-        // 如果没有角色不让登录，请取消下面一行代码注释
-        // ApiAssert.isTrue(ApiCode.USER_NOT_ROLE, !userRoleList.isEmpty());
-
-        // 遍历用户角色集合
-        List<Integer> roleIds = adminUserRoleList.stream()
-                .map(AdminUserRole::getRoleId)
-                .distinct()
-                .toList();
-        if (!roleIds.isEmpty()) {
-            adminRoleService.listByIds(roleIds).stream()
-                    .map(AdminRole::getCode)
-                    .distinct()
-                    .forEach(roleList::add);
-        }
-
-        // 返回角色code集合
-        return roleList;
-    }
+    private final SessionInvalidationService sessionInvalidationService;
 
     @Override
     public Boolean setDefaultRole(AdminUser user) {
@@ -87,6 +61,24 @@ public class AdminUserRoleServiceImpl extends ServiceImpl<AdminUserRoleMapper, A
             }).toList();
             saveBatch(relations);
         }
-        loginSessionService.invalidateAdmin(userId);
+        sessionInvalidationService.invalidateAdminAfterCommit(userId);
+    }
+
+    @Override
+    public List<Long> listUserIdsByRoleId(Integer roleId) {
+        return list(new LambdaQueryWrapper<AdminUserRole>().eq(AdminUserRole::getRoleId, roleId))
+                .stream()
+                .map(AdminUserRole::getUserId)
+                .distinct()
+                .toList();
+    }
+
+    @Override
+    public List<Integer> listRoleIdsByUserId(Long userId) {
+        return list(new LambdaQueryWrapper<AdminUserRole>().eq(AdminUserRole::getUserId, userId))
+                .stream()
+                .map(AdminUserRole::getRoleId)
+                .distinct()
+                .toList();
     }
 }

@@ -2,7 +2,9 @@ package com.yxx.admin.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.yxx.admin.model.entity.AdminRoleMenu;
+import com.yxx.admin.model.response.AdminMenuRes;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -10,11 +12,6 @@ import java.util.List;
  * @since 2023-05-18 15:23
  */
 public interface AdminRoleMenuService extends IService<AdminRoleMenu> {
-    /**
-     * 根据角色code集合 获取菜单code集合
-     *
-     * @param roleCodeList 角色code集合
-     * @return 菜单code集合
-     */
-    List<String> loginUserMenu(List<String> roleCodeList);
+    /** 根据当前管理员角色构建已启用、可见的导航菜单树。 */
+    List<AdminMenuRes> currentMenuTree(Collection<String> roleCodes);
 }

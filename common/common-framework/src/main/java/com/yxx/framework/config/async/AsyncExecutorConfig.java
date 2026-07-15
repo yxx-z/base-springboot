@@ -44,6 +44,30 @@ public class AsyncExecutorConfig {
     }
 
     /**
+     * 创建审计日志专用执行器。
+     *
+     * <p>审计持久化与邮件、登录风险检查隔离，避免某一类任务积压拖垮其他异步链路。
+     * 队列饱和时拒绝任务并让发布方记录错误，禁止静默丢失审计数据。</p>
+     *
+     * @return 审计专用有界执行器
+     */
+    @Bean("auditTaskExecutor")
+    public Executor auditTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(4);
+        executor.setQueueCapacity(1000);
+        executor.setKeepAliveSeconds(60);
+        executor.setThreadNamePrefix("audit-async-");
+        executor.setTaskDecorator(mdcTaskDecorator());
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.initialize();
+        return executor;
+    }
+
+    /**
      * 将提交线程的 MDC 快照传递给异步线程，并在任务结束后恢复线程原有上下文。
      *
      * @return MDC 任务装饰器

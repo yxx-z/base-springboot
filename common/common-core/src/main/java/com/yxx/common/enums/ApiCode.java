@@ -39,13 +39,19 @@ public enum ApiCode {
 
     PASSWORD_ERROR(2004, "密码错误"),
 
-    USER_PERMISSION_ERROR(2005, "无权查看他人信息"),
+    USER_PERMISSION_ERROR(2005, "无权执行该操作"),
 
     USER_NOT_ROLE(2006, "用户无角色"),
 
     CAPTCHA_ERROR(2007, "验证码错误"),
     ORIGINAL_PASSWORD_ERROR(2008, "原密码错误"),
     REGISTER_MAX(2009, "已经达到今日最大注册次数，明日再试吧"),
+
+    AUTHENTICATION_FAILED(2010, "账号或密码错误"),
+
+    ACCOUNT_DISABLED(2011, "账号已停用"),
+
+    LOGIN_TOO_FREQUENT(2012, "登录失败次数过多，请稍后再试"),
 
     /**
      * 找回密码

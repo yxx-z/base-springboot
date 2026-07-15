@@ -4,8 +4,11 @@ import com.yxx.admin.model.request.*;
 import com.yxx.admin.service.AdminUserService;
 import com.yxx.admin.model.entity.AdminUser;
 import com.yxx.admin.model.response.AdminCurrentUserRes;
+import com.yxx.admin.model.response.AdminMenuRes;
+import com.yxx.admin.service.AdminRoleMenuService;
 import com.yxx.common.annotation.response.ResponseResult;
 import com.yxx.framework.audit.annotation.AuditLog;
+import com.yxx.framework.audit.model.AuditEventType;
 import com.yxx.security.annotation.AllowAnonymous;
 import com.yxx.security.context.LoginSessionService;
 import com.yxx.security.model.LoginPrincipal;
@@ -14,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * @author yxx
@@ -31,6 +36,8 @@ public class AdminUserController {
 
     private final LoginSessionService loginSessionService;
 
+    private final AdminRoleMenuService adminRoleMenuService;
+
     /**
      * 获取用户信息
      *
@@ -44,9 +51,22 @@ public class AdminUserController {
                 .orElseThrow(() -> new com.yxx.common.exceptions.ApiException(
                         com.yxx.common.enums.ApiCode.TOKEN_ERROR));
         AdminUser user = adminUserService.getById(principal.getSubjectId());
+        if (user == null || !Boolean.TRUE.equals(user.getStatus())) {
+            loginSessionService.invalidateAdmin(principal.getSubjectId());
+            throw new com.yxx.common.exceptions.ApiException(com.yxx.common.enums.ApiCode.TOKEN_ERROR);
+        }
         return new AdminCurrentUserRes(
                 user.getId(), user.getLoginCode(), user.getLoginName(), user.getLinkPhone(),
                 user.getEmail(), principal.getRoles(), principal.getPermissions());
+    }
+
+    /** 获取当前管理员可见的导航菜单树。 */
+    @GetMapping("/menus")
+    public List<AdminMenuRes> menus() {
+        LoginPrincipal principal = loginSessionService.currentAdmin()
+                .orElseThrow(() -> new com.yxx.common.exceptions.ApiException(
+                        com.yxx.common.enums.ApiCode.TOKEN_ERROR));
+        return adminRoleMenuService.currentMenuTree(principal.getRoles());
     }
 
     /**
@@ -57,7 +77,8 @@ public class AdminUserController {
      * @author yxx
      */
     @AllowAnonymous
-    @AuditLog(module = "用户模块", action = "发送重置密码邮件", recordRequest = false)
+    @AuditLog(module = "用户模块", action = "发送重置密码邮件",
+            eventType = AuditEventType.SECURITY, recordRequest = false)
     @PostMapping("/resetPwdEmail")
     public Boolean resetPwdEmail(@Valid @RequestBody ResetPwdEmailReq req){
         return adminUserService.resetPwdEmail(req);
@@ -71,7 +92,8 @@ public class AdminUserController {
      * @author yxx
      */
     @AllowAnonymous
-    @AuditLog(module = "用户模块", action = "重置密码", recordRequest = false)
+    @AuditLog(module = "用户模块", action = "重置密码",
+            eventType = AuditEventType.SECURITY, recordRequest = false)
     @PostMapping("/resetPwd")
     public Boolean resetPwd(@Valid @RequestBody ResetPwdReq req){
         return adminUserService.resetPwd(req);
@@ -84,7 +106,8 @@ public class AdminUserController {
      * @return {@link Boolean }
      * @author yxx
      */
-    @AuditLog(module = "用户模块", action = "修改密码", recordRequest = false)
+    @AuditLog(module = "用户模块", action = "修改密码",
+            eventType = AuditEventType.SECURITY, recordRequest = false)
     @PostMapping("/editPwd")
     public Boolean editPwd(@Valid @RequestBody EditPwdReq req){
         return adminUserService.editPwd(req);

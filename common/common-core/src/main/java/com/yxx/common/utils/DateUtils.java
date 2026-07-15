@@ -3,7 +3,6 @@ package com.yxx.common.utils;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.text.CharSequenceUtil;
 import cn.hutool.core.util.NumberUtil;
-import com.baomidou.mybatisplus.core.toolkit.ObjectUtils;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.exceptions.ApiException;
 
@@ -14,6 +13,7 @@ import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Objects;
 
 /**
  * @author yxx
@@ -83,7 +83,7 @@ public class DateUtils extends DateUtil {
      * @return 转换后的字符串
      */
     public static String date2Str(String format, Date date) {
-        if (ObjectUtils.isNull(date)) {
+        if (Objects.isNull(date)) {
             return null;
         }
         SimpleDateFormat dateFormat = CharSequenceUtil.isBlank(format) ?
@@ -99,7 +99,7 @@ public class DateUtils extends DateUtil {
      * @return Date
      */
     public static Date parseDate(Object dateStr) {
-        if (ObjectUtils.isNull(dateStr)) {
+        if (Objects.isNull(dateStr)) {
             return null;
         }
         return parse(dateStr.toString(), PARSE_PATTERNS);
@@ -112,7 +112,7 @@ public class DateUtils extends DateUtil {
      * @return LocalTime
      */
     public static LocalTime parseLocalTime(Object dateStr) {
-        if (ObjectUtils.isNull(dateStr)) {
+        if (Objects.isNull(dateStr)) {
             return null;
         }
         if (dateStr instanceof Double) {
@@ -167,7 +167,7 @@ public class DateUtils extends DateUtil {
      * @return LocalDate
      */
     public static LocalDate parseLocalDate(Object dateStr) {
-        if (ObjectUtils.isNull(dateStr)) {
+        if (Objects.isNull(dateStr)) {
             return null;
         }
         if (dateStr instanceof Double) {
@@ -222,7 +222,7 @@ public class DateUtils extends DateUtil {
      * @return LocalDateTime
      */
     public static LocalDateTime parseLocalDateTime(Object dateStr) {
-        if (ObjectUtils.isNull(dateStr)) {
+        if (Objects.isNull(dateStr)) {
             return null;
         }
         if (dateStr instanceof Double) {
