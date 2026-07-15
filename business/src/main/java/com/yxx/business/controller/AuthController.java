@@ -8,6 +8,7 @@ import com.yxx.business.model.response.LoginRes;
 import com.yxx.framework.audit.annotation.AuditLog;
 import com.yxx.common.annotation.response.ResponseResult;
 import com.yxx.security.annotation.AllowAnonymous;
+import com.yxx.security.constant.LoginDeviceType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
@@ -43,7 +44,8 @@ public class AuthController {
     @PostMapping("/login")
     public LoginRes login(@Valid @RequestBody LoginReq request) {
         String token = authenticationService.login(
-                new PasswordAuthenticationCommand(request.getLoginCode(), request.getPassword()), "pc");
+                new PasswordAuthenticationCommand(request.getLoginCode(), request.getPassword()),
+                LoginDeviceType.PC);
         return new LoginRes(token);
     }
 

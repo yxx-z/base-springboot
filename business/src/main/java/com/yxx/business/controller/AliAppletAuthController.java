@@ -7,6 +7,7 @@ import com.yxx.business.model.response.LoginRes;
 import com.yxx.common.annotation.response.ResponseResult;
 import com.yxx.framework.audit.annotation.AuditLog;
 import com.yxx.security.annotation.AllowAnonymous;
+import com.yxx.security.constant.LoginDeviceType;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,7 +48,7 @@ public class AliAppletAuthController {
     @PostMapping("/login")
     public LoginRes login(@Valid @RequestBody AlipayLoginReq req) {
         String token = authenticationService.login(
-                new AlipayAuthenticationCommand(req.authCode()), "alipay-applet");
+                new AlipayAuthenticationCommand(req.authCode()), LoginDeviceType.ALIPAY_APPLET);
         return new LoginRes(token);
     }
 }

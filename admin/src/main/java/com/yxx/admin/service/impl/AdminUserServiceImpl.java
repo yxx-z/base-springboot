@@ -15,7 +15,7 @@ import com.yxx.admin.model.response.LoginRes;
 import com.yxx.admin.service.AdminUserService;
 import com.yxx.admin.security.AdminAuthorizationService;
 import com.yxx.common.constant.EmailSubjectConstant;
-import com.yxx.common.constant.LoginDevice;
+import com.yxx.security.constant.LoginDeviceType;
 import com.yxx.common.constant.RedisConstant;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.properties.IpProperties;
@@ -132,7 +132,7 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
                 .permissions(authorization.permissions())
                 .loginTime(LocalDateTime.now())
                 .build();
-        String token = loginSessionService.loginAdmin(principal, LoginDevice.PC);
+        String token = loginSessionService.loginAdmin(principal, LoginDeviceType.PC);
 
         // 修改用户数据
         updateById(user);
