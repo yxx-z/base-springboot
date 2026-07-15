@@ -9,12 +9,17 @@ import com.yxx.admin.model.entity.AdminUser;
 import com.yxx.admin.model.entity.AdminUserRole;
 import com.yxx.admin.service.AdminRoleService;
 import com.yxx.admin.service.AdminUserRoleService;
-import com.yxx.common.enums.business.RoleEnum;
+import com.yxx.admin.security.AdminSecurityCodes;
+import com.yxx.common.enums.ApiCode;
+import com.yxx.common.utils.ApiAssert;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Collection;
+import com.yxx.security.context.LoginSessionService;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * @author yxx
@@ -24,6 +29,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminUserRoleServiceImpl extends ServiceImpl<AdminUserRoleMapper, AdminUserRole> implements AdminUserRoleService {
     private final AdminRoleService adminRoleService;
+
+    private final LoginSessionService loginSessionService;
 
     @Override
     public List<String> loginUserRoleManage(AdminUser user) {
@@ -35,19 +42,16 @@ public class AdminUserRoleServiceImpl extends ServiceImpl<AdminUserRoleMapper, A
         // ApiAssert.isTrue(ApiCode.USER_NOT_ROLE, !userRoleList.isEmpty());
 
         // 遍历用户角色集合
-        adminUserRoleList.forEach(adminUserRole -> {
-            // 根据用户的角色id 获取角色详情
-            AdminRole adminRole = adminRoleService.getOne(new LambdaQueryWrapper<AdminRole>().eq(AdminRole::getId, adminUserRole.getRoleId()));
-
-            // 如果没有角色不让登录，请取消下面一行代码注释
-            // ApiAssert.isTrue(ApiCode.USER_NOT_ROLE, ObjectUtil.isNull(role));
-
-            // 如果角色信息不为空
-            if (ObjectUtil.isNotNull(adminRole)) {
-                // 将角色code添加到返回值集合中
-                roleList.add(adminRole.getCode());
-            }
-        });
+        List<Integer> roleIds = adminUserRoleList.stream()
+                .map(AdminUserRole::getRoleId)
+                .distinct()
+                .toList();
+        if (!roleIds.isEmpty()) {
+            adminRoleService.listByIds(roleIds).stream()
+                    .map(AdminRole::getCode)
+                    .distinct()
+                    .forEach(roleList::add);
+        }
 
         // 返回角色code集合
         return roleList;
@@ -57,7 +61,9 @@ public class AdminUserRoleServiceImpl extends ServiceImpl<AdminUserRoleMapper, A
     public Boolean setDefaultRole(AdminUser user) {
         // 根据角色code 获取角色详情
         AdminRole adminRole = adminRoleService.getOne(
-                new LambdaQueryWrapper<AdminRole>().eq(AdminRole::getCode, RoleEnum.USER.getCode()));
+                new LambdaQueryWrapper<AdminRole>()
+                        .eq(AdminRole::getCode, AdminSecurityCodes.ROLE_ADMINISTRATOR));
+        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, ObjectUtil.isNotNull(adminRole));
         // 初始化用户角色实体类
         AdminUserRole adminUserRole = new AdminUserRole();
         // 设置用户id
@@ -66,5 +72,21 @@ public class AdminUserRoleServiceImpl extends ServiceImpl<AdminUserRoleMapper, A
         adminUserRole.setRoleId(adminRole.getId());
         // 保存
         return save(adminUserRole);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void replaceRoles(Long userId, Collection<Integer> roleIds) {
+        remove(new LambdaQueryWrapper<AdminUserRole>().eq(AdminUserRole::getUserId, userId));
+        if (roleIds != null && !roleIds.isEmpty()) {
+            List<AdminUserRole> relations = roleIds.stream().distinct().map(roleId -> {
+                AdminUserRole relation = new AdminUserRole();
+                relation.setUserId(userId);
+                relation.setRoleId(roleId);
+                return relation;
+            }).toList();
+            saveBatch(relations);
+        }
+        loginSessionService.invalidateAdmin(userId);
     }
 }

@@ -46,10 +46,16 @@ public class OperateLog extends Convert {
      */
     private String title;
 
+    /** 被操作的业务资源类型或说明。 */
+    private String resource;
+
     /**
      * 操作IP
      */
     private String ip;
+
+    /** IP 归属地。 */
+    private String ipHomePlace;
 
     /**
      * 用户代理

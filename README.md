@@ -17,6 +17,7 @@
 base-springboot
 ├── common
 │   ├── common-core       公共契约、模型、枚举、注解和跨应用复用能力
+│   ├── common-security   统一认证主体、安全上下文、Sa-Token 适配和安全注解
 │   └── common-framework  Web、安全、数据访问、缓存、日志和异步基础设施
 ├── business              用户端业务及支付宝等业务专属集成
 ├── admin                 管理端业务
@@ -26,7 +27,7 @@ base-springboot
 模块依赖方向固定为：
 
 ```text
-admin / business -> common-framework -> common-core
+admin / business -> common-framework -> common-security -> common-core
 ```
 
 约束原则：
@@ -84,7 +85,9 @@ export CORS_ALLOWED_ORIGIN_PATTERN=https://your-frontend.example.com
 - 用户端和管理端使用独立 Sa-Token 登录体系。
 - 权限查询必须根据 `loginType` 读取对应 Session。
 - 注册、登录、修改密码和重置密码统一使用 BCrypt。
-- `@ReleaseToken` 可标注在 Controller 类或方法上，其他接口默认要求登录。
+- `@AllowAnonymous` 可标注在 Controller 类或方法上，其他接口默认要求登录。
+- 用户端采用“系统用户主体 + 多登录身份”模型，密码、支付宝等策略最终统一映射到内部用户 ID。
+- 登录时生成角色和权限快照；角色或权限变更后必须注销受影响账号的全部会话。
 
 ### TraceId 与日志
 

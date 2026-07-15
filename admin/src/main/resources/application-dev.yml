@@ -1,6 +1,6 @@
 spring:
   application:
-    name: business
+    name: admin
   config:
     activate:
       on-profile: dev

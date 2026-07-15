@@ -5,6 +5,7 @@ import com.yxx.business.model.entity.User;
 import com.yxx.business.model.entity.UserRole;
 
 import java.util.List;
+import java.util.Collection;
 
 /**
  * @author yxx
@@ -28,4 +29,12 @@ public interface UserRoleService extends IService<UserRole> {
      * @author yxx
      */
     Boolean setDefaultRole(User user);
+
+    /**
+     * 替换用户角色并注销该用户全部会话，使旧授权快照立即失效。
+     *
+     * @param userId  用户主键
+     * @param roleIds 新角色主键集合
+     */
+    void replaceRoles(Long userId, Collection<Integer> roleIds);
 }

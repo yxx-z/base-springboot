@@ -4,7 +4,8 @@ import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-@SpringBootApplication(scanBasePackages = {"com.yxx.business", "com.yxx.common", "com.yxx.framework"})
+@SpringBootApplication(scanBasePackages = {
+        "com.yxx.business", "com.yxx.common", "com.yxx.security", "com.yxx.framework"})
 @MapperScan("com.yxx.business.mapper")
 public class BusinessApplication {
 

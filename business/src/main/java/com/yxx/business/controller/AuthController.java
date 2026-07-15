@@ -1,12 +1,13 @@
 package com.yxx.business.controller;
 
 import cn.dev33.satoken.stp.StpUtil;
+import com.yxx.business.auth.UserAuthenticationService;
+import com.yxx.business.auth.command.PasswordAuthenticationCommand;
 import com.yxx.business.model.request.LoginReq;
 import com.yxx.business.model.response.LoginRes;
-import com.yxx.business.service.UserService;
-import com.yxx.common.annotation.auth.ReleaseToken;
-import com.yxx.common.annotation.log.OperationLog;
+import com.yxx.framework.audit.annotation.AuditLog;
 import com.yxx.common.annotation.response.ResponseResult;
+import com.yxx.security.annotation.AllowAnonymous;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
@@ -28,7 +29,7 @@ import jakarta.validation.Valid;
 @RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
-    private final UserService userService;
+    private final UserAuthenticationService authenticationService;
 
     /**
      * 登录
@@ -37,11 +38,13 @@ public class AuthController {
      * @return {@link LoginRes }
      * @author yxx
      */
-    @ReleaseToken
-    @OperationLog(module = "鉴权模块", title = "pc登录")
+    @AllowAnonymous
+    @AuditLog(module = "鉴权模块", action = "用户密码登录", recordRequest = false)
     @PostMapping("/login")
     public LoginRes login(@Valid @RequestBody LoginReq request) {
-        return userService.login(request);
+        String token = authenticationService.login(
+                new PasswordAuthenticationCommand(request.getLoginCode(), request.getPassword()), "pc");
+        return new LoginRes(token);
     }
 
     /**
@@ -49,7 +52,7 @@ public class AuthController {
      *
      * @author yxx
      */
-    @OperationLog(module = "鉴权模块", title = "pc退出")
+    @AuditLog(module = "鉴权模块", action = "用户退出")
     @PostMapping("/logout")
     public void logout() {
         StpUtil.logout();

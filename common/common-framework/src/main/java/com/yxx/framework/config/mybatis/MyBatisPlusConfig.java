@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.BlockAttackInnerInterceptor;
 import com.yxx.framework.hander.CommonMetaObjectHandler;
+import com.yxx.security.context.CurrentActorProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -33,8 +34,8 @@ public class MyBatisPlusConfig {
      * 自动填充参数
      */
     @Bean
-    public CommonMetaObjectHandler commonMetaObjectHandler() {
-        return new CommonMetaObjectHandler();
+    public CommonMetaObjectHandler commonMetaObjectHandler(CurrentActorProvider currentActorProvider) {
+        return new CommonMetaObjectHandler(currentActorProvider);
     }
 
 }

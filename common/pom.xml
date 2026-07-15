@@ -13,6 +13,7 @@
     </parent>
     <modules>
         <module>common-core</module>
+        <module>common-security</module>
         <module>common-framework</module>
     </modules>
 

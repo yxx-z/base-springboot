@@ -7,6 +7,7 @@
             id,
             module,
             title,
+            resource,
             ip,
             type,
             exception,
@@ -34,6 +35,7 @@
             operate_log.exception,
             operate_log.module,
             operate_log.title,
+            operate_log.resource,
             operate_log.ip,
             operate_log.create_time
         FROM

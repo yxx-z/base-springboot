@@ -7,7 +7,7 @@ import com.yxx.business.model.response.AliCreatPayRes;
 import com.yxx.business.model.response.AliWapPayRes;
 import com.yxx.business.model.response.AliWebPayRes;
 import com.yxx.business.service.AliPayService;
-import com.yxx.common.annotation.auth.ReleaseToken;
+import com.yxx.security.annotation.AllowAnonymous;
 import com.yxx.common.annotation.response.ResponseResult;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -81,7 +81,7 @@ public class AliPayController {
      * @param response response
      * @author yxx
      */
-    @ReleaseToken
+    @AllowAnonymous
     @PostMapping(value = "/notifyUrl")
     public void notifyUrl(HttpServletRequest request, HttpServletResponse response) {
         aliPayService.notifyUrl(request, response);

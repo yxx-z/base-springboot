@@ -12,13 +12,11 @@ import com.yxx.admin.model.request.*;
 import com.yxx.admin.mapper.AdminUserMapper;
 import com.yxx.admin.model.entity.AdminUser;
 import com.yxx.admin.model.response.LoginRes;
-import com.yxx.admin.service.AdminRoleMenuService;
-import com.yxx.admin.service.AdminUserRoleService;
 import com.yxx.admin.service.AdminUserService;
+import com.yxx.admin.security.AdminAuthorizationService;
 import com.yxx.common.constant.EmailSubjectConstant;
 import com.yxx.common.constant.LoginDevice;
 import com.yxx.common.constant.RedisConstant;
-import com.yxx.common.core.model.LoginUser;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.properties.IpProperties;
 import com.yxx.common.properties.MailProperties;
@@ -28,7 +26,6 @@ import com.yxx.common.utils.ApiAssert;
 import com.yxx.common.utils.DateUtils;
 import com.yxx.common.utils.ServletUtils;
 import com.yxx.common.utils.agent.UserAgentUtil;
-import com.yxx.common.utils.auth.LoginAdminUtils;
 import com.yxx.common.utils.email.MailUtils;
 import com.yxx.common.utils.ip.AddressUtil;
 import com.yxx.common.utils.ip.IpUtil;
@@ -48,6 +45,10 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import com.yxx.security.constant.LoginMode;
+import com.yxx.security.constant.SecurityRealm;
+import com.yxx.security.context.LoginSessionService;
+import com.yxx.security.model.LoginPrincipal;
 
 /**
  * @author yxx
@@ -57,9 +58,9 @@ import java.util.concurrent.TimeUnit;
 @Service
 @RequiredArgsConstructor
 public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser> implements AdminUserService {
-    private final AdminUserRoleService adminUserRoleService;
+    private final AdminAuthorizationService authorizationService;
 
-    private final AdminRoleMenuService adminRoleMenuService;
+    private final LoginSessionService loginSessionService;
 
     private final RedissonCache redissonCache;
 
@@ -93,40 +94,18 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
         // 如果请求参数中的密码加密后和数据库中不一致，抛出异常
         ApiAssert.isTrue(ApiCode.PASSWORD_ERROR, passwordEncoder.matches(request.getPassword(), user.getPassword()));
 
-        // 初始化登录信息
-        LoginUser loginUser = new LoginUser();
-        // 拷贝赋值数据
-        BeanUtils.copyProperties(user, loginUser);
-        // 设置登录时间
-        loginUser.setLoginTime(LocalDateTime.now());
-        // 获取该用户角色信息
-        List<String> roleCodeList = adminUserRoleService.loginUserRoleManage(user);
-        // 赋值角色集合
-        loginUser.setRolePermission(roleCodeList);
-        // 根据角色code获取该用户菜单集合
-        List<String> menuCodeList = adminRoleMenuService.loginUserMenu(roleCodeList);
-        // 赋值菜单集合
-        loginUser.setMenuPermission(menuCodeList);
-
         // 获取请求头
         HttpServletRequest servletRequest = ServletUtils.getRequest();
         // 获取登录设备信息
         String requestAgent = servletRequest.getHeader("user-agent");
         // 解析登录设备
         String agent = UserAgentUtil.getAgent(requestAgent);
-        // 设置该用户登录时的设备名称
-        loginUser.setAgent(agent);
-
-
         // 如果校验ip
         if (Boolean.TRUE.equals(ipProperties.getCheck())) {
             // 得到请求时的ip
             String requestIp = IpUtil.getRequestIp();
             // 获取ip归属地
             String ipHomePlace = AddressUtil.getIpHomePlace(requestIp, 2);
-            // 设置该用户登录时的ip归属地
-            loginUser.setIpHomePlace(ipHomePlace);
-
             // 新建checkUser并将user信息赋值过来，下面异步校验使用。
             // 直接用user会有异步信息还未执行的时候，下面的用户信息已经更新的问题
             AdminUser checkUser = new AdminUser();
@@ -141,14 +120,25 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
             user.setIpHomePlace(ipHomePlace);
         }
 
-        // 登录
-        LoginAdminUtils.login(loginUser, LoginDevice.PC);
+        // 角色与后端权限分别加载，菜单仅用于前端导航，不再作为接口权限使用。
+        AdminAuthorizationService.Snapshot authorization = authorizationService.load(user.getId());
+        LoginPrincipal principal = LoginPrincipal.builder()
+                .subjectId(user.getId())
+                .subjectType(SecurityRealm.ADMIN)
+                .account(user.getLoginCode())
+                .displayName(user.getLoginName())
+                .loginMode(LoginMode.PASSWORD)
+                .roles(authorization.roles())
+                .permissions(authorization.permissions())
+                .loginTime(LocalDateTime.now())
+                .build();
+        String token = loginSessionService.loginAdmin(principal, LoginDevice.PC);
 
         // 修改用户数据
         updateById(user);
 
         // 返回token
-        return new LoginRes(loginUser.getToken());
+        return new LoginRes(token);
     }
 
     @Override
@@ -226,7 +216,10 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
     @Override
     public Boolean editPwd(EditPwdReq req) {
         // 根据登录id 获取该用户详情
-        AdminUser user = getById(LoginAdminUtils.getUserId());
+        Long userId = loginSessionService.currentAdmin()
+                .map(LoginPrincipal::getSubjectId)
+                .orElseThrow(() -> new com.yxx.common.exceptions.ApiException(ApiCode.TOKEN_ERROR));
+        AdminUser user = getById(userId);
 
         // 匹对请求参数中的旧密码是否正确
         ApiAssert.isTrue(ApiCode.ORIGINAL_PASSWORD_ERROR, passwordEncoder.matches(req.getPassword(), user.getPassword()));

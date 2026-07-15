@@ -1,6 +1,5 @@
 package com.yxx.admin.model.entity;
 
-import com.baomidou.mybatisplus.annotation.TableLogic;
 import lombok.Data;
 
 /**
@@ -12,7 +11,7 @@ public class AdminRoleMenu {
     /**
      * 主键
      */
-    private Integer id;
+    private Long id;
 
     /**
      * 角色id
@@ -24,9 +23,4 @@ public class AdminRoleMenu {
      */
     private Integer menuId;
 
-    /**
-     * 是否删除：0-未删除；1-已删除
-     */
-    @TableLogic
-    private Boolean isDelete;
 }

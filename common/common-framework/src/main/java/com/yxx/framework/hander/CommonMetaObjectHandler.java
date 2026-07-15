@@ -1,11 +1,9 @@
 package com.yxx.framework.hander;
 
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
-import com.yxx.common.utils.auth.LoginAdminUtils;
-import com.yxx.common.utils.auth.LoginUtils;
+import com.yxx.security.context.CurrentActorProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ibatis.reflection.MetaObject;
-import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDateTime;
 
@@ -18,8 +16,11 @@ public class CommonMetaObjectHandler implements MetaObjectHandler {
     /** 未登录任务、初始化脚本等系统行为使用的审计用户编号。 */
     private static final Long SYSTEM_USER_ID = 0L;
 
-    @Value("${app.name}")
-    private String appName;
+    private final CurrentActorProvider currentActorProvider;
+
+    public CommonMetaObjectHandler(CurrentActorProvider currentActorProvider) {
+        this.currentActorProvider = currentActorProvider;
+    }
 
     /**
      * 创建人
@@ -58,15 +59,9 @@ public class CommonMetaObjectHandler implements MetaObjectHandler {
 
     public Long currentUid() {
         try {
-            if ("user".equals(appName)) {
-                Long userId = LoginUtils.getUserId();
-                return userId == null ? SYSTEM_USER_ID : userId;
-            }
-            if ("admin".equals(appName)) {
-                Long userId = LoginAdminUtils.getUserId();
-                return userId == null ? SYSTEM_USER_ID : userId;
-            }
-            log.warn("无法识别应用类型 app.name={}，审计用户使用系统账号", appName);
+            return currentActorProvider.currentActor()
+                    .map(actor -> actor.actorId())
+                    .orElse(SYSTEM_USER_ID);
         } catch (RuntimeException exception) {
             log.debug("当前线程不存在登录上下文，审计用户使用系统账号", exception);
         }

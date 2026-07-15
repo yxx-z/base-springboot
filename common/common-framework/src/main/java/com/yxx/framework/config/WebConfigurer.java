@@ -4,6 +4,7 @@ import cn.dev33.satoken.interceptor.SaInterceptor;
 import cn.dev33.satoken.jwt.StpLogicJwtForSimple;
 import cn.dev33.satoken.stp.StpLogic;
 import com.yxx.framework.interceptor.response.ResponseResultInterceptor;
+import com.yxx.framework.interceptor.security.AuthenticationInterceptor;
 import com.yxx.framework.config.properties.CorsProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -24,11 +25,15 @@ public class WebConfigurer implements WebMvcConfigurer {
 
 
     private final ResponseResultInterceptor interceptor;
+    private final AuthenticationInterceptor authenticationInterceptor;
     private final CorsProperties corsProperties;
 
     @Autowired
-    public WebConfigurer(ResponseResultInterceptor interceptor, CorsProperties corsProperties) {
+    public WebConfigurer(ResponseResultInterceptor interceptor,
+                         AuthenticationInterceptor authenticationInterceptor,
+                         CorsProperties corsProperties) {
         this.interceptor = interceptor;
+        this.authenticationInterceptor = authenticationInterceptor;
         this.corsProperties = corsProperties;
     }
 
@@ -52,6 +57,7 @@ public class WebConfigurer implements WebMvcConfigurer {
         // addPathPatterns("/**") 表示拦截所有的请求，
         // excludePathPatterns("/login", "/register") 表示除了登录与注册之外，因为登录注册不需要登录也可以访问
         registry.addInterceptor(interceptor).addPathPatterns("/**");
+        registry.addInterceptor(authenticationInterceptor).addPathPatterns("/**");
         // 注册注解拦截器，并排除不需要注解鉴权的接口地址 (与登录拦截器无关)
         registry.addInterceptor(new SaInterceptor()).addPathPatterns("/**");
     }

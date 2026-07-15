@@ -18,25 +18,19 @@ public class User extends BaseEntity implements Serializable{
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    /**
-     * 登录账号
-     */
-    private String loginCode;
+    /** 用户显示名称。 */
+    private String displayName;
 
-    /**
-     * 登录名
-     */
-    private String loginName;
+    /** 用户头像地址。 */
+    private String avatar;
 
-    /**
-     * 密码
-     */
-    private String password;
+    /** 账号状态：1-正常，0-停用。 */
+    private Boolean status;
 
     /**
      * 手机号
      */
-    private String linkPhone;
+    private String phone;
 
     /**
      * 邮箱

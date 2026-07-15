@@ -9,12 +9,17 @@ import com.yxx.business.model.entity.User;
 import com.yxx.business.model.entity.UserRole;
 import com.yxx.business.service.RoleService;
 import com.yxx.business.service.UserRoleService;
-import com.yxx.common.enums.business.RoleEnum;
+import com.yxx.business.security.UserSecurityCodes;
+import com.yxx.common.enums.ApiCode;
+import com.yxx.common.utils.ApiAssert;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Collection;
+import com.yxx.security.context.LoginSessionService;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * @author yxx
@@ -25,6 +30,8 @@ import java.util.List;
 public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole> implements UserRoleService {
     private final RoleService roleService;
 
+    private final LoginSessionService loginSessionService;
+
     @Override
     public List<String> loginUserRoleManage(User user) {
         // 初始化返回角色code集合
@@ -34,20 +41,14 @@ public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole> i
         // 如果没有角色不让登录，请取消下面一行代码注释
         // ApiAssert.isTrue(ApiCode.USER_NOT_ROLE, !userRoleList.isEmpty());
 
-        // 遍历用户角色集合
-        userRoleList.forEach(userRole -> {
-            // 根据用户的角色id 获取角色详情
-            Role role = roleService.getOne(new LambdaQueryWrapper<Role>().eq(Role::getId, userRole.getRoleId()));
-
-            // 如果没有角色不让登录，请取消下面一行代码注释
-            // ApiAssert.isTrue(ApiCode.USER_NOT_ROLE, ObjectUtil.isNull(role));
-
-            // 如果角色信息不为空
-            if (ObjectUtil.isNotNull(role)) {
-                // 将角色code添加到返回值集合中
-                roleList.add(role.getCode());
-            }
-        });
+        // 一次批量加载全部角色，避免每个用户角色关系再执行一次数据库查询。
+        List<Integer> roleIds = userRoleList.stream().map(UserRole::getRoleId).distinct().toList();
+        if (!roleIds.isEmpty()) {
+            roleService.listByIds(roleIds).stream()
+                    .map(Role::getCode)
+                    .distinct()
+                    .forEach(roleList::add);
+        }
 
         // 返回角色code集合
         return roleList;
@@ -57,7 +58,8 @@ public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole> i
     public Boolean setDefaultRole(User user) {
         // 根据角色code 获取角色详情
         Role role = roleService.getOne(
-                new LambdaQueryWrapper<Role>().eq(Role::getCode, RoleEnum.USER.getCode()));
+                new LambdaQueryWrapper<Role>().eq(Role::getCode, UserSecurityCodes.ROLE_MEMBER));
+        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, ObjectUtil.isNotNull(role));
         // 初始化用户角色实体类
         UserRole userRole = new UserRole();
         // 设置用户id
@@ -66,5 +68,23 @@ public class UserRoleServiceImpl extends ServiceImpl<UserRoleMapper, UserRole> i
         userRole.setRoleId(role.getId());
         // 保存
         return save(userRole);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void replaceRoles(Long userId, Collection<Integer> roleIds) {
+        // 关联表采用物理删除，确保同一角色可以在撤销后再次分配。
+        remove(new LambdaQueryWrapper<UserRole>().eq(UserRole::getUserId, userId));
+        if (roleIds != null && !roleIds.isEmpty()) {
+            List<UserRole> relations = roleIds.stream().distinct().map(roleId -> {
+                UserRole relation = new UserRole();
+                relation.setUserId(userId);
+                relation.setRoleId(roleId);
+                return relation;
+            }).toList();
+            saveBatch(relations);
+        }
+        // 当前项目采用登录时权限快照，角色变更后必须注销旧会话。
+        loginSessionService.invalidateUser(userId);
     }
 }

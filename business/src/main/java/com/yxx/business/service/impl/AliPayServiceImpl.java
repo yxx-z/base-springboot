@@ -71,7 +71,7 @@ public class AliPayServiceImpl implements AliPayService {
         String orderNum = snowflake.orderNum();
         AliPayDto payDto = new AliPayDto();
         payDto.setTotalAmount(totalAmount);
-        // String userId = AliLoginUtils.getLoginCode(); 线上用这个
+        // 正式业务应从统一 LoginPrincipal 获取系统用户主键，再查询已绑定的支付宝身份。
         payDto.setBuyerId("2088722012937522");
         payDto.setOutTradeNo(orderNum);
         payDto.setSubject("测试");
@@ -285,7 +285,7 @@ public class AliPayServiceImpl implements AliPayService {
         // 必传参数
         AliPayDto payDto = new AliPayDto();
         payDto.setTotalAmount(totalAmount);
-        // String userId = AliLoginUtils.getLoginCode(); 线上用这个
+        // 正式业务应从统一 LoginPrincipal 获取系统用户主键，再查询已绑定的支付宝身份。
         payDto.setBuyerId("2088722012937522");
         // 订单号生成（正常情况订单号不在这里生成，应该传递进来。这里为了方便测试）
         String orderNum = snowflake.orderNum();
@@ -352,7 +352,7 @@ public class AliPayServiceImpl implements AliPayService {
         // 必传参数
         AliPayDto payDto = new AliPayDto();
         payDto.setTotalAmount(totalAmount);
-        // String userId = AliLoginUtils.getLoginCode(); 线上用这个
+        // 正式业务应从统一 LoginPrincipal 获取系统用户主键，再查询已绑定的支付宝身份。
         payDto.setBuyerId("2088722012937522");
         // 订单号生成（正常情况订单号不在这里生成，应该传递进来。这里为了方便测试）
         String orderNum = snowflake.orderNum();

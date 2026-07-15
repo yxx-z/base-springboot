@@ -5,7 +5,8 @@ import com.yxx.admin.model.request.OperateLogReq;
 import com.yxx.admin.model.response.OperateLogResp;
 import com.yxx.admin.service.OperateAdminLogService;
 import com.yxx.common.annotation.response.ResponseResult;
-import com.yxx.common.annotation.satoken.SaAdminCheckRole;
+import com.yxx.security.annotation.SaAdminCheckPermission;
+import com.yxx.admin.security.AdminSecurityCodes;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
@@ -18,9 +19,7 @@ import jakarta.validation.Valid;
 
 /**
  * @author yxx
- * @description 注：@SaCheckRole("super_admin")
- * 表示只有 super_admin 角色的用户才可访问此controller。
- * 该注解亦可放在具体的方法上
+ * 管理端审计日志查询接口，访问者必须具备审计日志读取权限。
  * @since 2023-05-17 15:39
  */
 @Slf4j
@@ -29,7 +28,7 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/log")
 @RequiredArgsConstructor
-@SaAdminCheckRole("super_admin")
+@SaAdminCheckPermission(AdminSecurityCodes.PERMISSION_AUDIT_LOG_READ)
 public class OperateAdminLogController {
     private final OperateAdminLogService operateAdminLogService;
 

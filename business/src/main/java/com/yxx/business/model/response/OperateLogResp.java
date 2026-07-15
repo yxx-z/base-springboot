@@ -30,6 +30,9 @@ public class OperateLogResp {
      */
     private String title;
 
+    /** 被操作的业务资源。 */
+    private String resource;
+
     /**
      * 操作IP
      */

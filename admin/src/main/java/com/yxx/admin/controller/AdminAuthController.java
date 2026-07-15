@@ -3,10 +3,10 @@ package com.yxx.admin.controller;
 import com.yxx.admin.model.request.LoginReq;
 import com.yxx.admin.model.response.LoginRes;
 import com.yxx.admin.service.AdminUserService;
-import com.yxx.common.annotation.auth.ReleaseToken;
-import com.yxx.common.annotation.log.OperationLog;
 import com.yxx.common.annotation.response.ResponseResult;
-import com.yxx.common.utils.satoken.StpAdminUtil;
+import com.yxx.framework.audit.annotation.AuditLog;
+import com.yxx.security.annotation.AllowAnonymous;
+import com.yxx.security.satoken.StpAdminUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
@@ -37,8 +37,8 @@ public class AdminAuthController {
      * @return {@link LoginRes }
      * @author yxx
      */
-    @ReleaseToken
-    @OperationLog(module = "鉴权模块", title = "pc登录")
+    @AllowAnonymous
+    @AuditLog(module = "鉴权模块", action = "管理员密码登录", recordRequest = false)
     @PostMapping("/login")
     public LoginRes login(@Valid @RequestBody LoginReq request) {
         return adminUserService.login(request);
@@ -49,7 +49,7 @@ public class AdminAuthController {
      *
      * @author yxx
      */
-    @OperationLog(module = "鉴权模块", title = "pc退出")
+    @AuditLog(module = "鉴权模块", action = "管理员退出")
     @PostMapping("/logout")
     public void logout() {
         StpAdminUtil.logout();

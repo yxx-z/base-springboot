@@ -7,6 +7,7 @@
             id,
             module,
             title,
+            resource,
             ip,
             type,
             exception,
@@ -28,17 +29,18 @@
     <select id="operationLogPage" resultType="com.yxx.admin.model.response.OperateLogResp">
         SELECT
             operate_admin_log.id,
-            `user`.login_code,
-            `user`.login_name,
+            admin_user.login_code,
+            admin_user.login_name,
             operate_admin_log.type,
             operate_admin_log.exception,
             operate_admin_log.module,
             operate_admin_log.title,
+            operate_admin_log.resource,
             operate_admin_log.ip,
             operate_admin_log.create_time
         FROM
             operate_admin_log
-            LEFT JOIN `user` ON operate_admin_log.user_id = `user`.id
+            LEFT JOIN admin_user ON operate_admin_log.user_id = admin_user.id
         <where>
             operate_admin_log.is_delete = 0
             AND operate_admin_log.module != "鉴权模块"

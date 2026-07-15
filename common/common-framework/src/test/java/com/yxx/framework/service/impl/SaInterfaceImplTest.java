@@ -1,46 +1,42 @@
 package com.yxx.framework.service.impl;
 
-import com.yxx.common.core.model.LoginUser;
-import com.yxx.common.utils.auth.LoginAdminUtils;
-import com.yxx.common.utils.auth.LoginUtils;
-import com.yxx.common.utils.satoken.StpAdminUtil;
+import com.yxx.security.context.LoginSessionService;
+import com.yxx.security.model.LoginPrincipal;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
- * Sa-Token 多账号权限读取测试。
+ * Sa-Token 统一主体权限读取测试。
  */
 class SaInterfaceImplTest {
 
-    private final SaInterfaceImpl saInterface = new SaInterfaceImpl();
+    private final LoginSessionService loginSessionService = mock(LoginSessionService.class);
+    private final SaInterfaceImpl saInterface = new SaInterfaceImpl(loginSessionService);
 
     @Test
-    void shouldReadAdminRolesFromAdminSession() {
-        LoginUser admin = new LoginUser();
-        admin.setRolePermission(List.of("super_admin"));
+    void shouldReadRolesFromUnifiedPrincipal() {
+        LoginPrincipal principal = LoginPrincipal.builder()
+                .subjectId(1L)
+                .subjectType("admin")
+                .roles(new LinkedHashSet<>(Set.of("admin:super-admin")))
+                .build();
+        when(loginSessionService.findByLoginId("admin", 1L)).thenReturn(Optional.of(principal));
 
-        try (MockedStatic<LoginAdminUtils> adminUtils = Mockito.mockStatic(LoginAdminUtils.class)) {
-            adminUtils.when(LoginAdminUtils::getLoginUser).thenReturn(admin);
-
-            assertEquals(List.of("super_admin"), saInterface.getRoleList("admin", StpAdminUtil.TYPE));
-        }
+        assertEquals(List.of("admin:super-admin"), saInterface.getRoleList(1L, "admin"));
     }
 
     @Test
-    void shouldTreatMissingButtonPermissionsAsEmptyCollection() {
-        LoginUser user = new LoginUser();
-        user.setMenuPermission(List.of("user:view"));
-        user.setButtonPermission(null);
+    void shouldReturnEmptyPermissionsWhenSessionPrincipalIsMissing() {
+        when(loginSessionService.findByLoginId("user", 1L)).thenReturn(Optional.empty());
 
-        try (MockedStatic<LoginUtils> loginUtils = Mockito.mockStatic(LoginUtils.class)) {
-            loginUtils.when(LoginUtils::getLoginUser).thenReturn(user);
-
-            assertEquals(List.of("user:view"), saInterface.getPermissionList("user", "login"));
-        }
+        assertEquals(List.of(), saInterface.getPermissionList(1L, "user"));
     }
 }

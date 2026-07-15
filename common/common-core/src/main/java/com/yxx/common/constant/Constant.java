@@ -6,10 +6,5 @@ package com.yxx.common.constant;
  */
 public interface Constant {
 
-    /**
-     * 登录用户key
-     */
-    String LOGIN_USER_KEY = "loginUser";
-
     String EMPTY = "";
 }

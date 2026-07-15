@@ -6,10 +6,9 @@ import com.yxx.admin.mapper.OperateAdminLogMapper;
 import com.yxx.admin.model.request.OperateLogReq;
 import com.yxx.admin.model.response.OperateLogResp;
 import com.yxx.admin.service.OperateAdminLogService;
-import com.yxx.common.core.model.LogDTO;
 import com.yxx.common.core.model.OperateAdminLog;
-import com.yxx.framework.service.OperationLogService;
-import org.springframework.beans.BeanUtils;
+import com.yxx.framework.audit.model.AuditEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -21,17 +20,33 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class OperateAdminLogServiceImpl extends ServiceImpl<OperateAdminLogMapper, OperateAdminLog>
-        implements OperateAdminLogService, OperationLogService {
+        implements OperateAdminLogService {
 
+    /**
+     * 异步持久化管理端操作审计事件。
+     *
+     * @param event 审计事件
+     */
     @Async("applicationTaskExecutor")
-    @Override
-    public void saveLog(LogDTO dto) {
-        // 初始化日志类
-        OperateAdminLog log = new OperateAdminLog();
-        // 拷贝赋值数据
-        BeanUtils.copyProperties(dto, log);
-        // 插入日志数据
-        this.save(log);
+    @EventListener
+    public void saveAuditEvent(AuditEvent event) {
+        OperateAdminLog operateLog = new OperateAdminLog();
+        operateLog.setUserId(event.actor() == null ? null : event.actor().actorId());
+        operateLog.setCreateUid(event.actor() == null ? null : event.actor().actorId());
+        operateLog.setType(event.type());
+        operateLog.setModule(event.module());
+        operateLog.setTitle(event.action());
+        operateLog.setResource(event.resource());
+        operateLog.setIp(event.ip());
+        operateLog.setIpHomePlace(event.ipRegion());
+        operateLog.setUserAgent(event.userAgent());
+        operateLog.setRequestUri(event.requestUri());
+        operateLog.setMethod(event.httpMethod());
+        operateLog.setParams(event.requestParams());
+        operateLog.setTraceId(event.traceId());
+        operateLog.setTime(event.durationMillis());
+        operateLog.setException(event.exceptionMessage());
+        save(operateLog);
     }
 
 

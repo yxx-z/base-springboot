@@ -30,12 +30,6 @@ public class AdminUserRole implements Serializable {
     private Integer roleId;
 
     /**
-     * 是否删除:0-未删除；1-已删除
-     */
-    @TableLogic
-    private Boolean isDelete;
-
-    /**
      * 修改时间
      */
     @TableField(fill = FieldFill.INSERT_UPDATE)

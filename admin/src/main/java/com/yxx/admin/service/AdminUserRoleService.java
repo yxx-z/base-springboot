@@ -5,6 +5,7 @@ import com.yxx.admin.model.entity.AdminUser;
 import com.yxx.admin.model.entity.AdminUserRole;
 
 import java.util.List;
+import java.util.Collection;
 
 /**
  * @author yxx
@@ -28,4 +29,12 @@ public interface AdminUserRoleService extends IService<AdminUserRole> {
      * @author yxx
      */
     Boolean setDefaultRole(AdminUser user);
+
+    /**
+     * 替换管理员角色并注销其全部会话，使旧权限快照立即失效。
+     *
+     * @param userId  管理员主键
+     * @param roleIds 新角色主键集合
+     */
+    void replaceRoles(Long userId, Collection<Integer> roleIds);
 }

@@ -2,11 +2,13 @@ package com.yxx.business.controller;
 
 import com.yxx.business.model.request.*;
 import com.yxx.business.service.UserService;
-import com.yxx.common.annotation.auth.ReleaseToken;
-import com.yxx.common.annotation.log.OperationLog;
+import com.yxx.business.model.entity.User;
+import com.yxx.business.model.response.CurrentUserRes;
 import com.yxx.common.annotation.response.ResponseResult;
-import com.yxx.common.core.model.LoginUser;
-import com.yxx.common.utils.auth.LoginUtils;
+import com.yxx.framework.audit.annotation.AuditLog;
+import com.yxx.security.annotation.AllowAnonymous;
+import com.yxx.security.context.LoginSessionService;
+import com.yxx.security.model.LoginPrincipal;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +29,8 @@ public class UserController {
 
     private final UserService userService;
 
+    private final LoginSessionService loginSessionService;
+
     /**
      * 注册
      *
@@ -34,8 +38,8 @@ public class UserController {
      * @return {@link Boolean }
      * @author yxx
      */
-    @ReleaseToken
-    @OperationLog(module = "用户模块", title = "用户注册")
+    @AllowAnonymous
+    @AuditLog(module = "用户模块", action = "用户注册", recordRequest = false)
     @PostMapping("/register")
     public Boolean register(@Valid @RequestBody UserRegisterReq req) {
         return userService.register(req);
@@ -48,8 +52,8 @@ public class UserController {
      * @return {@link Boolean }
      * @author yxx
      */
-    @ReleaseToken
-    @OperationLog(module = "用户模块", title = "发送注册邮箱验证码")
+    @AllowAnonymous
+    @AuditLog(module = "用户模块", action = "发送注册邮箱验证码", recordRequest = false)
     @PostMapping("/sendCaptcha")
     public Boolean sendRegisterCaptcha(@Valid @RequestBody RegisterCaptchaReq req){
         return userService.sendRegisterCaptcha(req);
@@ -58,15 +62,19 @@ public class UserController {
     /**
      * 获取用户信息
      *
-     * @return {@link LoginUser }
+     * @return 当前用户公开信息
      * @author yxx
      */
-    @OperationLog(module = "用户模块", title = "获取用户信息")
+    @AuditLog(module = "用户模块", action = "获取当前用户信息")
     @GetMapping("/info")
-    public LoginUser info() {
-        Long userId = LoginUtils.getUserId();
-        log.info("userId为[{}]", userId);
-        return LoginUtils.getLoginUser();
+    public CurrentUserRes info() {
+        LoginPrincipal principal = loginSessionService.currentUser()
+                .orElseThrow(() -> new com.yxx.common.exceptions.ApiException(
+                        com.yxx.common.enums.ApiCode.TOKEN_ERROR));
+        User user = userService.getById(principal.getSubjectId());
+        return new CurrentUserRes(
+                user.getId(), principal.getAccount(), user.getDisplayName(), user.getAvatar(),
+                user.getPhone(), user.getEmail(), principal.getRoles(), principal.getPermissions());
     }
 
     /**
@@ -76,8 +84,8 @@ public class UserController {
      * @return {@link Boolean }
      * @author yxx
      */
-    @ReleaseToken
-    @OperationLog(module = "用户模块", title = "发送重置密码邮件")
+    @AllowAnonymous
+    @AuditLog(module = "用户模块", action = "发送重置密码邮件", recordRequest = false)
     @PostMapping("/resetPwdEmail")
     public Boolean resetPwdEmail(@Valid @RequestBody ResetPwdEmailReq req){
         return userService.resetPwdEmail(req);
@@ -90,8 +98,8 @@ public class UserController {
      * @return {@link Boolean }
      * @author yxx
      */
-    @ReleaseToken
-    @OperationLog(module = "用户模块", title = "重置密码")
+    @AllowAnonymous
+    @AuditLog(module = "用户模块", action = "重置密码", recordRequest = false)
     @PostMapping("/resetPwd")
     public Boolean resetPwd(@Valid @RequestBody ResetPwdReq req){
         return userService.resetPwd(req);
@@ -104,7 +112,7 @@ public class UserController {
      * @return {@link Boolean }
      * @author yxx
      */
-    @OperationLog(module = "用户模块", title = "修改密码")
+    @AuditLog(module = "用户模块", action = "修改密码", recordRequest = false)
     @PostMapping("/editPwd")
     public Boolean editPwd(@Valid @RequestBody EditPwdReq req){
         return userService.editPwd(req);

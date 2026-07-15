@@ -1,6 +1,6 @@
 package com.yxx.business.model.request;
 
-import com.yxx.common.annotation.jackson.SearchDate;
+import com.yxx.common.annotation.jackson.QueryDateBoundary;
 import com.yxx.common.core.page.BasePageRequest;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -35,12 +35,12 @@ public class OperateLogReq extends BasePageRequest implements Serializable {
     /**
      * 开始时间
      */
-    @SearchDate(startDate = true)
+    @QueryDateBoundary(QueryDateBoundary.Boundary.START_OF_DAY)
     private Date startTime;
 
     /**
      * 结束时间
      */
-    @SearchDate(endDate = true)
+    @QueryDateBoundary(QueryDateBoundary.Boundary.END_OF_DAY)
     private Date endTime;
 }
