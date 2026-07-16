@@ -33,7 +33,7 @@ base-springboot
 │   ├── common-data       MyBatis-Plus 和审计字段填充
 │   ├── common-audit      审计注解、事件和切面
 │   ├── common-rbac       统一 RBAC 数据模型、权限域规则和授权实现
-│   └── common-framework  基础设施聚合入口、跨安全域协调器和异步执行器
+│   └── common-framework  可执行应用的基础设施装配入口、跨模块协调器和异步执行器
 ├── database-migrations   admin/business 共库使用的统一 Flyway 迁移制品
 ├── business              业务端应用、用户认证、业务授权消费和支付宝 OAuth 登录
 ├── admin                 管理端应用、业务用户管理和统一权限配置入口
@@ -50,7 +50,8 @@ architecture-tests -> admin / business -> common-rbac / common-framework -> 各�
 必须遵守以下边界：
 
 - `common-core` 不依赖 Spring Web、MyBatis、Redis、邮件和第三方平台 SDK。
-- `common-framework` 只承载跨模块基础设施协调，不承载用户、订单、支付等领域规则。
+- `common-framework` 是可执行应用的装配层，只承载跨模块基础设施协调，不承载用户、订单、支付等领域规则。
+- `admin`、`business` 等独立可执行应用可以依赖 `common-framework`；普通领域模块应按需依赖各职责模块，禁止把 `common-framework` 当作默认基础依赖。
 - `common-security` 定义认证、会话和授权提供器抽象，不依赖具体 RBAC 表。
 - `common-rbac` 实现授权提供器并维护统一角色、权限和菜单规则，不承载管理端接口。
 - 支付宝等业务专属 SDK 只能由使用它的业务模块声明。
@@ -59,6 +60,25 @@ architecture-tests -> admin / business -> common-rbac / common-framework -> 各�
 - 数据库迁移只能放入 `database-migrations`，保证任一应用先启动都能得到完整表结构。
 - `architecture-tests` 只参与测试，禁止被任何生产模块反向依赖。
 - 新业务优先建立独立模块；只有多个应用都需要且与领域无关的能力才允许下沉到 `common`。
+
+### 公共模块选择指南
+
+新增模块应只声明代码直接使用的公共能力。不要依赖传递依赖“碰巧”提供某个类型，也不要让普通领域模块依赖完整装配层。
+
+| 使用场景 | 建议直接依赖 |
+| --- | --- |
+| 公共契约、错误码、分页模型和纯 Java 工具 | `common-core` |
+| MyBatis-Plus、分页和审计字段填充 | `common-data` |
+| Redis、Redisson 和缓存原子操作 | `common-cache` |
+| Servlet、统一响应、异常处理和 Web 拦截器 | `common-web` |
+| 登录主体、密码、Sa-Token 和会话安全 | `common-security` |
+| 统一角色、权限、菜单和授权实现 | `common-rbac` |
+| 邮件发送和邮件配置 | `common-mail` |
+| 操作审计注解、事件和切面 | `common-audit` |
+| 可信代理客户端 IP 和归属地解析 | `common-ip` |
+| 独立可执行应用的完整基础设施装配 | `common-framework` |
+
+例如，订单领域模块通常直接依赖 `common-core` 和 `common-data`；需要缓存时再增加 `common-cache`。只有具备独立启动入口、Profile、端口和部署单元的应用模块，才考虑依赖 `common-framework`。
 
 ## 快速开始
 
@@ -75,14 +95,11 @@ CREATE DATABASE base_app CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 都会创建业务用户、管理员、统一 RBAC 和审计日志所需的完整结构。两个应用并发启动时由
 Flyway 数据库锁保证迁移只执行一次。
 
-Redis 默认同时承担业务缓存和 Sa-Token Session 存储。两类数据应使用不同 Redis database 或独立实例，具体连接信息在各应用的 `application-dev.yml` 中配置。
+Redis 默认同时承担业务缓存和 Sa-Token Session 存储。两类数据应使用不同 Redis database 或独立实例，具体连接信息通过本地环境变量或不入库的本地配置提供。
 
 ### 2. 配置开发环境
 
-维护以下文件中的本地配置：
-
-- `business/src/main/resources/application-dev.yml`
-- `admin/src/main/resources/application-dev.yml`
+仓库内的 `application-*.yml` 只能保存非敏感默认值和环境变量占位符。真实数据库、Redis、邮件和第三方平台凭据不得写入被 Git 跟踪的配置文件。开发者应通过 IDE Run Configuration、Shell 环境变量，或明确加入 `.gitignore` 的本地 Profile 文件提供配置。
 
 至少需要确认：
 
@@ -93,14 +110,26 @@ Redis 默认同时承担业务缓存和 Sa-Token Session 存储。两类数据�
 - 支付宝应用配置，仅 `business` 需要
 - IP 可信代理列表及是否启用归属地检查
 
-仓库默认启用 `dev` Profile。生产环境必须显式设置：
+当前仓库默认启用 `dev` Profile。启动前必须确认该 Profile 的连接目标；生产环境必须显式设置：
 
 ```bash
 export SPRING_PROFILES_ACTIVE=prod
 export CORS_ALLOWED_ORIGIN_PATTERN=https://your-frontend.example.com
 ```
 
-生产配置不得直接沿用开发环境的数据库、Redis、邮件密钥和第三方平台私钥。
+生产配置不得直接沿用开发环境的数据库、Redis、邮件密钥和第三方平台私钥。任何曾经提交到 Git 的凭据都应视为已经泄露并立即轮换，删除当前文件中的明文并不能消除 Git 历史中的泄露记录。
+
+建议按以下环境职责维护配置：
+
+| 环境 | Profile | 基础设施 | 外部功能 | 主要用途 |
+| --- | --- | --- | --- | --- |
+| 单元测试 | 无固定 Profile | Mock 或纯内存对象 | 关闭 | 纯逻辑验证 |
+| 集成测试 | `integration` | Testcontainers MySQL/Redis | 使用替身或关闭 | CI 和真实基础设施验证 |
+| 本地开发 | `dev` 或自定义 `local` | 本机容器或明确授权的开发环境 | 默认关闭、按需开启 | 日常开发调试 |
+| 生产部署 | `prod` | 必须通过环境变量或密钥系统注入 | 按部署需要显式开启 | 正式运行 |
+| 管理员初始化 | `bootstrap` | 仅连接目标 MySQL | Web、Redis、邮件和 Sa-Token 均关闭 | 一次性创建首个管理员 |
+
+基础框架后续宜取消默认 Profile，并提供不含任何真实凭据的本地配置示例，使配置缺失时启动失败，而不是静默连接某个共享环境。
 
 ### 3. 启动应用
 
@@ -635,7 +664,7 @@ admin/target/admin-1.0.0-exec.jar
 
 ## 自定义注解
 
-项目当前提供六个自定义注解。使用注解时应理解其职责边界，不要把业务逻辑继续塞入切面或拦截器。
+项目当前提供以下自定义注解。使用注解时应理解其职责边界，不要把业务逻辑继续塞入切面或拦截器。
 
 ### `@ResponseResult`：启用统一响应包装
 
@@ -689,7 +718,7 @@ public LoginRes login(@Valid @RequestBody LoginReq request) {
 
 使用要求：
 
-- 只用于登录、注册、验证码、找回密码、健康检查等确实公开的接口。
+- 只用于登录、注册、验证码、找回密码等确实公开的接口。当前工程未内置 Actuator 健康检查；后续增加探针时，只开放不包含敏感依赖详情的最小存活信息。
 - 不要把它标在整个业务 Controller 上图省事。
 - 匿名不等于无需参数校验、限流、审计或防重放。
 
@@ -820,6 +849,24 @@ security:
 ```
 
 `@Password` 不负责空值校验，字段仍应配合 `@NotBlank` 使用。`max-bytes` 按 UTF-8 字节计算，因为中文和 Emoji 的字符数与 BCrypt 接收的字节数并不相同。
+
+### `@TrimmedSize`：按去除首尾空白后的文本长度校验
+
+包路径：
+
+```java
+com.yxx.common.validation.TrimmedSize
+```
+
+适合登录账号、名称等需要先去除首尾空白，再校验规范化长度的字段：
+
+```java
+@NotBlank(message = "名称不能为空")
+@TrimmedSize(min = 2, max = 50, message = "名称规范化后应为2-50位")
+private String name;
+```
+
+该注解只负责长度校验，不会修改 DTO 的原始值；持久化前仍应显式调用统一规范化工具。
 
 ### `@QueryDateBoundary`：查询日期边界转换
 
@@ -984,26 +1031,30 @@ public class WechatAuthenticationStrategy implements UserAuthenticationStrategy 
 
 ### 新增业务模块
 
-建议为订单、库存等可独立演进的领域建立新的 Maven 模块，而不是继续扩大 `business`：
+订单、库存等能力是否建立新模块，首先取决于它是普通领域模块，还是独立部署应用。两者的依赖和配置要求不同，不能统一依赖 `common-framework`。
+
+普通领域模块作为现有应用的一部分运行，不提供独立启动类、端口和 Profile：
 
 ```text
 order
-├── controller
+├── domain
 ├── service
-├── domain 或 model
 ├── mapper
 └── test
 ```
 
-标准步骤：
+普通领域模块的标准步骤：
 
 1. 在根 `pom.xml` 注册模块。
-2. 依赖 `common-framework`，不要逐个重复拼装所有公共模块。
-3. 为应用设置唯一 `app.name` 和端口；仍然连接当前共享 Schema。
-4. 建立本领域自己的实体、DTO、Mapper、错误码和安全常量。
-5. 将表结构变化追加到 `database-migrations` 的下一版本迁移，不允许应用私建历史表。
-6. 如果它是新的独立登录安全域，增加对应 `StpLogic` 和 `CurrentActorProvider` 适配；如果只是用户端下属业务，则复用用户身份。
-7. 增加空库迁移、应用启动、Mapper XML 和核心业务集成测试。
+2. 按“公共模块选择指南”显式依赖代码直接使用的 `common-*` 职责模块，禁止依赖 `common-framework`。
+3. 建立本领域自己的实体、DTO、Mapper、错误码和安全常量。
+4. 由承载该领域的可执行应用提供 Controller、启动配置和最终基础设施装配。
+5. 如果仍使用当前共享 Schema，将表结构变化追加到 `database-migrations` 的下一版本迁移。
+6. 增加 Mapper、事务、权限和核心业务测试，并由承载应用增加必要的集成测试。
+
+只有当新能力需要独立启动、独立扩缩容或独立发布时，才建立新的可执行应用，例如 `order-app`。可执行应用可以依赖 `common-framework`，并必须设置唯一的 `app.name`、端口、Profile 和部署配置。是否继续连接当前共享 Schema 必须在架构设计中明确决定，不能因为 admin/business 当前共库就默认要求所有新应用共库。
+
+如果新应用引入独立登录安全域，需要增加对应 `StpLogic` 和 `CurrentActorProvider` 适配；如果只是用户端下属业务，则继续复用用户身份和 business 权限域。
 
 只有确定与领域无关、至少被多个应用复用的能力，才考虑拆到新的 `common-*` 模块。
 
@@ -1118,6 +1169,30 @@ public class OrderAuditEventListener {
 - 路径统一使用 kebab-case，例如 `/send-captcha`、`/reset-password`、`/change-password`。
 - 当前项目仍处于架构阶段，不保留旧 camelCase 路径兼容入口。
 
+## 当前可靠性边界
+
+使用基础框架时必须理解以下边界，不能把辅助能力误认为强一致保证：
+
+- 操作审计采用异步 best-effort 持久化。队列拒绝或数据库故障时会记录错误，但不会回滚已经完成的业务操作；有合规审计要求时应改用事务 Outbox、消息队列或其他可靠投递机制。
+- 密码修改、账号停用和权限变化会在数据库事务提交后注销会话；Redis 故障后的重试任务目前保存在 JVM 内存中，进程重启不会恢复未完成任务。
+- Sa-Token Session 使用滑动过期，持续活跃的会话可以不断续期；需要绝对最长会话时间或敏感操作重新认证时，应在具体项目中补充策略。
+- IP 归属地、登录风险邮件和普通访问日志属于辅助链路，失败不会阻断已经通过的认证和业务请求。
+- admin 与 business 共用 MySQL Schema 是当前工程的部署约束，不代表后续所有领域应用都必须共库。
+
+## 生产部署检查清单
+
+生产发布前至少完成以下检查：
+
+- 显式设置 `SPRING_PROFILES_ACTIVE=prod`，并确认没有默认连接开发或共享测试环境。
+- 数据库、Redis、SMTP 和第三方平台密钥全部通过环境变量或密钥管理系统注入；轮换任何曾进入 Git 历史的凭据。
+- admin 与 business 的数据源指向同一个预期 Schema，并在发布前备份数据库、验证全部 Flyway 迁移。
+- 业务 Redis 与 Sa-Token Session Redis 使用不同 database 或独立实例，并配置认证、网络访问控制和持久化策略。
+- 配置准确的 CORS 来源、可信代理地址、前端密码重置页面 URL 和站点域名。
+- 对外流量使用 HTTPS；SMTP 按服务商要求开启 TLS，不通过明文网络传输认证信息。
+- bootstrap 只在首个管理员初始化期间启用，执行完成后使用正常生产 Profile 启动。
+- 配置日志采集、磁盘容量和敏感字段检查，并为会话失效耗尽、邮件失败、审计失败建立告警。
+- 执行 `./mvnw clean verify`，并使用生产等价配置完成启动与关键登录流程冒烟验证。
+
 ## 数据库迁移规范
 
 唯一迁移目录：
@@ -1130,8 +1205,8 @@ public class OrderAuditEventListener {
 已经发布或提交到共享分支的迁移文件禁止修改。表、字段、索引、约束和初始化数据变化必须新增更高版本迁移，例如：
 
 ```text
-V3__add_user_profile.sql
 V4__add_order_permission.sql
+V5__add_order_refund_record.sql
 ```
 
 SQL 规范：

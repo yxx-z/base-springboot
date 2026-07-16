@@ -330,7 +330,7 @@ ali:
   # 加密类型
   sign_type: RSA2
   # 支付宝网关
-  server_url: https://openapi.alipay.com/gateway.do
+  server_url: https://openapi-sandbox.dl.alipaydev.com/gateway.do
   # 响应格式
   format: json
 

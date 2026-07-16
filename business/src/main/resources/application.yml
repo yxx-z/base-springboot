@@ -20,7 +20,7 @@ features:
     enabled: ${FEATURE_MAIL_ENABLED:true}
   alipay-login:
     # 不需要支付宝登录的项目可关闭；关闭后不会创建支付宝客户端、策略和接口。
-    enabled: ${FEATURE_ALIPAY_LOGIN_ENABLED:true}
+    enabled: ${FEATURE_ALIPAY_LOGIN_ENABLED:false}
 
 # 密码策略可由具体部署覆盖；默认规则适用于基础框架，不把策略写死在 DTO 中。
 security:

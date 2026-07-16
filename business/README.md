@@ -11,3 +11,7 @@ business 负责业务用户主体、多登录身份、业务接口和业务端�
 基础框架不提供支付、退款、关闭订单和支付回调接口。真实支付能力必须在具体项目的订单领域中实现订单归属、金额校验、支付单状态机、回调验签与幂等。
 
 admin 与 business 使用同一个数据库，结构统一由根工程的 `database-migrations` 模块维护。
+
+如果在 business 下继续拆分订单、库存等普通领域模块，这些模块应按需依赖 `common-core`、`common-data`、`common-cache` 等职责模块，不应依赖完整装配层 `common-framework`。只有具有独立启动类、Profile、端口和部署单元的可执行应用才允许依赖 `common-framework`。
+
+公共模块选择、认证扩展方式和生产部署约束见根目录 [`README.md`](../README.md)。
