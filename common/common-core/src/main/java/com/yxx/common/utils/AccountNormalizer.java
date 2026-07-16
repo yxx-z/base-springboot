@@ -43,14 +43,17 @@ public final class AccountNormalizer {
     }
 
     private static String trimToNull(String value) {
+        // null 表示调用方没有提供值，保持 null 可以让后续校验或数据库条件正确区分“未提供”。
         if (value == null) {
             return null;
         }
+        // 先清理首尾空白；清理后为空时统一转为 null，避免空串作为另一种“无值”进入系统。
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
     }
 
     private static String normalizeLowercase(String value) {
+        // 大小写转换必须基于 ROOT Locale，避免土耳其语等系统区域设置改变账号字符语义。
         String normalized = trimToNull(value);
         return normalized == null ? null : normalized.toLowerCase(Locale.ROOT);
     }

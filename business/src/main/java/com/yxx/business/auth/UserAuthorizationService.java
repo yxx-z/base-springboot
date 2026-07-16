@@ -37,20 +37,24 @@ public class UserAuthorizationService {
      * @return 授权快照
      */
     public AuthorizationSnapshot load(Long userId) {
+        // 角色、权限分两次批量查询，避免按角色逐一读取造成 N+1。
         List<Integer> roleIds = userRoleService.listRoleIdsByUserId(userId);
         if (roleIds.isEmpty()) {
             return new AuthorizationSnapshot(Collections.emptySet(), Collections.emptySet());
         }
 
+        // LinkedHashSet 提供去重和稳定迭代顺序，适合作为会话中的权限快照。
         Set<String> roles = roleService.findByIds(roleIds).stream()
                 .map(Role::getCode)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
 
         List<Integer> permissionIds = rolePermissionService.listPermissionIdsByRoleIds(roleIds);
         if (permissionIds.isEmpty()) {
+            // 无权限不等于无角色，角色集合仍需保留用于角色级鉴权。
             return new AuthorizationSnapshot(roles, Collections.emptySet());
         }
 
+        // 服务查询和此处状态过滤形成双重防御，不把停用权限写入会话。
         Set<String> permissions = permissionService.findActiveByIds(permissionIds).stream()
                 .filter(permission -> Boolean.TRUE.equals(permission.getStatus()))
                 .map(Permission::getCode)

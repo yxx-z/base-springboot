@@ -33,11 +33,13 @@ public class AuthenticationInterceptor implements HandlerInterceptor {
             return true;
         }
         if (!(handler instanceof HandlerMethod handlerMethod)) {
+            // 静态资源等非 Controller 处理器不参与方法注解认证判断。
             return true;
         }
 
         Class<?> controllerType = handlerMethod.getBeanType();
         Method controllerMethod = handlerMethod.getMethod();
+        // 类级注解适合整个公开 Controller，方法级注解用于最小范围开放单个接口。
         boolean anonymous = controllerType.isAnnotationPresent(AllowAnonymous.class)
                 || controllerMethod.isAnnotationPresent(AllowAnonymous.class);
         if (anonymous) {
@@ -45,8 +47,10 @@ public class AuthenticationInterceptor implements HandlerInterceptor {
         }
 
         if (SecurityRealm.ADMIN.equals(applicationRealm)) {
+            // 管理端必须检查独立账号体系，不能接受普通用户 Token。
             StpAdminUtil.checkLogin();
         } else {
+            // 用户端及默认应用使用 Sa-Token 默认 StpLogic。
             StpUtil.checkLogin();
         }
         return true;

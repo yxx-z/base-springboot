@@ -30,12 +30,14 @@ public class SessionInvalidationService {
     private void executeAfterCommit(Runnable action) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || !TransactionSynchronizationManager.isSynchronizationActive()) {
+            // 非事务调用没有待提交状态，立即失效会话即可。
             action.run();
             return;
         }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
+                // 只监听提交成功；回滚时数据库状态未变化，不应误注销合法会话。
                 action.run();
             }
         });

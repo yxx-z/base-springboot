@@ -25,6 +25,7 @@ import java.util.Map;
 public class ServletUtils {
 
     public static ServletRequestAttributes getRequestAttributes() {
+        // 该工具只用于 Web 请求链；异步任务应在请求线程内提前提取所需信息。
         RequestAttributes attributes = RequestContextHolder.getRequestAttributes();
         return (ServletRequestAttributes) attributes;
     }
@@ -45,12 +46,14 @@ public class ServletUtils {
     public static String getRequestParms(HttpServletRequest request) {
         String params = "";
         if (isJsonRequest(request)) {
+            // Filter 已缓存被业务读取过的正文，此处读取副本不会再次消费输入流。
             ContentCachingRequestWrapper cachingRequest = (ContentCachingRequestWrapper) request;
             byte[] content = cachingRequest.getContentAsByteArray();
             cachingRequest.getCharacterEncoding();
             Charset charset = Charset.forName(cachingRequest.getCharacterEncoding());
             params = new String(content, charset);
         } else {
+            // 表单和查询参数转换为 JSON，保留同名参数的数组结构。
             Map<String, String[]> parameterMap = request.getParameterMap();
             if (MapUtil.isNotEmpty(parameterMap)) {
                 params = JacksonUtil.toJson(parameterMap);
@@ -68,6 +71,7 @@ public class ServletUtils {
     public static boolean isJsonRequest(HttpServletRequest request) {
         String contentType = request.getContentType();
         if (contentType != null) {
+            // 只有会携带正文且已被缓存包装的 JSON 请求才允许读取审计参数。
             return StringUtils.startsWithIgnoreCase(contentType, MediaType.APPLICATION_JSON_VALUE)
                     && request instanceof ContentCachingRequestWrapper
                     && Arrays.asList(HttpMethod.POST.name(), HttpMethod.PUT.name(), HttpMethod.PATCH.name())

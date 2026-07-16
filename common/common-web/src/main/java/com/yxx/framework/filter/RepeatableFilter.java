@@ -41,15 +41,18 @@ public class RepeatableFilter implements Filter {
             throws IOException, ServletException {
         if (!(request instanceof HttpServletRequest httpRequest)
                 || !(response instanceof HttpServletResponse httpResponse)) {
+            // 非 HTTP 请求保持容器原始行为，不做不安全的强制转换。
             chain.doFilter(request, response);
             return;
         }
 
+        // 同一 TraceId 同时写入业务上下文、日志 MDC 和响应头，贯穿调用与排障链路。
         String traceId = resolveTraceId(httpRequest);
         AppContext.setTraceId(traceId);
         MDC.put(AppContext.KEY_TRACE_ID, traceId);
         httpResponse.setHeader(AppContext.KEY_TRACE_ID, traceId);
 
+        // 只包装需要审计正文的 JSON 请求，文件上传等大请求不进入额外缓存。
         ServletRequest requestToUse = wrapJsonRequestIfNecessary(httpRequest);
         try {
             chain.doFilter(requestToUse, response);
@@ -69,8 +72,10 @@ public class RepeatableFilter implements Filter {
     private String resolveTraceId(HttpServletRequest request) {
         String candidate = StringUtils.trim(request.getHeader(AppContext.KEY_TRACE_ID));
         if (candidate != null && TRACE_ID_PATTERN.matcher(candidate).matches()) {
+            // 合法上游 TraceId 原样沿用，以支持网关到应用的链路关联。
             return candidate;
         }
+        // 不可信值直接丢弃并生成服务端标识，防止换行等内容污染日志。
         return UUID.randomUUID().toString().replace("-", "");
     }
 

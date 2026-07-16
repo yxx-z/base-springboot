@@ -26,6 +26,7 @@ public class SaTokenCurrentActorProvider implements CurrentActorProvider {
     }
 
     private CurrentActor toActor(LoginPrincipal principal) {
+        // 审计上下文只暴露操作人基础身份，不把角色权限等安全快照耦合进审计模型。
         return new CurrentActor(
                 principal.getSubjectId(), principal.getSubjectType(),
                 principal.getAccount(), principal.getDisplayName());

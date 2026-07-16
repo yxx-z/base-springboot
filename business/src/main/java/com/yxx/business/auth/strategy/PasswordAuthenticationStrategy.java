@@ -40,10 +40,13 @@ public class PasswordAuthenticationStrategy implements UserAuthenticationStrateg
 
     @Override
     public AuthenticatedUser authenticate(UserAuthenticationCommand command) {
+        // 策略入口仍校验命令类型，避免错误路由后发生不明确的强制转换异常。
         ApiAssert.isTrue(ApiCode.PARAM_IS_INVALID, command instanceof PasswordAuthenticationCommand);
         PasswordAuthenticationCommand passwordCommand = (PasswordAuthenticationCommand) command;
         String account = AccountNormalizer.normalizeLoginCode(passwordCommand.account());
+        // 客户端 IP 使用统一可信代理规则解析，不能直接信任任意 X-Forwarded-For。
         String clientIp = clientIpResolver.resolve(ServletUtils.getRequest());
+        // 在昂贵的 BCrypt 比对之前预占频控额度，限制并发撞库对 CPU 的消耗。
         loginProtectionService.reserveAttempt(SecurityRealm.USER, account, clientIp);
 
         UserIdentity identity = userIdentityService
@@ -52,6 +55,7 @@ public class PasswordAuthenticationStrategy implements UserAuthenticationStrateg
         if (identity == null
                 || !passwordEncoder.matches(passwordCommand.password(), identity.getCredential())) {
             // 预占次数在认证失败时直接保留，统计窗口结束后由 Redis 自动清理。
+            // 账号不存在和密码错误统一返回认证失败，避免账号枚举。
             throw new ApiException(ApiCode.AUTHENTICATION_FAILED);
         }
 
@@ -61,6 +65,7 @@ public class PasswordAuthenticationStrategy implements UserAuthenticationStrateg
         ApiAssert.isTrue(ApiCode.IDENTITY_NOT_VERIFIED, Boolean.TRUE.equals(identity.getVerified()));
 
         User user = userService.findById(identity.getUserId());
+        // 身份记录存在但主体缺失属于不一致数据，对外仍按认证失败处理。
         ApiAssert.isTrue(ApiCode.AUTHENTICATION_FAILED, user != null);
         ApiAssert.isTrue(ApiCode.ACCOUNT_DISABLED, Boolean.TRUE.equals(user.getStatus()));
         return new AuthenticatedUser(user, identity.getIdentifier(), loginMode());

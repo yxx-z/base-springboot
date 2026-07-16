@@ -36,6 +36,7 @@ public class ExceptionAdvice {
      */
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ErrorResponse> handleApiException(ApiException exception) {
+        // 业务码通过集中映射转换为 HTTP 状态，避免各异常处理方法自行维护重复规则。
         log.warn("业务处理失败，code={}，message={}", exception.getCode(), exception.getMessage());
         return response(ApiHttpStatusMapper.resolve(exception.getCode()),
                 ErrorResponse.fail(exception.getCode(), exception.getMessage()));
@@ -88,6 +89,7 @@ public class ExceptionAdvice {
      */
     @ExceptionHandler({BindException.class, MethodArgumentNotValidException.class})
     public ResponseEntity<ErrorResponse> handleBindException(BindException exception) {
+        // 返回第一条校验错误以保持响应简洁；没有明细时使用统一参数错误文案。
         String message = exception.getBindingResult().getAllErrors().isEmpty()
                 ? ApiCode.PARAM_IS_INVALID.message()
                 : exception.getBindingResult().getAllErrors().get(0).getDefaultMessage();
@@ -103,6 +105,7 @@ public class ExceptionAdvice {
      */
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ErrorResponse> handleConstraintViolationException(ConstraintViolationException exception) {
+        // 方法级约束没有 BindingResult，通过 violation 集合提取可读消息。
         String message = exception.getConstraintViolations().stream()
                 .findFirst()
                 .map(violation -> violation.getMessage())
@@ -134,6 +137,7 @@ public class ExceptionAdvice {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolationException(
             DataIntegrityViolationException exception) {
+        // 完整数据库原因只进入服务端日志，对外隐藏表名、索引名和 SQL 等内部结构。
         log.warn("数据完整性约束冲突：{}", exception.getMostSpecificCause().getMessage());
         return response(HttpStatus.CONFLICT,
                 ErrorResponse.fail(ApiCode.USER_EXIST.code(), "数据已存在或关联关系不合法"));
@@ -153,6 +157,7 @@ public class ExceptionAdvice {
     }
 
     private ResponseEntity<ErrorResponse> response(HttpStatus status, ErrorResponse body) {
+        // 统一构造响应，保证所有异常都明确设置真实 HTTP 状态。
         return ResponseEntity.status(status).body(body);
     }
 

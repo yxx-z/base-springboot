@@ -32,11 +32,13 @@ public class ClientIpResolver {
      * @return 客户端 IP；无法识别时返回直接连接地址
      */
     public String resolve(HttpServletRequest request) {
+        // 直接连接地址不在可信代理白名单时，任何转发头都可能由客户端伪造。
         String remoteAddress = normalize(request.getRemoteAddr());
         if (!ipProperties.getTrustedProxies().contains(remoteAddress)) {
             return remoteAddress;
         }
 
+        // 优先解析标准代理链，缺失时再退化到单值 X-Real-IP。
         String forwarded = resolveForwardedChain(request.getHeader("X-Forwarded-For"));
         if (isUsable(forwarded)) {
             return forwarded;
@@ -49,6 +51,7 @@ public class ClientIpResolver {
         if (header == null || header.isBlank()) {
             return null;
         }
+        // 丢弃 unknown 和非法字面量，避免污染审计、频控与归属地查询。
         List<String> chain = new ArrayList<>();
         for (String item : header.split(",")) {
             String address = normalize(item);
@@ -79,6 +82,7 @@ public class ClientIpResolver {
         }
         String value = address.trim();
         if (IPV6_LOCALHOST.equals(value) || IPV6_LOCALHOST_SHORT.equals(value)) {
+            // 本地 IPv6 回环统一成 IPv4 表示，便于可信代理配置与测试保持一致。
             return IPV4_LOCALHOST;
         }
         return value;

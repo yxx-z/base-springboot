@@ -42,6 +42,7 @@ public class LogAspect {
      */
     @Around("controllerMethod()")
     public Object recordRequest(ProceedingJoinPoint point) throws Throwable {
+        // 请求对象和单调时钟起点在执行前捕获，日志可覆盖成功与异常两条路径。
         HttpServletRequest request = ServletUtils.getRequest();
         long startNanos = System.nanoTime();
         log.info("请求开始 method={} uri={} handler={} params={}",
@@ -49,10 +50,12 @@ public class LogAspect {
                 sanitizer.sanitizeArguments(point.getArgs()));
         try {
             Object result = point.proceed();
+            // 仅记录返回类型而不序列化响应内容，避免 Token、隐私字段和大对象进入日志。
             log.info("请求完成 method={} uri={} resultType={} durationMs={}",
                     request.getMethod(), request.getRequestURI(), resultType(result), elapsedMillis(startNanos));
             return result;
         } catch (Throwable throwable) {
+            // 记录异常类型后原样抛出，具体错误响应仍由全局异常处理器负责。
             log.warn("请求失败 method={} uri={} exceptionType={} durationMs={}",
                     request.getMethod(), request.getRequestURI(), throwable.getClass().getSimpleName(),
                     elapsedMillis(startNanos));
@@ -61,6 +64,7 @@ public class LogAspect {
     }
 
     private long elapsedMillis(long startNanos) {
+        // nanoTime 是单调时钟，适合计算耗时而不是生成业务时间。
         return (System.nanoTime() - startNanos) / 1_000_000L;
     }
 

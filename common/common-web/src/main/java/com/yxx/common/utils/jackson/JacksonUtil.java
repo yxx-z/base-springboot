@@ -44,6 +44,7 @@ public abstract class JacksonUtil {
     private static final ObjectMapper OBJECT_MAPPER;
 
     static {
+        // 静态工具复用同一线程安全 ObjectMapper，避免每次转换重复构建模块和缓存。
         OBJECT_MAPPER = initObjectMapper(new ObjectMapper());
     }
 
@@ -55,11 +56,13 @@ public abstract class JacksonUtil {
      */
     public static String toJson(Object object) {
         if (Boolean.TRUE.equals(isCharSequence(object))) {
+            // 字符串本身已是文本，避免再次序列化后增加一层引号与转义。
             return (String) object;
         }
         try {
             return getObjectMapper().writeValueAsString(object);
         } catch (JsonProcessingException e) {
+            // 转换失败属于调用方数据或模型问题，携带原始异常交给统一异常链处理。
             throw new RuntimeException(e);
         }
     }
@@ -137,6 +140,7 @@ public abstract class JacksonUtil {
      */
     public static ObjectMapper initObjectMapper(ObjectMapper objectMapper) {
         if (Objects.isNull(objectMapper)) {
+            // 允许独立工具调用传 null；Spring 配置通常传入容器管理的实例进行统一初始化。
             objectMapper = new ObjectMapper();
         }
         return doInitObjectMapper(objectMapper);
@@ -151,7 +155,9 @@ public abstract class JacksonUtil {
     private static ObjectMapper doInitObjectMapper(ObjectMapper objectMapper) {
         // 所有配置必须直接作用于传入实例，禁止创建后丢弃未使用的 JsonMapper.Builder。
         objectMapper.configure(JsonReadFeature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER.mappedFeature(), true);
+        // 基础框架对新增响应字段保持向前兼容，反序列化时忽略调用方暂不认识的属性。
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        // 时间统一输出可读字符串，禁止使用难以跨语言确认时区的时间戳。
         objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
         objectMapper.configure(MapperFeature.PROPAGATE_TRANSIENT_MARKER, true);
         return registerModule(objectMapper);
@@ -164,6 +170,7 @@ public abstract class JacksonUtil {
      * @return ObjectMapper
      */
     private static ObjectMapper registerModule(ObjectMapper objectMapper) {
+        // 传统 Date 与 Java Time API 统一采用项目约定的日期时间格式。
         SimpleModule simpleModule = new SimpleModule();
         simpleModule.addSerializer(Date.class, new DateSerializer(true, null));
         simpleModule.addSerializer(LocalDateTime.class, new LocalDateTimeSerializer(DateTimeFormatter.ofPattern(DatePattern.NORM_DATETIME_PATTERN)));
@@ -171,6 +178,7 @@ public abstract class JacksonUtil {
         simpleModule.addDeserializer(LocalDateTime.class, new JsonDeserializer<>() {
             @Override
             public LocalDateTime deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+                // 复用 DateUtils 的兼容解析规则，避免 Web 与工具类产生两套日期语义。
                 return DateUtils.convertLocalDateTime(p.getText());
             }
         });
@@ -184,6 +192,7 @@ public abstract class JacksonUtil {
 
         simpleModule.addSerializer(LocalTime.class, new LocalTimeSerializer(DateTimeFormatter.ofPattern(DatePattern.NORM_TIME_PATTERN)));
         simpleModule.addDeserializer(LocalTime.class, new LocalTimeDeserializer(DateTimeFormatter.ofPattern(DatePattern.NORM_TIME_PATTERN)));
+        // 模块最终注册到传入实例，调用方可继续在同一 ObjectMapper 上追加项目扩展模块。
         objectMapper.registerModule(simpleModule);
         return objectMapper;
     }

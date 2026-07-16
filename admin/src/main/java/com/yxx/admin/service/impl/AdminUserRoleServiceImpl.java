@@ -36,8 +36,10 @@ public class AdminUserRoleServiceImpl extends ServiceImpl<AdminUserRoleMapper, A
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void replaceRoles(Long userId, Collection<Integer> roleIds) {
+        // 在改变关联前确认管理员存在，并验证目标角色集合中的每一个 ID。
         AdminUser targetUser = adminUserMapper.selectById(userId);
         ApiAssert.isTrue(ApiCode.USER_NOT_EXIST, targetUser != null);
+        // 去重避免重复关联触发唯一约束；空集合表示撤销全部普通角色。
         List<Integer> distinctRoleIds = roleIds == null
                 ? List.of()
                 : roleIds.stream().distinct().toList();
@@ -51,6 +53,7 @@ public class AdminUserRoleServiceImpl extends ServiceImpl<AdminUserRoleMapper, A
         boolean targetIsSuperAdmin = count(new LambdaQueryWrapper<AdminUserRole>()
                 .eq(AdminUserRole::getUserId, userId)
                 .eq(AdminUserRole::getRoleId, superAdminRole.getId())) > 0;
+        // 只有“启用的超级管理员将失去超级角色”才可能减少可用最高权限人数。
         boolean keepsSuperAdminRole = distinctRoleIds.contains(superAdminRole.getId());
         if (targetIsSuperAdmin && Boolean.TRUE.equals(targetUser.getStatus()) && !keepsSuperAdminRole) {
             long superAdminCount = adminUserMapper.countActiveUsersByRoleCode(
@@ -58,6 +61,7 @@ public class AdminUserRoleServiceImpl extends ServiceImpl<AdminUserRoleMapper, A
             ApiAssert.isTrue(ApiCode.LAST_SUPER_ADMIN, superAdminCount > 1);
         }
 
+        // 校验通过后以最终集合替换旧关联，整个过程受事务保护。
         remove(new LambdaQueryWrapper<AdminUserRole>().eq(AdminUserRole::getUserId, userId));
         if (!distinctRoleIds.isEmpty()) {
             List<AdminUserRole> relations = distinctRoleIds.stream().map(roleId -> {
@@ -68,11 +72,13 @@ public class AdminUserRoleServiceImpl extends ServiceImpl<AdminUserRoleMapper, A
             }).toList();
             ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, saveBatch(relations));
         }
+        // 角色变化会改变登录快照，提交后注销该管理员的全部旧会话。
         sessionInvalidationService.invalidateAdminAfterCommit(userId);
     }
 
     @Override
     public List<Long> listUserIdsByRoleId(Integer roleId) {
+        // 去重可容忍历史脏数据，避免重复注销同一个管理员。
         return list(new LambdaQueryWrapper<AdminUserRole>().eq(AdminUserRole::getRoleId, roleId))
                 .stream()
                 .map(AdminUserRole::getUserId)

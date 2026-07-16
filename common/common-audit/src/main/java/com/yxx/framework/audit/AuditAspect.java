@@ -41,14 +41,17 @@ public class AuditAspect {
 
     @Around("@annotation(auditLog)")
     public Object audit(ProceedingJoinPoint point, AuditLog auditLog) throws Throwable {
+        // 请求与操作人必须在目标方法前捕获，注销等方法执行后上下文可能已经被清理。
         HttpServletRequest request = ServletUtils.getRequest();
         CurrentActor actorSnapshot = currentActorProvider.currentActor().orElse(null);
+        // 使用单调时钟计算耗时，不受系统时间校准或时区变化影响。
         long startNanos = System.nanoTime();
         LogTypeEnum type = LogTypeEnum.NORMAL;
         String exceptionMessage = null;
         try {
             return point.proceed();
         } catch (Throwable throwable) {
+            // 先记录失败类型和脱敏后的摘要，再原样抛出，切面不改变业务异常语义。
             type = LogTypeEnum.ERROR;
             exceptionMessage = sanitizer.sanitizeText(throwable.getMessage());
             throw throwable;
@@ -77,13 +80,16 @@ public class AuditAspect {
                                    LogTypeEnum type,
                                    long startNanos,
                                    String exceptionMessage) {
+        // IP 必须经过可信代理解析；是否解析归属地由配置控制以兼顾性能和部署需求。
         String ip = clientIpResolver.resolve(request);
         String ipRegion = Boolean.TRUE.equals(ipProperties.getCheck())
                 ? addressUtil.getIpHomePlace(ip, 2)
                 : null;
+        // 请求参数默认经过统一脱敏和长度限制，注解也可完全关闭请求参数记录。
         String params = auditLog.recordRequest()
                 ? sanitizer.sanitizeText(ServletUtils.getRequestParms(request))
                 : "";
+        // AuditEvent 是与持久化实现解耦的不可变快照，具体应用自行监听并落库。
         return new AuditEvent(
                 actor,
                 auditLog.eventType(),
@@ -109,6 +115,7 @@ public class AuditAspect {
      */
     private String resolveSubjectAccount(Object[] arguments, String subjectField) {
         if (subjectField == null || subjectField.isBlank() || arguments == null) {
+            // 未显式声明字段时绝不猜测或序列化整个请求对象，避免记录密码等敏感参数。
             return null;
         }
         for (Object argument : arguments) {
@@ -117,6 +124,7 @@ public class AuditAspect {
             }
             BeanWrapperImpl wrapper = new BeanWrapperImpl(argument);
             if (wrapper.isReadableProperty(subjectField)) {
+                // 只读取第一个匹配属性，并在写入事件前执行文本脱敏。
                 Object value = wrapper.getPropertyValue(subjectField);
                 return value == null ? null : sanitizer.sanitizeText(String.valueOf(value));
             }

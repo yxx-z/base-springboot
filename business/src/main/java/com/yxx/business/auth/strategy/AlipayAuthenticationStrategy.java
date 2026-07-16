@@ -38,10 +38,12 @@ public class AlipayAuthenticationStrategy implements UserAuthenticationStrategy 
 
     @Override
     public AuthenticatedUser authenticate(UserAuthenticationCommand command) {
+        // 前端只提交一次性授权码，支付宝用户 ID 必须由服务端向支付宝换取。
         ApiAssert.isTrue(ApiCode.PARAM_IS_INVALID, command instanceof AlipayAuthenticationCommand);
         String alipayUserId = exchangeUserId(((AlipayAuthenticationCommand) command).authCode());
         User user;
         try {
+            // 常规路径在独立事务中查询或创建统一主体及身份绑定。
             user = identityBindingService.bindOrLoad(alipayUserId);
         } catch (DataIntegrityViolationException exception) {
             // 两个首次登录请求可能同时通过存在性检查，唯一键会保证只有一个事务成功。
@@ -52,12 +54,14 @@ public class AlipayAuthenticationStrategy implements UserAuthenticationStrategy 
     }
 
     private String exchangeUserId(String authCode) {
+        // 使用支付宝标准 authorization_code 授权模式兑换用户身份。
         AlipaySystemOauthTokenRequest request = new AlipaySystemOauthTokenRequest();
         request.setGrantType("authorization_code");
         request.setCode(authCode);
         try {
             AlipaySystemOauthTokenResponse response = alipayClient.execute(request);
             if (response.isSuccess() && response.getUserId() != null) {
+                // 只接受明确成功且包含 userId 的响应，避免将空身份带入本地绑定流程。
                 return response.getUserId();
             }
             log.warn("支付宝授权失败，code={}，subCode={}", response.getCode(), response.getSubCode());
@@ -69,6 +73,7 @@ public class AlipayAuthenticationStrategy implements UserAuthenticationStrategy 
     }
 
     private String systemAccount(Long userId) {
+        // 支付宝身份没有本地登录账号，使用稳定内部 ID 生成仅用于主体展示的系统账号。
         return "user:" + userId;
     }
 }

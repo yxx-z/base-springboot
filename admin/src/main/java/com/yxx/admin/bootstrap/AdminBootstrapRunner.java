@@ -47,17 +47,21 @@ public class AdminBootstrapRunner implements ApplicationRunner {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void run(ApplicationArguments args) {
+        // 在接触数据库前校验全部必填配置和密码策略，失败时不给库留下任何半成品数据。
         validateProperties();
+        // bootstrap 是一次性入口，只允许空管理员表执行，禁止借此覆盖或追加高权限账号。
         if (adminUserMapper.selectCount(null) > 0) {
             throw new IllegalStateException("管理员表已存在数据，禁止再次执行 bootstrap 初始化");
         }
 
+        // 超级角色由 Flyway 初始化，启动器只绑定既有内置角色，不自行创造权限模型。
         AdminRole superAdminRole = adminRoleMapper.selectOne(new LambdaQueryWrapper<AdminRole>()
                 .eq(AdminRole::getCode, AdminSecurityCodes.ROLE_SUPER_ADMIN));
         if (superAdminRole == null) {
             throw new IllegalStateException("未找到超级管理员角色，请先执行管理端数据库迁移");
         }
 
+        // 显式填写审计字段，因为最小化 bootstrap 上下文不存在已登录操作人。
         LocalDateTime now = LocalDateTime.now();
         AdminUser admin = new AdminUser();
         admin.setLoginCode(AccountNormalizer.normalizeLoginCode(properties.getLoginCode()));
@@ -71,9 +75,11 @@ public class AdminBootstrapRunner implements ApplicationRunner {
         admin.setCreateTime(now);
         admin.setUpdateTime(now);
         if (adminUserMapper.insert(admin) != 1) {
+            // 严格要求影响一行；异常会触发事务回滚，不继续创建孤立关联。
             throw new IllegalStateException("创建初始管理员失败");
         }
 
+        // 管理员和超级角色关联与账号创建处于同一事务，保证初始账号创建后即可管理系统。
         AdminUserRole relation = new AdminUserRole();
         relation.setUserId(admin.getId());
         relation.setRoleId(superAdminRole.getId());
@@ -88,6 +94,7 @@ public class AdminBootstrapRunner implements ApplicationRunner {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCompletion(int status) {
+                // 使用非守护线程触发关闭，确保 JVM 会等待 Spring 完整释放数据源等资源。
                 Thread shutdownThread = new Thread(applicationContext::close, "bootstrap-shutdown");
                 shutdownThread.setDaemon(false);
                 shutdownThread.start();
@@ -96,10 +103,12 @@ public class AdminBootstrapRunner implements ApplicationRunner {
     }
 
     private void validateProperties() {
+        // 分项报告配置名，便于部署人员直接定位缺失的启动参数。
         requireText(properties.getLoginCode(), "bootstrap.admin.login-code");
         requireText(properties.getLoginName(), "bootstrap.admin.login-name");
         requireText(properties.getEmail(), "bootstrap.admin.email");
         requireText(properties.getPassword(), "bootstrap.admin.password");
+        // 初始化流程不经过 Bean Validation，请显式复用同一密码策略检查器。
         if (!passwordPolicyChecker.isValid(properties.getPassword(), true)) {
             throw new IllegalArgumentException("初始管理员临时密码不符合系统密码策略");
         }

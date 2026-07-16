@@ -16,6 +16,7 @@ public final class ApiAssert {
      * @param condition 必须成立的条件
      */
     public static void isTrue(ApiCode apiCode, boolean condition) {
+        // 仅在条件不成立时中断流程，调用方可以把校验规则写成接近业务语言的声明式代码。
         if (!condition) {
             throw new ApiException(apiCode);
         }

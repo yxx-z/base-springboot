@@ -18,8 +18,10 @@ public class AdminPermissionServiceImpl extends ServiceImpl<AdminPermissionMappe
     @Override
     public List<AdminPermission> findActiveByIds(Collection<Integer> ids) {
         if (ids == null || ids.isEmpty()) {
+            // 空集合直接返回，供上层安全地执行数量一致性校验。
             return List.of();
         }
+        // 历史关联指向停用权限时不返回，保证会话快照只包含当前有效授权。
         return list(new LambdaQueryWrapper<AdminPermission>()
                 .in(AdminPermission::getId, ids)
                 .eq(AdminPermission::getStatus, Boolean.TRUE));

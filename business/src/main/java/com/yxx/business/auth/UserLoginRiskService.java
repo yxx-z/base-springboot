@@ -39,9 +39,11 @@ public class UserLoginRiskService {
      * @param user 已完成身份认证的系统用户
      */
     public void handleSuccessfulLogin(User user) {
+        // 在请求线程内提取必要信息，避免异步线程访问已回收的 ServletRequest。
         String rawAgent = ServletUtils.getRequest().getHeader("user-agent");
         String agent = UserAgentUtil.getAgent(rawAgent);
         String requestIp = clientIpResolver.resolve(ServletUtils.getRequest());
+        // 使用应用统一的有界执行器，避免每次登录创建线程导致资源失控。
         CompletableFuture.runAsync(
                         () -> updateMetadataAndCheckRisk(user, requestIp, agent),
                         applicationTaskExecutor)
@@ -53,6 +55,7 @@ public class UserLoginRiskService {
     }
 
     private void updateMetadataAndCheckRisk(User user, String requestIp, String agent) {
+        // 先比较历史与当前登录特征并发送提醒，再持久化本次特征供下次比较。
         String ipRegion = loginRiskNotificationService.process(
                 SecurityRealm.USER, user.getId(), user.getEmail(),
                 user.getAgent(), user.getIpHomePlace(), requestIp, agent);

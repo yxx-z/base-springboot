@@ -37,16 +37,20 @@ public class AdminRolePermissionServiceImpl
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void replacePermissions(Integer roleId, Collection<Integer> permissionIds) {
+        // 读取角色实体用于同时完成存在性和内置角色不可变校验。
         AdminRole role = roleService.findByIds(List.of(roleId)).stream().findFirst().orElse(null);
         ApiAssert.isTrue(ApiCode.PARAM_IS_INVALID, role != null);
+        // 超级管理员使用权限通配符，不维护容易被误删的角色权限关联。
         ApiAssert.isTrue(ApiCode.BUILT_IN_ROLE_IMMUTABLE,
                 !AdminSecurityCodes.ROLE_SUPER_ADMIN.equals(role.getCode()));
+        // 去重并验证全部启用权限，避免非法输入清空原有授权。
         List<Integer> distinctPermissionIds = permissionIds == null
                 ? List.of()
                 : permissionIds.stream().distinct().toList();
         ApiAssert.isTrue(ApiCode.PARAM_IS_INVALID,
                 permissionService.findActiveByIds(distinctPermissionIds).size()
                         == distinctPermissionIds.size());
+        // 关联表表达最终权限集合，因此在同一事务内删除后批量重建。
         remove(new LambdaQueryWrapper<AdminRolePermission>()
                 .eq(AdminRolePermission::getRoleId, roleId));
         if (!distinctPermissionIds.isEmpty()) {
@@ -58,6 +62,7 @@ public class AdminRolePermissionServiceImpl
             }).toList();
             ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, saveBatch(relations));
         }
+        // 使所有持有该角色的管理员旧权限快照在事务提交后立即失效。
         userRoleService.listUserIdsByRoleId(roleId).stream()
                 .forEach(sessionInvalidationService::invalidateAdminAfterCommit);
     }
@@ -65,6 +70,7 @@ public class AdminRolePermissionServiceImpl
     @Override
     public List<Integer> listPermissionIdsByRoleIds(Collection<Integer> roleIds) {
         if (roleIds == null || roleIds.isEmpty()) {
+            // 提前返回，避免产生非法的空 IN 条件。
             return List.of();
         }
         return list(new LambdaQueryWrapper<AdminRolePermission>()

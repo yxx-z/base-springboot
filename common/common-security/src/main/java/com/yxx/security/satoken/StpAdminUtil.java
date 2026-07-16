@@ -18,6 +18,7 @@ public final class StpAdminUtil {
     private static final StpLogic STP_LOGIC = new StpLogic(TYPE);
 
     static {
+        // 在 Sa-Token 全局管理器中注册独立逻辑，保证框架回调可按 admin 类型定位。
         SaManager.putStpLogic(STP_LOGIC);
     }
 
@@ -25,6 +26,7 @@ public final class StpAdminUtil {
     }
 
     public static void login(Object loginId, String device) {
+        // 所有管理端静态操作都委托给同一个独立 StpLogic，禁止混用默认 StpUtil。
         STP_LOGIC.login(loginId, device);
     }
 

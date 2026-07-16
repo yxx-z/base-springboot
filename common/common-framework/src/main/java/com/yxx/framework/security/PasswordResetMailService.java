@@ -47,23 +47,29 @@ public class PasswordResetMailService {
                      String email,
                      String sendingKeyPrefix,
                      String countKeyPrefix) {
+        // 令牌有效期与发送窗口保持一致，窗口内不重复签发新的重置链接。
         long tokenSeconds = TimeUnit.MINUTES.toSeconds(resetPwdProperties.getResetPwdTime());
         String sendingKey = sendingKeyPrefix + email;
+        // SET NX 原子占位，并发请求中只有一个能够进入令牌创建和邮件发送。
         ApiAssert.isTrue(ApiCode.MAIL_EXIST,
                 redissonCache.putStringIfAbsent(sendingKey, "sending", tokenSeconds));
 
+        // 每日计数键在自然日结束时失效，不采用固定 24 小时滚动窗口。
         String countKey = countKeyPrefix + email;
         long count = redissonCache.increment(countKey, DateUtils.secondsUntilNextDay());
         if (count > resetPwdProperties.getMaxNumber()) {
+            // 超限请求归还本次计数并释放 sending 占位，不延长锁定窗口。
             redissonCache.decrement(countKey);
             redissonCache.remove(sendingKey);
             throw new ApiException(ApiCode.RESET_PWD_MAX);
         }
 
         try {
+            // 载荷绑定安全域、稳定主体 ID 和邮箱，消费端将逐项验证。
             PasswordResetTokenPayload payload = new PasswordResetTokenPayload(realm, subjectId, email);
             // 临时 Token 仅保存稳定的版本化字符串，避免复杂对象受 Redis 序列化器实现影响。
             String token = SaTempUtil.createToken(payload.encode(), tokenSeconds);
+            // Token 放在 URL 查询参数中，前端页面只负责原样提交，不解析安全载荷。
             String resetPassHref = resetPwdProperties.getBasePath() + "?token=" + token;
             String content = resetPwdProperties.getResetPwdContent()
                     .replace("{url}", resetPassHref)
@@ -72,6 +78,7 @@ public class PasswordResetMailService {
                     .replace("{formName}", mailProperties.getFromName())
                     .replace("{form}", mailProperties.getFrom());
             mailUtils.baseSendMail(email, EmailSubject.RESET_PASSWORD, content, true);
+            // 发送成功后用真实 Token 替换占位，保留窗口状态并便于必要时诊断。
             redissonCache.putString(sendingKey, token, tokenSeconds);
         } catch (RuntimeException exception) {
             // 邮件发送或 Token 创建失败时归还次数并释放发送窗口，允许用户再次尝试。

@@ -49,17 +49,22 @@ public class LoginRiskNotificationService {
                           String requestIp,
                           String currentAgent) {
         if (!Boolean.TRUE.equals(ipProperties.getCheck())) {
+            // 关闭归属地能力时不做数据库查询和邮件判断，并以 null 表示无需更新该字段。
             return null;
         }
+        // 省级归属地用于稳定比较，市级信息只在实际通知时按需解析。
         String currentRegion = addressUtil.getIpHomePlace(requestIp, 2);
         if (!IpUtil.isValidIPv4(requestIp) || CharSequenceUtil.isBlank(email)) {
+            // IP 或邮箱不可用时仍返回已解析结果，但跳过无法可靠完成的风险通知。
             return currentRegion;
         }
 
         String notificationKey = notificationKey(realm, subjectId);
         if (redissonCache.exists(notificationKey)) {
+            // 同一主体每天最多提醒一次，避免移动网络变化造成邮件轰炸。
             return currentRegion;
         }
+        // 只有设备和地区同时变化才认为风险足够高，降低单一信号带来的误报。
         boolean deviceChanged = CharSequenceUtil.isNotBlank(previousAgent)
                 && !previousAgent.equals(currentAgent);
         boolean regionChanged = CharSequenceUtil.isNotBlank(previousRegion)
@@ -70,6 +75,7 @@ public class LoginRiskNotificationService {
 
         String unusualAddress = addressUtil.getIpHomePlace(requestIp, 3);
         String time = LocalDateTimeUtil.format(LocalDateTime.now(), DatePattern.NORM_DATETIME_PATTERN);
+        // 模板内容由配置维护，公共服务只替换约定占位符。
         String content = mailProperties.getIpUnusualContent()
                 .replace("{time}", time)
                 .replace("{ip}", requestIp)
@@ -79,11 +85,13 @@ public class LoginRiskNotificationService {
                 .replace("{formName}", mailProperties.getFromName())
                 .replace("{form}", mailProperties.getFrom());
         mailUtils.baseSendMail(email, EmailSubject.UNUSUAL_LOGIN, content, true);
+        // 邮件成功后才写去重标记，发送失败时保留下一次重试机会。
         redissonCache.put(notificationKey, Boolean.TRUE, DateUtils.secondsUntilNextDay());
         return currentRegion;
     }
 
     private String notificationKey(String realm, Long subjectId) {
+        // 用户端和管理端使用独立 Key 空间，避免相同数据库 ID 相互抑制通知。
         if (SecurityRealm.USER.equals(realm)) {
             return RedisKeyPrefix.USER_LOGIN_RISK + subjectId;
         }

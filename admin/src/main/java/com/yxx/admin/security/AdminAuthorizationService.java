@@ -33,11 +33,13 @@ public class AdminAuthorizationService {
      * @return 授权快照
      */
     public Snapshot load(Long userId) {
+        // 先批量取得角色 ID；无角色时遵循默认拒绝原则返回空授权。
         List<Integer> roleIds = userRoleService.listRoleIdsByUserId(userId);
         if (roleIds.isEmpty()) {
             return new Snapshot(Collections.emptySet(), Collections.emptySet());
         }
 
+        // LinkedHashSet 同时去重并保持数据库返回顺序，便于日志和测试稳定。
         Set<String> roles = roleService.findByIds(roleIds).stream()
                 .map(AdminRole::getCode)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
@@ -47,8 +49,10 @@ public class AdminAuthorizationService {
         }
         List<Integer> permissionIds = rolePermissionService.listPermissionIdsByRoleIds(roleIds);
         if (permissionIds.isEmpty()) {
+            // 保留已加载角色，权限集合独立为空，避免混淆“无角色”和“角色无权限”。
             return new Snapshot(roles, Collections.emptySet());
         }
+        // 再次过滤状态作为防御性校验，防止历史关联指向已停用权限。
         Set<String> permissions = permissionService.findActiveByIds(permissionIds).stream()
                 .filter(permission -> Boolean.TRUE.equals(permission.getStatus()))
                 .map(AdminPermission::getCode)

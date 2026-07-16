@@ -16,6 +16,7 @@ public class SpringAuditEventPublisher implements AuditEventPublisher {
 
     @Override
     public void publish(AuditEvent event) {
+        // 发布器只负责接入 Spring 事件总线，数据库、消息队列或日志由监听器自由扩展。
         applicationEventPublisher.publishEvent(event);
     }
 }

@@ -33,6 +33,7 @@ public class OperateAdminLogServiceImpl extends ServiceImpl<OperateAdminLogMappe
     @Async("auditTaskExecutor")
     @EventListener
     public void saveAuditEvent(AuditEvent event) {
+        // 通用审计事件在监听端转换为管理端实体，公共审计模块无需感知管理库表。
         OperateAdminLog operateLog = new OperateAdminLog();
         operateLog.setUserId(event.actor() == null ? null : event.actor().actorId());
         operateLog.setCreateUid(event.actor() == null ? null : event.actor().actorId());
@@ -55,6 +56,7 @@ public class OperateAdminLogServiceImpl extends ServiceImpl<OperateAdminLogMappe
         operateLog.setTime(event.durationMillis());
         operateLog.setException(event.exceptionMessage());
         try {
+            // 异步审计失败只记录服务端错误，不影响已经完成的管理操作。
             if (!save(operateLog)) {
                 log.error("管理端审计事件未写入数据库，traceId={}", event.traceId());
             }
@@ -67,9 +69,9 @@ public class OperateAdminLogServiceImpl extends ServiceImpl<OperateAdminLogMappe
 
     @Override
     public PageResponse<OperateLogResp> operationLogPage(OperateLogReq req) {
-        // 初始化分页构造器
+        // Page 作为 Mapper 分页入参，并由插件回填总数与总页数。
         Page<OperateLogResp> page = new Page<>(req.getPage(), req.getPageSize());
-        // 查询分页结果并返回
+        // 转换为框架公共分页模型，隔离持久化层类型。
         Page<OperateLogResp> result = baseMapper.operationLogPage(page, req);
         return new PageResponse<>(result.getRecords(), result.getCurrent(), result.getSize(),
                 result.getTotal(), result.getPages());
@@ -77,9 +79,8 @@ public class OperateAdminLogServiceImpl extends ServiceImpl<OperateAdminLogMappe
 
     @Override
     public PageResponse<OperateLogResp> authLogPage(OperateLogReq req) {
-        // 初始化分页构造器
+        // 登录类事件使用独立查询，但复用统一分页返回结构。
         Page<OperateLogResp> page = new Page<>(req.getPage(), req.getPageSize());
-        // 查询分页结果并返回
         Page<OperateLogResp> result = this.baseMapper.authLogPage(page, req);
         return new PageResponse<>(result.getRecords(), result.getCurrent(), result.getSize(),
                 result.getTotal(), result.getPages());

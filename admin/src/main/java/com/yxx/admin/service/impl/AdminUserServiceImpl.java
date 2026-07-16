@@ -85,6 +85,7 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
 
     @Override
     public boolean updateLoginMetadata(Long userId, String agent, String ipHomePlace) {
+        // 使用定向更新避免异步任务持有的旧实体覆盖管理员刚刚修改的其他资料。
         return update(new LambdaUpdateWrapper<AdminUser>()
                 .eq(AdminUser::getId, userId)
                 .set(AdminUser::getAgent, agent)
@@ -94,9 +95,11 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void changeStatus(Long userId, boolean enabled) {
+        // 读取当前记录既用于存在性校验，也为超级管理员保护逻辑提供明确主体。
         AdminUser user = findById(userId);
         ApiAssert.isTrue(ApiCode.USER_NOT_EXIST, user != null);
         if (!enabled) {
+            // 启用操作不会降低系统管理能力；停用前必须确保仍有其他可用超级管理员。
             assertNotLastActiveSuperAdmin(userId);
         }
         boolean updated = update(new LambdaUpdateWrapper<AdminUser>()
@@ -104,6 +107,7 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
                 .set(AdminUser::getStatus, enabled));
         ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, updated);
         if (!enabled) {
+            // 状态提交后再注销全部管理端会话，回滚时不影响仍然有效的管理员。
             sessionInvalidationService.invalidateAdminAfterCommit(userId);
         }
     }
@@ -113,14 +117,17 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
     public void delete(Long userId) {
         AdminUser user = findById(userId);
         ApiAssert.isTrue(ApiCode.USER_NOT_EXIST, user != null);
+        // 无论目标是否当前为超级管理员，都统一经过保护检查以保持删除规则单一。
         assertNotLastActiveSuperAdmin(userId);
         ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, removeById(userId));
         sessionInvalidationService.invalidateAdminAfterCommit(userId);
     }
 
     private void assertNotLastActiveSuperAdmin(Long userId) {
+        // 先判断目标是否拥有内置超级角色，普通管理员无需执行全局活跃人数统计。
         boolean isSuperAdmin = baseMapper.countUserRole(userId, AdminSecurityCodes.ROLE_SUPER_ADMIN) > 0;
         if (isSuperAdmin) {
+            // 必须至少保留另一名启用的超级管理员，避免管理端永久失去最高权限入口。
             ApiAssert.isTrue(ApiCode.LAST_SUPER_ADMIN,
                     baseMapper.countActiveUsersByRoleCode(AdminSecurityCodes.ROLE_SUPER_ADMIN) > 1);
         }
@@ -128,12 +135,14 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
 
     @Override
     public LoginRes login(LoginReq request) {
+        // 请求上下文只读取一次，确保频控、风险识别和元数据记录使用同一来源信息。
         HttpServletRequest servletRequest = ServletUtils.getRequest();
         String requestIp = clientIpResolver.resolve(servletRequest);
         String loginCode = AccountNormalizer.normalizeLoginCode(request.getLoginCode());
+        // BCrypt 比对前预占账号与 IP 双维度额度，避免并发请求穿透限流并消耗 CPU。
         loginProtectionService.reserveAttempt(SecurityRealm.ADMIN, loginCode, requestIp);
 
-        // 根据登录账号获取用户信息
+        // 账号不存在与密码错误统一响应，防止枚举管理员账号。
         AdminUser user = getOne(
                 new LambdaQueryWrapper<AdminUser>().eq(AdminUser::getLoginCode, loginCode));
         if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
@@ -141,6 +150,7 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
             throw new ApiException(ApiCode.AUTHENTICATION_FAILED);
         }
         loginProtectionService.recordSuccess(SecurityRealm.ADMIN, loginCode, requestIp);
+        // 只有密码正确后才暴露停用状态，降低账户状态探测风险。
         ApiAssert.isTrue(ApiCode.ACCOUNT_DISABLED, Boolean.TRUE.equals(user.getStatus()));
 
         // 获取登录设备信息。元数据更新与异地登录提醒属于辅助链路，不阻断认证和会话创建。
@@ -160,6 +170,7 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
                 .loginTime(LocalDateTime.now())
                 .build();
         String token = loginSessionService.loginAdmin(principal, LoginDeviceType.PC);
+        // 风险通知和登录元数据属于辅助链路，交给有界线程池执行，不能拖慢或破坏登录结果。
         CompletableFuture.runAsync(
                         () -> updateMetadataAndCheckRisk(user, requestIp, agent),
                         applicationTaskExecutor)
@@ -168,7 +179,7 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
                     return null;
                 });
 
-        // 返回token
+        // 客户端只需要令牌；角色权限保存在服务端账号 Session 中。
         return new LoginRes(token);
     }
 
@@ -192,6 +203,7 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
         // 原子取得一次性令牌消费权，避免同一个重置链接被并发使用。
         PasswordResetTokenPayload payload = oneTimeTemporaryTokenService
                 .reserve(req.getToken(), PasswordResetTokenPayload::decode)
+                // 管理端只接受 admin 安全域签发的令牌，防止用户端令牌跨域使用。
                 .filter(value -> SecurityRealm.ADMIN.equals(value.realm()))
                 .orElse(null);
         ApiAssert.isTrue(ApiCode.RESET_PWD_TOKEN_ERROR, payload != null);
@@ -201,18 +213,20 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
 
         // 使用统一 BCrypt 编码器生成新密码。
         String password = passwordEncoder.encode(req.getNewPassword());
-        // 根据邮箱修改密码
+        // 通过令牌绑定的稳定内部 ID 定向更新，邮箱仅作为令牌与当前主体的一致性校验。
         boolean updated = update(new LambdaUpdateWrapper<AdminUser>()
                 .eq(AdminUser::getId, user.getId())
                 .set(AdminUser::getPassword, password));
         ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, updated);
 
+        // 新密码提交成功后注销全部旧会话，避免遗失 Token 继续访问管理端。
         sessionInvalidationService.invalidateAdminAfterCommit(user.getId());
     }
 
 
     @Override
     public AdminUser getUserByEmail(String email) {
+        // 服务层统一规范化邮箱，避免调用方遗漏大小写和首尾空格处理。
         return getOne(new LambdaQueryWrapper<AdminUser>()
                 .eq(AdminUser::getEmail, AccountNormalizer.normalizeEmail(email)));
     }
@@ -220,18 +234,18 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void editPwd(EditPwdReq req) {
-        // 根据登录id 获取该用户详情
+        // 修改目标只能来自当前管理端会话，不允许请求参数指定其他管理员 ID。
         Long userId = loginSessionService.currentAdmin()
                 .map(LoginPrincipal::getSubjectId)
                 .orElseThrow(() -> new ApiException(ApiCode.TOKEN_ERROR));
         AdminUser user = getById(userId);
 
-        // 匹对请求参数中的旧密码是否正确
+        // PasswordEncoder.matches 的参数顺序为“请求明文、数据库摘要”，不能直接比较字符串。
         ApiAssert.isTrue(ApiCode.ORIGINAL_PASSWORD_ERROR, passwordEncoder.matches(req.getPassword(), user.getPassword()));
 
         // 新密码继续使用统一 BCrypt 策略保存。
         String newPassword = passwordEncoder.encode(req.getNewPassword());
-        // 根据用户id修改新密码
+        // 定向更新密码字段，避免覆盖并发修改的管理员名称、邮箱或状态。
         boolean updated = update(new LambdaUpdateWrapper<AdminUser>()
                 .eq(AdminUser::getId, user.getId())
                 .set(AdminUser::getPassword, newPassword));
@@ -240,6 +254,7 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
     }
 
     private void updateMetadataAndCheckRisk(AdminUser user, String requestIp, String agent) {
+        // 风险服务先基于“旧登录信息与本次信息”判断异常，再返回本次应持久化的归属地。
         String ipHomePlace = loginRiskNotificationService.process(
                 SecurityRealm.ADMIN, user.getId(), user.getEmail(),
                 user.getAgent(), user.getIpHomePlace(), requestIp, agent);

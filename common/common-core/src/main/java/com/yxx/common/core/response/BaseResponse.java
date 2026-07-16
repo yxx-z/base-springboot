@@ -35,6 +35,7 @@ public class BaseResponse<T> {
     }
 
     public static <T> BaseResponse<T> success(T data, String traceId) {
+        // 统一在工厂方法内设置成功码，调用方只需要关注实际响应数据和链路标识。
         BaseResponse<T> response = new BaseResponse<>();
         response.code = ApiCode.SUCCESS.code();
         response.message = ApiCode.SUCCESS.message();
@@ -48,6 +49,7 @@ public class BaseResponse<T> {
     }
 
     public static BaseResponse<Void> fail(Integer code, String message, String traceId) {
+        // 失败响应不携带业务数据，避免调用方误把部分结果当作成功结果消费。
         BaseResponse<Void> response = new BaseResponse<>();
         response.code = code;
         response.message = message;

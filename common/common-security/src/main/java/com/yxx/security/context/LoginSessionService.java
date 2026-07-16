@@ -27,7 +27,9 @@ public class LoginSessionService {
      * @return 当前 Token
      */
     public String loginUser(LoginPrincipal principal, String device) {
+        // 先由 Sa-Token 建立 loginId 与 Token 的关联，此后才能取得对应的账号 Session。
         StpUtil.login(principal.getSubjectId(), device);
+        // 主体快照存入 loginId Session，使同一账号的多个 Token 共用一致的授权信息。
         StpUtil.getSessionByLoginId(principal.getSubjectId()).set(PRINCIPAL_KEY, principal);
         return StpUtil.getTokenValue();
     }
@@ -40,7 +42,9 @@ public class LoginSessionService {
      * @return 当前 Token
      */
     public String loginAdmin(LoginPrincipal principal, String device) {
+        // 管理端使用独立 StpLogic，避免管理员身份与普通用户身份在同一安全域内串用。
         StpAdminUtil.login(principal.getSubjectId(), device);
+        // 授权快照以稳定数据库 ID 为归属，不依赖可变的账号、手机号等登录凭证。
         StpAdminUtil.getSessionByLoginId(principal.getSubjectId()).set(PRINCIPAL_KEY, principal);
         return StpAdminUtil.getTokenValue();
     }
@@ -52,8 +56,10 @@ public class LoginSessionService {
      */
     public Optional<LoginPrincipal> currentUser() {
         if (!StpUtil.isLogin()) {
+            // 未登录时不触发 getLoginId 异常，由上层统一决定匿名访问或拒绝访问。
             return Optional.empty();
         }
+        // 从账号 Session 读取完整主体；不根据零散 Session 字段拼装残缺身份。
         return principalFromSession(
                 StpUtil.getSessionByLoginId(StpUtil.getLoginId()).get(PRINCIPAL_KEY));
     }
@@ -65,6 +71,7 @@ public class LoginSessionService {
      */
     public Optional<LoginPrincipal> currentAdmin() {
         if (!StpAdminUtil.isLogin()) {
+            // 管理端必须通过独立登录状态判断，不能复用用户端 StpUtil。
             return Optional.empty();
         }
         return principalFromSession(
@@ -78,6 +85,7 @@ public class LoginSessionService {
      * @return 当前主体
      */
     public Optional<LoginPrincipal> currentByLoginType(String loginType) {
+        // Sa-Token 回调以 loginType 区分安全域，未知类型按用户域处理以兼容默认 StpUtil。
         if (SecurityRealm.ADMIN.equals(loginType)) {
             return currentAdmin();
         }
@@ -92,6 +100,7 @@ public class LoginSessionService {
      * @return 登录主体
      */
     public Optional<LoginPrincipal> findByLoginId(String loginType, Object loginId) {
+        // 权限回调可能不处于 HTTP 请求中，因此直接按 loginId 查询账号 Session。
         Object value = SecurityRealm.ADMIN.equals(loginType)
                 ? StpAdminUtil.getSessionByLoginId(loginId).get(PRINCIPAL_KEY)
                 : StpUtil.getSessionByLoginId(loginId).get(PRINCIPAL_KEY);
@@ -104,6 +113,7 @@ public class LoginSessionService {
      * @param subjectId 用户内部标识
      */
     public void invalidateUser(Long subjectId) {
+        // logout(loginId) 注销该主体全部 Token，保证旧权限快照不能继续使用。
         StpUtil.logout(subjectId);
     }
 
@@ -113,10 +123,12 @@ public class LoginSessionService {
      * @param subjectId 管理员内部标识
      */
     public void invalidateAdmin(Long subjectId) {
+        // 管理端会话与用户端隔离，必须调用对应的 StpLogic 才能完成失效。
         StpAdminUtil.logout(subjectId);
     }
 
     private Optional<LoginPrincipal> principalFromSession(Object value) {
+        // Session 丢失、反序列化类型不符时视为无有效主体，拒绝构造不可信的默认权限。
         return value instanceof LoginPrincipal principal ? Optional.of(principal) : Optional.empty();
     }
 }

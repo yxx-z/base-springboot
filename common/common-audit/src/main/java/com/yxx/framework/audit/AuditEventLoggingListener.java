@@ -16,6 +16,7 @@ public class AuditEventLoggingListener {
 
     @EventListener
     public void logEvent(AuditEvent event) {
+        // 仅输出检索所需的结构化摘要；请求参数、异常详情由具体持久化监听器按策略保存。
         log.info("操作审计 eventType={} module={} action={} actorId={} actorType={} subjectAccount={} resultType={} durationMs={} traceId={}",
                 event.eventType(), event.module(), event.action(),
                 event.actor() == null ? null : event.actor().actorId(),

@@ -34,13 +34,16 @@ public class RolePermissionServiceImpl extends ServiceImpl<RolePermissionMapper,
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void replacePermissions(Integer roleId, Collection<Integer> permissionIds) {
+        // 角色及目标权限全部验证通过后再改关联，避免非法 ID 导致原权限丢失。
         ApiAssert.isTrue(ApiCode.PARAM_IS_INVALID, roleService.findByIds(List.of(roleId)).size() == 1);
+        // 权限 ID 去重，既规范目标集合也避免唯一约束冲突。
         List<Integer> distinctPermissionIds = permissionIds == null
                 ? List.of()
                 : permissionIds.stream().distinct().toList();
         ApiAssert.isTrue(ApiCode.PARAM_IS_INVALID,
                 permissionService.findActiveByIds(distinctPermissionIds).size()
                         == distinctPermissionIds.size());
+        // 最终集合语义使用删除后批量重建；传空集合表示明确清空权限。
         remove(new LambdaQueryWrapper<RolePermission>().eq(RolePermission::getRoleId, roleId));
         if (!distinctPermissionIds.isEmpty()) {
             List<RolePermission> relations = distinctPermissionIds.stream().map(permissionId -> {
@@ -60,6 +63,7 @@ public class RolePermissionServiceImpl extends ServiceImpl<RolePermissionMapper,
     @Override
     public List<Integer> listPermissionIdsByRoleIds(Collection<Integer> roleIds) {
         if (roleIds == null || roleIds.isEmpty()) {
+            // 避免生成 SQL IN ()，并统一返回不可变空集合。
             return List.of();
         }
         return list(new LambdaQueryWrapper<RolePermission>().in(RolePermission::getRoleId, roleIds))

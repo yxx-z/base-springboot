@@ -49,8 +49,10 @@ public class ResponseResultHandler implements ResponseBodyAdvice<Object> {
      */
     @Override
     public boolean supports(MethodParameter arg0, Class<? extends HttpMessageConverter<?>> arg1) {
+        // ResponseResultInterceptor 会把注解写入当前请求属性；Advice 不重复做反射解析。
         ServletRequestAttributes sra = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         if (sra == null) {
+            // 非 Servlet 调用或请求已结束时不进行响应包装。
             return false;
         }
         HttpServletRequest request = sra.getRequest();
@@ -75,14 +77,18 @@ public class ResponseResultHandler implements ResponseBodyAdvice<Object> {
     public Object beforeBodyWrite(Object body, MethodParameter arg1, MediaType arg2,
                                   Class<? extends HttpMessageConverter<?>> arg3,
                                   ServerHttpRequest arg4, ServerHttpResponse arg5) {
+        // TraceId 在过滤器中生成，并同时返回给客户端用于问题定位。
         String traceId = AppContext.getTraceId();
         Object wrappedBody;
         if (body instanceof ErrorResponse error) {
+            // 全局异常处理器返回错误载荷，此处统一补为标准响应外壳。
             wrappedBody = BaseResponse.fail(error.getCode(), error.getMessage(), traceId);
         } else if (body instanceof BaseResponse<?> baseResponse) {
+            // 控制器已主动构造统一响应时只补 TraceId，避免二次嵌套。
             baseResponse.setTraceId(traceId);
             wrappedBody = body;
         } else {
+            // 普通业务返回值默认包装为成功响应。
             wrappedBody = BaseResponse.success(body, traceId);
         }
 

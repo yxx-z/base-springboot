@@ -27,10 +27,12 @@ public class RedissonCache {
     private final RedissonClient redissonClient;
 
     public void putString(String key, String value, long expiredSeconds) {
+        // 字符串场景显式使用 StringCodec，确保 Lua 脚本读取到的值与 Java 写入值编码一致。
         stringBucket(key).set(value, duration(expiredSeconds, TimeUnit.SECONDS));
     }
 
     public boolean putStringIfAbsent(String key, String value, long expiredSeconds) {
+        // setIfAbsent 由 Redis 原子完成，适合一次性令牌预占、幂等锁等竞争场景。
         return stringBucket(key).setIfAbsent(value, duration(expiredSeconds, TimeUnit.SECONDS));
     }
 
@@ -40,10 +42,12 @@ public class RedissonCache {
      * @return -1-Key 不存在，0-值不匹配，1-预占成功
      */
     public long reserveStringIfEquals(String key, String expected, String reservation) {
+        // “读取、比较、替换”必须放在同一 Lua 脚本内，避免并发请求在比较后同时取得消费权。
         String script = "local current = redis.call('get', KEYS[1]); "
                 + "if not current then return -1; end; "
                 + "if current ~= ARGV[1] then return 0; end; "
                 + "redis.call('set', KEYS[1], ARGV[2], 'KEEPTTL'); return 1;";
+        // KEEPTTL 保留业务值原有的生命周期，预占动作不能意外延长验证码等敏感数据的有效期。
         Number result = redissonClient.getScript(StringCodec.INSTANCE).eval(
                 RScript.Mode.READ_WRITE, script, RScript.ReturnType.INTEGER,
                 List.of(fullKey(key)), expected, reservation);
@@ -52,6 +56,7 @@ public class RedissonCache {
 
     /** 仅当 Key 仍持有指定预占标记时删除。 */
     public void deleteStringIfEquals(String key, String expected) {
+        // 条件删除可防止旧请求误删已经被其他流程替换的新值。
         String script = "if redis.call('get', KEYS[1]) == ARGV[1] then "
                 + "return redis.call('del', KEYS[1]); end; return 0;";
         redissonClient.getScript(StringCodec.INSTANCE).eval(
@@ -61,6 +66,7 @@ public class RedissonCache {
 
     /** 事务回滚时仅在预占标记仍匹配的情况下恢复原值，并保留原 TTL。 */
     public void restoreReservedString(String key, String reservation, String originalValue) {
+        // 仅预占所有者能够恢复原值，避免事务回滚覆盖后来写入的数据。
         String script = "if redis.call('get', KEYS[1]) == ARGV[1] then "
                 + "redis.call('set', KEYS[1], ARGV[2], 'KEEPTTL'); return 1; end; return 0;";
         redissonClient.getScript(StringCodec.INSTANCE).eval(
@@ -69,6 +75,7 @@ public class RedissonCache {
     }
 
     public <T> void put(String key, T value, long expiredSeconds) {
+        // 泛型对象沿用 Redisson 客户端的统一序列化配置，调用方无需感知底层 Codec。
         this.<T>bucket(key).set(value, duration(expiredSeconds, TimeUnit.SECONDS));
     }
 
@@ -88,6 +95,7 @@ public class RedissonCache {
      * @return 递增后的计数值
      */
     public long increment(String key, long expiredSeconds) {
+        // 递增与首次设置过期时间原子执行，避免进程在两条命令之间退出而留下永久计数器。
         String script = "local value = redis.call('incr', KEYS[1]); "
                 + "if value == 1 then redis.call('expire', KEYS[1], ARGV[1]); end; "
                 + "return value;";
@@ -102,6 +110,7 @@ public class RedissonCache {
      * 没有 TTL 的永久负数计数器。
      */
     public long decrement(String key) {
+        // 不对不存在的 Key 执行 DECR，否则 Redis 会创建一个没有 TTL 的负数键。
         String script = "if redis.call('exists', KEYS[1]) == 0 then return 0; end; "
                 + "local value = redis.call('decr', KEYS[1]); "
                 + "if value <= 0 then redis.call('del', KEYS[1]); return 0; end; "
@@ -121,6 +130,7 @@ public class RedissonCache {
                                        String ipKey,
                                        long ipLimit,
                                        long expiredSeconds) {
+        // 两个维度在一个脚本中先检查后递增，保证账号阈值和 IP 阈值面对并发时仍是硬上限。
         String script = "local account = tonumber(redis.call('get', KEYS[1]) or '0'); "
                 + "local ip = tonumber(redis.call('get', KEYS[2]) or '0'); "
                 + "if account >= tonumber(ARGV[1]) or ip >= tonumber(ARGV[2]) then return 0; end; "
@@ -141,6 +151,7 @@ public class RedissonCache {
      * 记录继续保留到统计窗口结束。
      */
     public void completeSuccessfulLoginAttempt(String accountKey, String ipKey) {
+        // 账号认证成功后清除其历史失败状态；IP 维度只减去本请求预占的一次。
         String script = "redis.call('del', KEYS[1]); "
                 + "if redis.call('exists', KEYS[2]) == 1 then "
                 + "local value = redis.call('decr', KEYS[2]); "
@@ -160,11 +171,13 @@ public class RedissonCache {
     }
 
     private String fullKey(String key) {
+        // 保留统一前缀扩展点，后续可按部署环境或应用增加命名空间而不改调用方。
         return REDIS_KEY_PREFIX + key;
     }
 
     private Duration duration(long value, TimeUnit timeUnit) {
         if (value <= 0) {
+            // 非正数通常来自配置错误；使用有限默认值比创建永久缓存更安全。
             return Duration.ofSeconds(DEFAULT_EXPIRED_SECONDS);
         }
         return Duration.ofNanos(timeUnit.toNanos(value));

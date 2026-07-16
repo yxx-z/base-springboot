@@ -37,6 +37,7 @@ public class AddressUtil {
      */
     public String getCityInfo(String ip) {
         if (!IpUtil.isValidIPv4(ip) || searcher == null) {
+            // 当前 xdb 仅用于 IPv4；资源加载失败时也直接降级，不阻断调用方。
             return null;
         }
         try {
@@ -72,6 +73,7 @@ public class AddressUtil {
         if (ipLocation == null || ipLocation.isBlank()) {
             return UNKNOWN_LOCATION;
         }
+        // 使用 -1 保留末尾空字段，确保城市或 ISP 缺失时数组位置仍符合协议。
         String[] locationParts = ipLocation.split("\\|", -1);
         if (locationParts.length < 4) {
             log.warn("IP 归属地数据格式异常，value={}", ipLocation);
@@ -81,6 +83,7 @@ public class AddressUtil {
         String province = locationParts[2];
         String city = locationParts[3];
         if ("内网IP".equals(province) || "内网IP".equals(city)) {
+            // 内网地址不伪装为未知公网地区，明确返回“内网”便于风险判断。
             return "内网";
         }
         if (dataType == 2) {
@@ -88,6 +91,7 @@ public class AddressUtil {
         }
         if (dataType == 3) {
             String normalizedCity = normalizeLocation(city);
+            // 城市缺失时退化到省级信息，尽可能返回可用归属地。
             return UNKNOWN_LOCATION.equals(normalizedCity)
                     ? normalizeLocation(province)
                     : normalizedCity;
@@ -98,8 +102,10 @@ public class AddressUtil {
 
     private Searcher loadSearcher() {
         try {
+            // 资源可能位于可执行 Jar 内，必须通过 classpath 流读取，不能假设存在磁盘路径。
             ClassPathResource resource = new ClassPathResource(DATABASE_PATH);
             try (InputStream inputStream = resource.getInputStream()) {
+                // 启动时一次性载入内存，避免每次查询重复进行文件 IO。
                 return Searcher.newWithBuffer(inputStream.readAllBytes());
             }
         } catch (Exception exception) {
@@ -113,6 +119,7 @@ public class AddressUtil {
             return UNKNOWN_LOCATION;
         }
         if (location.endsWith("省") || location.endsWith("市")) {
+            // 去掉行政区后缀，使历史值与当前值比较时不受数据源展示格式影响。
             return location.substring(0, location.length() - 1);
         }
         return location;

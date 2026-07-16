@@ -33,6 +33,7 @@ public class OperateLogServiceImpl extends ServiceImpl<OperateLogMapper, Operate
     @Async("auditTaskExecutor")
     @EventListener
     public void saveAuditEvent(AuditEvent event) {
+        // 在异步线程中把通用事件复制为用户端日志实体，避免审计模块依赖业务表结构。
         OperateLog operateLog = new OperateLog();
         operateLog.setUserId(event.actor() == null ? null : event.actor().actorId());
         operateLog.setCreateUid(event.actor() == null ? null : event.actor().actorId());
@@ -55,6 +56,7 @@ public class OperateLogServiceImpl extends ServiceImpl<OperateLogMapper, Operate
         operateLog.setTime(event.durationMillis());
         operateLog.setException(event.exceptionMessage());
         try {
+            // save 返回 false 与抛出异常分别记录，二者均不能传播到已结束的业务请求。
             if (!save(operateLog)) {
                 log.error("用户端审计事件未写入数据库，traceId={}", event.traceId());
             }
@@ -67,9 +69,9 @@ public class OperateLogServiceImpl extends ServiceImpl<OperateLogMapper, Operate
 
     @Override
     public PageResponse<OperateLogResp> operationLogPage(OperateLogReq req) {
-        // 初始化分页构造器
+        // MyBatis-Plus Page 同时承载分页参数和 Mapper 回填的总数、页数。
         Page<OperateLogResp> page = new Page<>(req.getPage(), req.getPageSize());
-        // 查询分页结果并返回
+        // 转为公共分页响应，Controller 不暴露 MyBatis-Plus 类型。
         Page<OperateLogResp> result = baseMapper.operationLogPage(page, req);
         return new PageResponse<>(result.getRecords(), result.getCurrent(), result.getSize(),
                 result.getTotal(), result.getPages());
@@ -77,9 +79,8 @@ public class OperateLogServiceImpl extends ServiceImpl<OperateLogMapper, Operate
 
     @Override
     public PageResponse<OperateLogResp> authLogPage(OperateLogReq req) {
-        // 初始化分页构造器
+        // 认证日志使用独立 Mapper 查询条件，但保持与操作日志相同的分页协议。
         Page<OperateLogResp> page = new Page<>(req.getPage(), req.getPageSize());
-        // 查询分页结果并返回
         Page<OperateLogResp> result = this.baseMapper.authLogPage(page, req);
         return new PageResponse<>(result.getRecords(), result.getCurrent(), result.getSize(),
                 result.getTotal(), result.getPages());

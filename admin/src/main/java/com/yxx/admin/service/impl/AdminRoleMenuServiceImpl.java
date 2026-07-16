@@ -37,6 +37,7 @@ public class AdminRoleMenuServiceImpl extends ServiceImpl<AdminRoleMenuMapper, A
     @Override
     public List<AdminMenuRes> currentMenuTree(Collection<String> roleCodes) {
         if (roleCodes == null || roleCodes.isEmpty()) {
+            // 无角色管理员不展示任何管理导航，使用空集合保持响应结构稳定。
             return List.of();
         }
         List<Integer> roleIds = adminRoleService.findIdsByCodes(roleCodes);
@@ -44,7 +45,9 @@ public class AdminRoleMenuServiceImpl extends ServiceImpl<AdminRoleMenuMapper, A
             return List.of();
         }
 
+        // 一次加载全部启用菜单，后续授权筛选和祖先补齐都基于同一数据快照。
         List<AdminMenu> enabledMenus = adminMenuService.findEnabledMenus();
+        // 超级管理员天然拥有全部菜单；其他角色取关联菜单并集。
         Set<Integer> selectedMenuIds = roleCodes.contains(AdminSecurityCodes.ROLE_SUPER_ADMIN)
                 ? enabledMenus.stream().map(AdminMenu::getId)
                         .collect(Collectors.toCollection(HashSet::new))
@@ -57,6 +60,7 @@ public class AdminRoleMenuServiceImpl extends ServiceImpl<AdminRoleMenuMapper, A
             return List.of();
         }
 
+        // 通用树构建器负责排序、祖先容器保留、隐藏节点处理及循环数据保护。
         return NavigationTreeBuilder.build(
                 enabledMenus, selectedMenuIds,
                 AdminMenu::getId, AdminMenu::getParentId,
@@ -68,10 +72,13 @@ public class AdminRoleMenuServiceImpl extends ServiceImpl<AdminRoleMenuMapper, A
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void replaceMenus(Integer roleId, Collection<Integer> menuIds) {
+        // 先加载角色实体，既校验存在性，也用于识别不可修改的内置超级角色。
         AdminRole role = adminRoleService.findByIds(List.of(roleId)).stream().findFirst().orElse(null);
         ApiAssert.isTrue(ApiCode.PARAM_IS_INVALID, role != null);
+        // 超级角色的全菜单能力由代码不变量提供，不允许维护可漂移的关联数据。
         ApiAssert.isTrue(ApiCode.BUILT_IN_ROLE_IMMUTABLE,
                 !AdminSecurityCodes.ROLE_SUPER_ADMIN.equals(role.getCode()));
+        // 所有目标菜单必须存在且启用，验证完成后才删除旧关系。
         Set<Integer> distinctMenuIds = menuIds == null
                 ? Set.of()
                 : new HashSet<>(menuIds);
@@ -92,6 +99,7 @@ public class AdminRoleMenuServiceImpl extends ServiceImpl<AdminRoleMenuMapper, A
     }
 
     private AdminMenuRes toResponse(AdminMenu menu, List<AdminMenuRes> children) {
+        // 导航响应仅包含前端路由字段，不泄露数据库状态和审计信息。
         AdminMenuRes response = new AdminMenuRes();
         response.setCode(menu.getMenuCode());
         response.setName(menu.getMenuName());
