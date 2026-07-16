@@ -47,9 +47,8 @@ public class ServletUtils {
         if (isJsonRequest(request)) {
             ContentCachingRequestWrapper cachingRequest = (ContentCachingRequestWrapper) request;
             byte[] content = cachingRequest.getContentAsByteArray();
-            Charset charset = cachingRequest.getCharacterEncoding() == null
-                    ? StandardCharsets.UTF_8
-                    : Charset.forName(cachingRequest.getCharacterEncoding());
+            cachingRequest.getCharacterEncoding();
+            Charset charset = Charset.forName(cachingRequest.getCharacterEncoding());
             params = new String(content, charset);
         } else {
             Map<String, String[]> parameterMap = request.getParameterMap();

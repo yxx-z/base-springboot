@@ -1,6 +1,7 @@
 package com.yxx.framework.interceptor.response;
 
 import com.yxx.common.annotation.response.ResponseResult;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -22,7 +23,7 @@ public class ResponseResultInterceptor implements HandlerInterceptor {
     public static final String RESPONSE_RESULT_ANN = "RESPONSE-RESULT";
 
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+    public boolean preHandle(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull Object handler) {
         if (handler instanceof HandlerMethod handlerMethod) {
             final Class<?> clazz = handlerMethod.getBeanType();
             final Method method = handlerMethod.getMethod();

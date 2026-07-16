@@ -2,6 +2,7 @@ package com.yxx.framework.hander;
 
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
 import com.yxx.security.context.CurrentActorProvider;
+import com.yxx.security.model.CurrentActor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ibatis.reflection.MetaObject;
 
@@ -60,7 +61,7 @@ public class CommonMetaObjectHandler implements MetaObjectHandler {
     public Long currentUid() {
         try {
             return currentActorProvider.currentActor()
-                    .map(actor -> actor.actorId())
+                    .map(CurrentActor::actorId)
                     .orElse(SYSTEM_USER_ID);
         } catch (RuntimeException exception) {
             log.debug("当前线程不存在登录上下文，审计用户使用系统账号", exception);
