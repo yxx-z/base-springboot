@@ -3,16 +3,13 @@ package com.yxx.business.integration;
 import com.alipay.api.AlipayClient;
 import com.alipay.api.request.AlipaySystemOauthTokenRequest;
 import com.alipay.api.response.AlipaySystemOauthTokenResponse;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import cn.dev33.satoken.temp.SaTempUtil;
 import com.jayway.jsonpath.JsonPath;
 import com.yxx.business.BusinessApplication;
-import com.yxx.business.mapper.OperateLogMapper;
-import com.yxx.business.model.request.OperateLogReq;
-import com.yxx.business.model.response.OperateLogResp;
 import com.yxx.rbac.model.RbacSubjectType;
 import com.yxx.rbac.service.RbacRolePermissionService;
 import com.yxx.rbac.service.RbacSubjectRoleService;
+import com.yxx.business.service.UserService;
 import com.yxx.common.constant.RedisKeyPrefix;
 import com.yxx.common.utils.email.MailUtils;
 import com.yxx.common.utils.redis.RedissonCache;
@@ -144,9 +141,6 @@ class BusinessApplicationIntegrationTest {
     private PasswordEncoder passwordEncoder;
 
     @Autowired
-    private OperateLogMapper operateLogMapper;
-
-    @Autowired
     private RedissonCache redissonCache;
 
     @Autowired
@@ -154,6 +148,9 @@ class BusinessApplicationIntegrationTest {
 
     @Autowired
     private RbacRolePermissionService rolePermissionService;
+
+    @Autowired
+    private UserService userService;
 
     @BeforeEach
     void cleanBusinessData() {
@@ -165,7 +162,7 @@ class BusinessApplicationIntegrationTest {
     }
 
     @Test
-    void shouldStartApplicationExecuteMapperXmlAndPersistSessionInRedis() throws Exception {
+    void shouldStartApplicationAndPersistSessionInRedis() throws Exception {
         String loginCode = "integration-" + UUID.randomUUID().toString().substring(0, 8);
         long userId = createPasswordUser(loginCode, "Framework2026", true, true, true);
 
@@ -191,16 +188,28 @@ class BusinessApplicationIntegrationTest {
                 .andExpect(jsonPath("$.data.id").value(userId))
                 .andExpect(jsonPath("$.data.account").value(loginCode));
 
-        jdbcTemplate.update("""
-                INSERT INTO operate_log
-                    (user_id, actor_type, actor_account, actor_name, subject_account,
-                     type, event_type, module, title, create_time, is_delete)
-                VALUES (?, 'user', ?, '集成用户', NULL, 1, 'AUTHENTICATION', '测试', '登录', NOW(), 0)
-                """, userId, loginCode);
-        Page<OperateLogResp> page = operateLogMapper.authLogPage(
-                new Page<>(1, 10), new OperateLogReq());
-        assertFalse(page.getRecords().isEmpty());
-        assertEquals(loginCode, page.getRecords().get(0).getLoginCode());
+        // business 仍持久化审计日志，但不再向业务角色暴露全局日志读取权限。
+        assertEquals(0L, jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM rbac_permission
+                WHERE scope = 'business' AND code = 'business:audit-log:read'
+                  AND is_delete = 0
+                """, Long.class));
+    }
+
+    @Test
+    void shouldInvalidateHistoricalSessionWhenUserIsEnabledAgain() throws Exception {
+        String account = "reenabled-" + UUID.randomUUID().toString().substring(0, 8);
+        long userId = createPasswordUser(account, "Framework2026", true, true, true);
+        String historicalToken = loginAndGetToken(account, "Framework2026");
+
+        /*
+         * 直接修改状态模拟停用动作已经提交、但 Redis 注销失败后旧 Token 仍残留。
+         * 正式启用服务必须再次清理历史会话，禁止旧 Token 随账号启用自动恢复。
+         */
+        jdbcTemplate.update("UPDATE `user` SET status = 0 WHERE id = ?", userId);
+        userService.changeStatus(userId, true);
+
+        assertUserTokenInvalid(historicalToken);
     }
 
     @Test
@@ -271,6 +280,35 @@ class BusinessApplicationIntegrationTest {
                 WHERE identity_type = 'password' AND identifier = ?
                 """, Integer.class, account));
         assertFalse(redissonCache.exists(RedisKeyPrefix.EMAIL_REGISTER + email));
+    }
+
+    @Test
+    void shouldAllowRegistrationAgainAfterSoftDeletionAndKeepHistory() throws Exception {
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        String account = "re-register-" + suffix;
+        String email = "re-register-" + suffix + "@example.com";
+        String phone = "139" + String.format("%08d", Math.abs(suffix.hashCode()) % 100_000_000);
+        long oldUserId = createPasswordUser(account, "Framework2026", true, true, true, email, phone);
+
+        userService.delete(oldUserId);
+        redissonCache.putString(RedisKeyPrefix.EMAIL_REGISTER + email, "123456", 300);
+        mockMvc.perform(post("/user/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"loginCode":"%s","loginName":"重新注册用户","password":"Framework2026",
+                                 "linkPhone":"%s","email":"%s","captcha":"123456"}
+                                """.formatted(account, phone, email)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+
+        assertEquals(2L, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `user` WHERE email = ?", Long.class, email));
+        assertEquals(1L, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `user` WHERE email = ? AND is_delete = 0", Long.class, email));
+        assertEquals(2L, jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM user_identity
+                WHERE identity_type = 'password' AND identifier = ?
+                """, Long.class, account));
     }
 
     @Test
@@ -411,14 +449,25 @@ class BusinessApplicationIntegrationTest {
                                     boolean identityStatus,
                                     boolean verified,
                                     boolean userStatus) {
+        return createPasswordUser(loginCode, password, identityStatus, verified, userStatus,
+                loginCode + "@example.com", null);
+    }
+
+    private long createPasswordUser(String loginCode,
+                                    String password,
+                                    boolean identityStatus,
+                                    boolean verified,
+                                    boolean userStatus,
+                                    String email,
+                                    String phone) {
         jdbcTemplate.update("""
                 INSERT INTO `user`
-                    (display_name, status, email, update_time, create_time,
+                    (display_name, status, email, phone, update_time, create_time,
                      create_uid, update_uid, is_delete)
-                VALUES ('集成用户', ?, ?, NOW(), NOW(), 0, 0, 0)
-                """, userStatus, loginCode + "@example.com");
+                VALUES ('集成用户', ?, ?, ?, NOW(), NOW(), 0, 0, 0)
+                """, userStatus, email, phone);
         Long userId = jdbcTemplate.queryForObject(
-                "SELECT id FROM `user` WHERE email = ?", Long.class, loginCode + "@example.com");
+                "SELECT id FROM `user` WHERE email = ? AND is_delete = 0", Long.class, email);
         jdbcTemplate.update("""
                 INSERT INTO user_identity
                     (user_id, identity_type, identifier, credential, verified, status)

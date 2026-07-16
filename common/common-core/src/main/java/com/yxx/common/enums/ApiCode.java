@@ -63,6 +63,14 @@ public enum ApiCode {
 
     RBAC_SCOPE_MISMATCH(2017, "主体、角色与资源不属于同一权限域"),
 
+    DATA_CONFLICT(2018, "数据已存在或关联关系冲突"),
+
+    ALIPAY_AUTHENTICATION_FAILED(2019, "支付宝授权码无效或已过期"),
+
+    EXTERNAL_SERVICE_UNAVAILABLE(2020, "外部认证服务暂时不可用，请稍后重试"),
+
+    FEATURE_DISABLED(2021, "当前功能未启用"),
+
     /**
      * 找回密码
      */

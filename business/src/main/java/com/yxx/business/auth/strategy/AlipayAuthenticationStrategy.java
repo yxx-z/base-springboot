@@ -11,11 +11,16 @@ import com.yxx.business.model.entity.User;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.exceptions.ApiException;
 import com.yxx.common.utils.ApiAssert;
+import com.yxx.common.utils.ServletUtils;
+import com.yxx.common.utils.ip.ClientIpResolver;
 import com.yxx.security.constant.LoginMode;
+import com.yxx.security.constant.SecurityRealm;
+import com.yxx.security.context.PasswordLoginProtectionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 /**
  * 支付宝授权认证策略。
@@ -26,10 +31,14 @@ import org.springframework.dao.DataIntegrityViolationException;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(prefix = "features.alipay-login", name = "enabled",
+        havingValue = "true", matchIfMissing = true)
 public class AlipayAuthenticationStrategy implements UserAuthenticationStrategy {
 
     private final AlipayClient alipayClient;
     private final AlipayIdentityBindingService identityBindingService;
+    private final PasswordLoginProtectionService loginProtectionService;
+    private final ClientIpResolver clientIpResolver;
 
     @Override
     public String loginMode() {
@@ -40,7 +49,11 @@ public class AlipayAuthenticationStrategy implements UserAuthenticationStrategy 
     public AuthenticatedUser authenticate(UserAuthenticationCommand command) {
         // 前端只提交一次性授权码，支付宝用户 ID 必须由服务端向支付宝换取。
         ApiAssert.isTrue(ApiCode.PARAM_IS_INVALID, command instanceof AlipayAuthenticationCommand);
-        String alipayUserId = exchangeUserId(((AlipayAuthenticationCommand) command).authCode());
+        String authCode = ((AlipayAuthenticationCommand) command).authCode();
+        String clientIp = clientIpResolver.resolve(ServletUtils.getRequest());
+        // 支付宝授权接口同样执行账号摘要与 IP 双维度频控，防止随机授权码消耗外部接口资源。
+        loginProtectionService.reserveAttempt(SecurityRealm.USER, "alipay:" + authCode, clientIp);
+        String alipayUserId = exchangeUserId(authCode);
         User user;
         try {
             // 常规路径在独立事务中查询或创建统一主体及身份绑定。
@@ -48,8 +61,13 @@ public class AlipayAuthenticationStrategy implements UserAuthenticationStrategy 
         } catch (DataIntegrityViolationException exception) {
             // 两个首次登录请求可能同时通过存在性检查，唯一键会保证只有一个事务成功。
             // 失败请求在原事务回滚后重新读取已完成的绑定，避免向客户端暴露数据库异常。
+            if (!isConcurrentIdentityConflict(exception)) {
+                throw exception;
+            }
             user = identityBindingService.loadBoundUser(alipayUserId);
         }
+        loginProtectionService.recordSuccess(
+                SecurityRealm.USER, "alipay:" + authCode, clientIp);
         return new AuthenticatedUser(user, systemAccount(user.getId()), loginMode());
     }
 
@@ -65,11 +83,16 @@ public class AlipayAuthenticationStrategy implements UserAuthenticationStrategy 
                 return response.getUserId();
             }
             log.warn("支付宝授权失败，code={}，subCode={}", response.getCode(), response.getSubCode());
-            throw new ApiException(ApiCode.SYSTEM_ERROR);
+            throw new ApiException(ApiCode.ALIPAY_AUTHENTICATION_FAILED);
         } catch (AlipayApiException exception) {
             log.error("调用支付宝授权接口失败", exception);
-            throw new ApiException(ApiCode.SYSTEM_ERROR, exception);
+            throw new ApiException(ApiCode.EXTERNAL_SERVICE_UNAVAILABLE, exception);
         }
+    }
+
+    private boolean isConcurrentIdentityConflict(DataIntegrityViolationException exception) {
+        String message = exception.getMostSpecificCause().getMessage();
+        return message != null && message.contains("uk_user_identity_active_identifier");
     }
 
     private String systemAccount(Long userId) {

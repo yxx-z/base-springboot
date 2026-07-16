@@ -39,7 +39,7 @@ public class AdminAuthController {
     @AllowAnonymous
     @AuditLog(module = "鉴权模块", action = "管理员密码登录",
             eventType = AuditEventType.AUTHENTICATION, recordRequest = false,
-            subjectField = "loginCode")
+            subjectAccount = "#request.loginCode")
     @PostMapping("/login")
     public LoginRes login(@Valid @RequestBody LoginReq request) {
         return adminUserService.login(request);

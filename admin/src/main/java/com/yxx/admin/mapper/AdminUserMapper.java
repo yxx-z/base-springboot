@@ -11,6 +11,24 @@ import org.apache.ibatis.annotations.Select;
  */
 public interface AdminUserMapper extends BaseMapper<AdminUser> {
 
+    /**
+     * 锁定唯一内置超级角色，作为所有“最后一个超级管理员”检查的数据库并发互斥点。
+     *
+     * <p>不同管理员记录之间没有天然行锁冲突，单纯先统计再修改会被并发穿透。所有停用、
+     * 删除和移除超级角色操作必须先锁定同一角色行，再重新统计可用超级管理员数量。</p>
+     */
+    @Select("""
+            SELECT id
+            FROM rbac_role
+            WHERE scope = 'admin'
+              AND code = 'admin:super-admin'
+              AND built_in = 1
+              AND super_role = 1
+              AND is_delete = 0
+            FOR UPDATE
+            """)
+    Integer lockSuperAdminGuard();
+
     /** 查询拥有指定角色且当前启用的管理员数量。 */
     @Select("""
             SELECT COUNT(DISTINCT au.id)

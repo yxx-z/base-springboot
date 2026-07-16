@@ -3,6 +3,7 @@ package com.yxx.framework.interceptor.security;
 import cn.dev33.satoken.stp.StpUtil;
 import com.yxx.security.annotation.AllowAnonymous;
 import com.yxx.security.constant.SecurityRealm;
+import com.yxx.security.context.SlidingSessionRenewalService;
 import com.yxx.security.satoken.StpAdminUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -25,6 +26,12 @@ public class AuthenticationInterceptor implements HandlerInterceptor {
 
     @Value("${app.name}")
     private String applicationRealm;
+
+    private final SlidingSessionRenewalService slidingSessionRenewalService;
+
+    public AuthenticationInterceptor(SlidingSessionRenewalService slidingSessionRenewalService) {
+        this.slidingSessionRenewalService = slidingSessionRenewalService;
+    }
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
@@ -49,10 +56,15 @@ public class AuthenticationInterceptor implements HandlerInterceptor {
         if (SecurityRealm.ADMIN.equals(applicationRealm)) {
             // 管理端必须检查独立账号体系，不能接受普通用户 Token。
             StpAdminUtil.checkLogin();
-        } else {
-            // 用户端及默认应用使用 Sa-Token 默认 StpLogic。
+        } else if (SecurityRealm.USER.equals(applicationRealm)) {
+            // 用户端只接受默认 StpLogic 创建的普通用户 Token。
             StpUtil.checkLogin();
+        } else {
+            // 未知安全域属于部署配置错误，必须拒绝请求而不是默认当作普通用户端。
+            throw new IllegalStateException("不支持的应用安全域：" + applicationRealm);
         }
+        // 登录校验成功后再续签，实现“最后一次有效访问后七天过期”。
+        slidingSessionRenewalService.renewCurrentSession(applicationRealm);
         return true;
     }
 }

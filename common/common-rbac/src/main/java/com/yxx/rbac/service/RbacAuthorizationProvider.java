@@ -35,18 +35,23 @@ public class RbacAuthorizationProvider implements AuthorizationProvider {
         }
 
         List<RbacRole> roles = roleService.findByIds(scope, roleIds);
+        if (roles.isEmpty()) {
+            // 关联表可能残留已逻辑删除角色，任何无有效角色的主体都必须按无权限处理。
+            return AuthorizationSnapshot.empty();
+        }
         Set<String> roleCodes = roles.stream()
                 .map(RbacRole::getCode)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-        boolean hasSuperRole = scope == RbacScope.ADMIN && roles.stream()
-                .anyMatch(role -> Boolean.TRUE.equals(role.getSuperRole()));
+        boolean hasSuperRole = roles.stream().anyMatch(roleService::isCanonicalSuperRole);
         if (hasSuperRole) {
             return new AuthorizationSnapshot(
                     roleCodes, Set.of(RbacSecurityCodes.PERMISSION_ALL));
         }
 
+        // 后续权限查询只能使用未删除且属于当前权限域的角色主键，防止逻辑删除角色残留授权。
+        List<Integer> activeRoleIds = roles.stream().map(RbacRole::getId).toList();
         List<Integer> permissionIds = rolePermissionService
-                .listPermissionIdsByRoleIds(scope, roleIds);
+                .listPermissionIdsByRoleIds(scope, activeRoleIds);
         Set<String> permissions = permissionService
                 .findActiveByIds(scope, permissionIds).stream()
                 .map(RbacPermission::getCode)

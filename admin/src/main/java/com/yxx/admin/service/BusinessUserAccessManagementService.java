@@ -17,4 +17,10 @@ public interface BusinessUserAccessManagementService {
 
     /** 替换业务用户角色；只能分配 business 权限域角色。 */
     void replaceRoles(Long userId, Collection<Integer> roleIds);
+
+    /** 启用或停用业务用户；停用后注销全部用户端会话。 */
+    void changeStatus(Long userId, boolean enabled);
+
+    /** 软删业务用户及其登录身份，并撤销角色和全部会话。 */
+    void delete(Long userId);
 }

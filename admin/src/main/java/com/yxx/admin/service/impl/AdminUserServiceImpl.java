@@ -2,7 +2,6 @@ package com.yxx.admin.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yxx.admin.mapper.AdminUserMapper;
 import com.yxx.admin.model.entity.AdminUser;
 import com.yxx.admin.model.request.EditPwdReq;
@@ -11,6 +10,7 @@ import com.yxx.admin.model.request.ResetPwdEmailReq;
 import com.yxx.admin.model.request.ResetPwdReq;
 import com.yxx.admin.model.response.LoginRes;
 import com.yxx.admin.service.AdminUserService;
+import com.yxx.admin.service.AdminUserRoleService;
 import com.yxx.rbac.constant.RbacSecurityCodes;
 import com.yxx.security.constant.LoginDeviceType;
 import com.yxx.common.constant.RedisKeyPrefix;
@@ -23,6 +23,7 @@ import com.yxx.common.utils.agent.UserAgentUtil;
 import com.yxx.common.utils.ip.ClientIpResolver;
 import com.yxx.framework.security.PasswordResetMailService;
 import com.yxx.framework.security.LoginRiskNotificationService;
+import com.yxx.framework.security.LoginRiskResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -42,6 +43,7 @@ import com.yxx.security.context.LoginSessionService;
 import com.yxx.security.context.OneTimeTemporaryTokenService;
 import com.yxx.security.context.PasswordLoginProtectionService;
 import com.yxx.security.context.SessionInvalidationService;
+import com.yxx.security.context.SessionInvalidationReason;
 import com.yxx.security.model.LoginPrincipal;
 import com.yxx.security.model.AuthorizationSnapshot;
 import com.yxx.security.model.PasswordResetTokenPayload;
@@ -53,8 +55,11 @@ import com.yxx.security.model.PasswordResetTokenPayload;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser> implements AdminUserService {
+public class AdminUserServiceImpl implements AdminUserService {
+    private final AdminUserMapper adminUserMapper;
     private final AuthorizationProvider authorizationProvider;
+
+    private final AdminUserRoleService adminUserRoleService;
 
     private final LoginSessionService loginSessionService;
 
@@ -81,21 +86,30 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
 
     @Override
     public AdminUser findById(Long userId) {
-        return getById(userId);
+        return adminUserMapper.selectById(userId);
     }
 
     @Override
     public boolean updateLoginMetadata(Long userId, String agent, String ipHomePlace) {
         // 使用定向更新避免异步任务持有的旧实体覆盖管理员刚刚修改的其他资料。
-        return update(new LambdaUpdateWrapper<AdminUser>()
+        return adminUserMapper.update(new LambdaUpdateWrapper<AdminUser>()
                 .eq(AdminUser::getId, userId)
                 .set(AdminUser::getAgent, agent)
-                .set(AdminUser::getIpHomePlace, ipHomePlace));
+                .set(AdminUser::getIpHomePlace, ipHomePlace)) == 1;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void changeStatus(Long userId, boolean enabled) {
+        if (!enabled) {
+            /*
+             * MySQL 默认使用 REPEATABLE READ。若先普通查询管理员、再等待超级角色行锁，
+             * 当前事务可能已经建立旧的一致性读快照，拿到锁后仍会读到锁等待前的超级
+             * 管理员数量，导致两个并发停用请求同时通过。因此，所有可能削弱超级管理
+             * 能力的操作都必须把互斥锁作为事务中的第一次数据库读取。
+             */
+            lockSuperAdminGuard();
+        }
         // 读取当前记录既用于存在性校验，也为超级管理员保护逻辑提供明确主体。
         AdminUser user = findById(userId);
         ApiAssert.isTrue(ApiCode.USER_NOT_EXIST, user != null);
@@ -103,37 +117,52 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
             // 启用操作不会降低系统管理能力；停用前必须确保仍有其他可用超级管理员。
             assertNotLastActiveSuperAdmin(userId);
         }
-        boolean updated = update(new LambdaUpdateWrapper<AdminUser>()
+        boolean updated = adminUserMapper.update(new LambdaUpdateWrapper<AdminUser>()
                 .eq(AdminUser::getId, userId)
-                .set(AdminUser::getStatus, enabled));
+                .set(AdminUser::getStatus, enabled)) == 1;
         ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, updated);
-        if (!enabled) {
-            // 状态提交后再注销全部管理端会话，回滚时不影响仍然有效的管理员。
-            sessionInvalidationService.invalidateAdminAfterCommit(userId);
-        }
+        /*
+         * 启用和停用都注销历史会话：停用阻止继续访问；重新启用时也不能让停用前可能
+         * 残留的 Token 自动恢复，必须重新认证并加载当前权限。
+         */
+        sessionInvalidationService.invalidateAdminAfterCommit(
+                userId, SessionInvalidationReason.ACCOUNT_STATUS_CHANGED);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long userId) {
+        // 删除同样会降低可用管理员数量，必须在任何普通查询前取得全局保护锁。
+        lockSuperAdminGuard();
         AdminUser user = findById(userId);
         ApiAssert.isTrue(ApiCode.USER_NOT_EXIST, user != null);
-        // 无论目标是否当前为超级管理员，都统一经过保护检查以保持删除规则单一。
-        assertNotLastActiveSuperAdmin(userId);
-        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, removeById(userId));
-        sessionInvalidationService.invalidateAdminAfterCommit(userId);
+        // 先通过统一角色领域服务撤销角色；该步骤包含最后超级管理员并发保护。
+        adminUserRoleService.replaceRoles(userId, List.of());
+        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, adminUserMapper.deleteById(userId) == 1);
+        sessionInvalidationService.invalidateAdminAfterCommit(
+                userId, SessionInvalidationReason.ACCOUNT_DELETED);
     }
 
     private void assertNotLastActiveSuperAdmin(Long userId) {
         // 先判断目标是否拥有内置超级角色，普通管理员无需执行全局活跃人数统计。
-        boolean isSuperAdmin = baseMapper.countUserRole(
+        boolean isSuperAdmin = adminUserMapper.countUserRole(
                 userId, RbacSecurityCodes.ROLE_ADMIN_SUPER_ADMIN) > 0;
         if (isSuperAdmin) {
             // 必须至少保留另一名启用的超级管理员，避免管理端永久失去最高权限入口。
             ApiAssert.isTrue(ApiCode.LAST_SUPER_ADMIN,
-                    baseMapper.countActiveUsersByRoleCode(
+                    adminUserMapper.countActiveUsersByRoleCode(
                             RbacSecurityCodes.ROLE_ADMIN_SUPER_ADMIN) > 1);
         }
+    }
+
+    /**
+     * 锁定唯一的内置超级角色记录，串行化所有可能移除超级管理员能力的事务。
+     *
+     * <p>调用方必须在事务中的任何普通数据库读取之前调用本方法，避免 MySQL
+     * REPEATABLE READ 隔离级别下使用锁等待前建立的旧快照进行人数判断。</p>
+     */
+    private void lockSuperAdminGuard() {
+        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, adminUserMapper.lockSuperAdminGuard() != null);
     }
 
     @Override
@@ -146,7 +175,7 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
         loginProtectionService.reserveAttempt(SecurityRealm.ADMIN, loginCode, requestIp);
 
         // 账号不存在与密码错误统一响应，防止枚举管理员账号。
-        AdminUser user = getOne(
+        AdminUser user = adminUserMapper.selectOne(
                 new LambdaQueryWrapper<AdminUser>().eq(AdminUser::getLoginCode, loginCode));
         if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             // 预占次数在认证失败时直接保留，统计窗口结束后由 Redis 自动清理。
@@ -211,27 +240,28 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
                 .filter(value -> SecurityRealm.ADMIN.equals(value.realm()))
                 .orElse(null);
         ApiAssert.isTrue(ApiCode.RESET_PWD_TOKEN_ERROR, payload != null);
-        AdminUser user = getById(payload.subjectId());
+        AdminUser user = adminUserMapper.selectById(payload.subjectId());
         ApiAssert.isTrue(ApiCode.USER_NOT_EXIST,
                 user != null && payload.email().equals(user.getEmail()));
 
         // 使用统一 BCrypt 编码器生成新密码。
         String password = passwordEncoder.encode(req.getNewPassword());
         // 通过令牌绑定的稳定内部 ID 定向更新，邮箱仅作为令牌与当前主体的一致性校验。
-        boolean updated = update(new LambdaUpdateWrapper<AdminUser>()
+        boolean updated = adminUserMapper.update(new LambdaUpdateWrapper<AdminUser>()
                 .eq(AdminUser::getId, user.getId())
-                .set(AdminUser::getPassword, password));
+                .set(AdminUser::getPassword, password)) == 1;
         ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, updated);
 
         // 新密码提交成功后注销全部旧会话，避免遗失 Token 继续访问管理端。
-        sessionInvalidationService.invalidateAdminAfterCommit(user.getId());
+        sessionInvalidationService.invalidateAdminAfterCommit(
+                user.getId(), SessionInvalidationReason.PASSWORD_RESET);
     }
 
 
     @Override
     public AdminUser getUserByEmail(String email) {
         // 服务层统一规范化邮箱，避免调用方遗漏大小写和首尾空格处理。
-        return getOne(new LambdaQueryWrapper<AdminUser>()
+        return adminUserMapper.selectOne(new LambdaQueryWrapper<AdminUser>()
                 .eq(AdminUser::getEmail, AccountNormalizer.normalizeEmail(email)));
     }
 
@@ -242,7 +272,8 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
         Long userId = loginSessionService.currentAdmin()
                 .map(LoginPrincipal::getSubjectId)
                 .orElseThrow(() -> new ApiException(ApiCode.TOKEN_ERROR));
-        AdminUser user = getById(userId);
+        AdminUser user = adminUserMapper.selectById(userId);
+        ApiAssert.isTrue(ApiCode.TOKEN_ERROR, user != null && Boolean.TRUE.equals(user.getStatus()));
 
         // PasswordEncoder.matches 的参数顺序为“请求明文、数据库摘要”，不能直接比较字符串。
         ApiAssert.isTrue(ApiCode.ORIGINAL_PASSWORD_ERROR, passwordEncoder.matches(req.getPassword(), user.getPassword()));
@@ -250,19 +281,23 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
         // 新密码继续使用统一 BCrypt 策略保存。
         String newPassword = passwordEncoder.encode(req.getNewPassword());
         // 定向更新密码字段，避免覆盖并发修改的管理员名称、邮箱或状态。
-        boolean updated = update(new LambdaUpdateWrapper<AdminUser>()
+        boolean updated = adminUserMapper.update(new LambdaUpdateWrapper<AdminUser>()
                 .eq(AdminUser::getId, user.getId())
-                .set(AdminUser::getPassword, newPassword));
+                .set(AdminUser::getPassword, newPassword)) == 1;
         ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, updated);
-        sessionInvalidationService.invalidateAdminAfterCommit(userId);
+        sessionInvalidationService.invalidateAdminAfterCommit(
+                userId, SessionInvalidationReason.PASSWORD_CHANGED);
     }
 
     private void updateMetadataAndCheckRisk(AdminUser user, String requestIp, String agent) {
         // 风险服务先基于“旧登录信息与本次信息”判断异常，再返回本次应持久化的归属地。
-        String ipHomePlace = loginRiskNotificationService.process(
+        LoginRiskResult result = loginRiskNotificationService.process(
                 SecurityRealm.ADMIN, user.getId(), user.getEmail(),
                 user.getAgent(), user.getIpHomePlace(), requestIp, agent);
-        boolean updated = updateLoginMetadata(user.getId(), agent, ipHomePlace);
+        if (!result.metadataUpdateRequired()) {
+            return;
+        }
+        boolean updated = updateLoginMetadata(user.getId(), agent, result.ipRegion());
         if (!updated) {
             log.warn("管理员登录元数据未更新，adminId={}", user.getId());
         }

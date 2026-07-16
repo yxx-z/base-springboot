@@ -51,6 +51,11 @@ public final class StpAdminUtil {
         STP_LOGIC.checkLogin();
     }
 
+    /** 将当前管理员 Token 及关联会话的剩余有效期续签到指定秒数。 */
+    public static void renewTimeout(long timeoutSeconds) {
+        STP_LOGIC.renewTimeout(timeoutSeconds);
+    }
+
     public static String getTokenValue() {
         return STP_LOGIC.getTokenValue();
     }

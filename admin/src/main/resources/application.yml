@@ -14,8 +14,21 @@ spring:
 app:
   name: admin
 
+features:
+  mail:
+    # 不需要注册邮件、密码重置和风险提醒的项目可关闭邮件发送器。
+    enabled: ${FEATURE_MAIL_ENABLED:true}
+
 # 管理端与用户端采用同一套可配置密码策略，避免不同入口产生不兼容凭据。
 security:
+  session:
+    sliding-expiration:
+      enabled: ${SECURITY_SESSION_SLIDING_ENABLED:true}
+      timeout: ${SECURITY_SESSION_SLIDING_TIMEOUT:7d}
+    # 数据库提交后立即注销会话；Redis 瞬时故障时按配置执行有限内存重试。
+    invalidation:
+      retry-enabled: ${SECURITY_SESSION_INVALIDATION_RETRY_ENABLED:true}
+      retry-delays: ${SECURITY_SESSION_INVALIDATION_RETRY_DELAYS:1s,5s,30s}
   password-policy:
     min-length: ${SECURITY_PASSWORD_MIN_LENGTH:12}
     max-bytes: ${SECURITY_PASSWORD_MAX_BYTES:72}

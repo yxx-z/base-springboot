@@ -35,6 +35,8 @@ public class AdminUserRoleServiceImpl implements AdminUserRoleService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void replaceRoles(Long userId, Collection<Integer> roleIds) {
+        // 所有管理员角色替换共享同一数据库锁，避免并发移除最后两名超级管理员的角色。
+        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, adminUserMapper.lockSuperAdminGuard() != null);
         AdminUser targetUser = adminUserMapper.selectById(userId);
         ApiAssert.isTrue(ApiCode.USER_NOT_EXIST, targetUser != null);
         List<Integer> distinctRoleIds = roleIds == null
@@ -43,7 +45,7 @@ public class AdminUserRoleServiceImpl implements AdminUserRoleService {
 
         RbacRole superAdminRole = roleService.findByCode(
                 RbacScope.ADMIN, RbacSecurityCodes.ROLE_ADMIN_SUPER_ADMIN).orElse(null);
-        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, superAdminRole != null);
+        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, roleService.isCanonicalSuperRole(superAdminRole));
         boolean currentlySuperAdmin = subjectRoleService.hasRole(
                 RbacSubjectType.ADMIN_USER.code(), userId, superAdminRole.getId());
         boolean keepsSuperAdminRole = distinctRoleIds.contains(superAdminRole.getId());

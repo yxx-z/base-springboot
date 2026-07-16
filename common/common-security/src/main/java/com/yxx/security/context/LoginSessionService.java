@@ -85,11 +85,14 @@ public class LoginSessionService {
      * @return 当前主体
      */
     public Optional<LoginPrincipal> currentByLoginType(String loginType) {
-        // Sa-Token 回调以 loginType 区分安全域，未知类型按用户域处理以兼容默认 StpUtil。
         if (SecurityRealm.ADMIN.equals(loginType)) {
             return currentAdmin();
         }
-        return currentUser();
+        if (SecurityRealm.USER.equals(loginType)) {
+            return currentUser();
+        }
+        // 未知安全域不允许读取任何主体，避免拼写错误被静默解释为普通用户域。
+        return Optional.empty();
     }
 
     /**
@@ -101,9 +104,15 @@ public class LoginSessionService {
      */
     public Optional<LoginPrincipal> findByLoginId(String loginType, Object loginId) {
         // 权限回调可能不处于 HTTP 请求中，因此直接按 loginId 查询账号 Session。
-        Object value = SecurityRealm.ADMIN.equals(loginType)
-                ? StpAdminUtil.getSessionByLoginId(loginId).get(PRINCIPAL_KEY)
-                : StpUtil.getSessionByLoginId(loginId).get(PRINCIPAL_KEY);
+        Object value;
+        if (SecurityRealm.ADMIN.equals(loginType)) {
+            value = StpAdminUtil.getSessionByLoginId(loginId).get(PRINCIPAL_KEY);
+        } else if (SecurityRealm.USER.equals(loginType)) {
+            value = StpUtil.getSessionByLoginId(loginId).get(PRINCIPAL_KEY);
+        } else {
+            // 未知 loginType 按无授权主体处理，不访问错误的 Session 空间。
+            return Optional.empty();
+        }
         return principalFromSession(value);
     }
 

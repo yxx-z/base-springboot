@@ -2,6 +2,7 @@ package com.yxx.admin.controller;
 
 import com.yxx.admin.model.request.BusinessUserPageReq;
 import com.yxx.admin.model.request.ReplaceRoleIdsReq;
+import com.yxx.admin.model.request.ChangeStatusReq;
 import com.yxx.admin.model.response.ManagedBusinessUserRes;
 import com.yxx.admin.security.AdminSecurityCodes;
 import com.yxx.admin.service.BusinessUserAccessManagementService;
@@ -16,6 +17,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -53,10 +55,31 @@ public class BusinessUserManagementController {
     @PutMapping("/{userId}/roles")
     @SaAdminCheckPermission(AdminSecurityCodes.PERMISSION_BUSINESS_USER_ROLE_WRITE)
     @AuditLog(module = "业务用户管理", action = "配置业务用户角色",
-            resource = "business-user", subjectField = "userId")
+            resource = "business-user", subjectType = "business-user", subjectId = "#userId")
     public void replaceRoles(
             @PathVariable @Positive(message = "用户主键必须为正数") Long userId,
             @Valid @RequestBody ReplaceRoleIdsReq request) {
         managementService.replaceRoles(userId, request.roleIds());
+    }
+
+    /** 启用或停用业务用户。 */
+    @PutMapping("/{userId}/status")
+    @SaAdminCheckPermission(AdminSecurityCodes.PERMISSION_BUSINESS_USER_WRITE)
+    @AuditLog(module = "业务用户管理", action = "修改业务用户状态", resource = "business-user",
+            subjectType = "business-user", subjectId = "#userId")
+    public void changeStatus(
+            @PathVariable @Positive(message = "用户主键必须为正数") Long userId,
+            @Valid @RequestBody ChangeStatusReq request) {
+        managementService.changeStatus(userId, request.enabled());
+    }
+
+    /** 软删业务用户及其登录身份，保留历史标识用于注销注册风控。 */
+    @DeleteMapping("/{userId}")
+    @SaAdminCheckPermission(AdminSecurityCodes.PERMISSION_BUSINESS_USER_WRITE)
+    @AuditLog(module = "业务用户管理", action = "注销业务用户", resource = "business-user",
+            subjectType = "business-user", subjectId = "#userId")
+    public void delete(
+            @PathVariable @Positive(message = "用户主键必须为正数") Long userId) {
+        managementService.delete(userId);
     }
 }

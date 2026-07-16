@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 /**
  * 支付宝小程序鉴权
@@ -29,6 +30,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/ali-auth")
 @RequiredArgsConstructor
+@ConditionalOnProperty(prefix = "features.alipay-login", name = "enabled",
+        havingValue = "true", matchIfMissing = true)
 public class AliAppletAuthController {
 
     private final UserAuthenticationService authenticationService;

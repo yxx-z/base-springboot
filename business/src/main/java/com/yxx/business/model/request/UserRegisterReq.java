@@ -1,6 +1,7 @@
 package com.yxx.business.model.request;
 
 import com.yxx.security.validation.Password;
+import com.yxx.common.validation.TrimmedSize;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -17,14 +18,15 @@ public class UserRegisterReq {
      * 登录账号
      */
     @NotBlank(message = "登录账号不能为空")
-    @Size(min = 4, max = 50, message = "登录账号应为4-50位")
+    @TrimmedSize(min = 4, max = 50, message = "登录账号规范化后应为4-50位")
+    @Pattern(regexp = "^[A-Za-z0-9._-]+$", message = "登录账号只能包含字母、数字、点、下划线和连字符")
     private String loginCode;
 
     /**
      * 登录名
      */
     @NotBlank(message = "昵称不能为空")
-    @Size(min = 2, max = 50, message = "昵称应为2-50位")
+    @TrimmedSize(min = 2, max = 50, message = "昵称规范化后应为2-50位")
     private String loginName;
 
     /**

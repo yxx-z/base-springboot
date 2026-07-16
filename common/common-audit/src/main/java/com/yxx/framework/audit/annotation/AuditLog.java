@@ -33,9 +33,19 @@ public @interface AuditLog {
     /** 是否记录经过脱敏的请求参数。登录、重置密码等敏感接口应关闭。 */
     boolean recordRequest() default true;
 
+    /** 被操作主体类型，例如 {@code business-user}；为空表示本次操作没有明确业务主体。 */
+    String subjectType() default "";
+
     /**
-     * 匿名请求中作为审计对象账号的请求属性名，例如登录请求的 loginCode。只提取该字段，
-     * 不会记录密码、验证码或 Token。
+     * 被操作主体稳定标识的 SpEL 表达式，例如 {@code #userId}。
+     *
+     * <p>只解析显式声明的表达式，不会序列化完整请求参数。</p>
      */
-    String subjectField() default "";
+    String subjectId() default "";
+
+    /**
+     * 被操作或尝试登录账号的 SpEL 表达式，例如 {@code #request.loginCode}。
+     * 登录、注册等匿名接口可用它记录账号，同时避免记录密码和验证码。</p>
+     */
+    String subjectAccount() default "";
 }

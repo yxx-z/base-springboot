@@ -55,7 +55,7 @@ public class UserController {
      */
     @AllowAnonymous
     @AuditLog(module = "用户模块", action = "用户注册", recordRequest = false,
-            subjectField = "loginCode")
+            subjectAccount = "#req.loginCode")
     @PostMapping("/register")
     public void register(@Valid @RequestBody UserRegisterReq req) {
         userService.register(req);

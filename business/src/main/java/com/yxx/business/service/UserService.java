@@ -59,6 +59,9 @@ public interface UserService {
      */
     User getUserByEmail(String email);
 
+    /** 根据规范化手机号查询当前有效用户。 */
+    User getUserByPhone(String phone);
+
 
     /**
      * 修改密码

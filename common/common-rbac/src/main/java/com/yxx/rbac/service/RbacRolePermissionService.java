@@ -1,13 +1,13 @@
 package com.yxx.rbac.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.utils.ApiAssert;
 import com.yxx.rbac.mapper.RbacRolePermissionMapper;
 import com.yxx.rbac.model.RbacScope;
 import com.yxx.rbac.model.entity.RbacRole;
 import com.yxx.rbac.model.entity.RbacRolePermission;
+import com.yxx.security.context.SessionInvalidationReason;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,9 +20,9 @@ import java.util.Map;
 /** 统一角色权限关联服务，负责强制执行资源权限域一致性。 */
 @Service
 @RequiredArgsConstructor
-public class RbacRolePermissionService
-        extends ServiceImpl<RbacRolePermissionMapper, RbacRolePermission> {
+public class RbacRolePermissionService {
 
+    private final RbacRolePermissionMapper rolePermissionMapper;
     private final RbacRoleService roleService;
     private final RbacPermissionService permissionService;
     private final RbacSubjectRoleService subjectRoleService;
@@ -42,7 +42,7 @@ public class RbacRolePermissionService
                 permissionService.findActiveByIds(scope, distinctPermissionIds).size()
                         == distinctPermissionIds.size());
 
-        remove(new LambdaQueryWrapper<RbacRolePermission>()
+        rolePermissionMapper.delete(new LambdaQueryWrapper<RbacRolePermission>()
                 .eq(RbacRolePermission::getRoleId, roleId));
         if (!distinctPermissionIds.isEmpty()) {
             List<RbacRolePermission> relations = distinctPermissionIds.stream()
@@ -53,11 +53,13 @@ public class RbacRolePermissionService
                         relation.setPermissionId(permissionId);
                         return relation;
                     }).toList();
-            ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, saveBatch(relations));
+            int inserted = relations.stream().mapToInt(rolePermissionMapper::insert).sum();
+            ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, inserted == relations.size());
         }
 
         subjectRoleService.listSubjectsByRoleId(roleId)
-                .forEach(subjectRoleService::invalidateAfterCommit);
+                .forEach(subject -> subjectRoleService.invalidateAfterCommit(
+                        subject, SessionInvalidationReason.ROLE_PERMISSION_CHANGED));
     }
 
     /** 批量查询角色拥有的权限主键。 */
@@ -66,7 +68,7 @@ public class RbacRolePermissionService
         if (roleIds == null || roleIds.isEmpty()) {
             return List.of();
         }
-        return list(new LambdaQueryWrapper<RbacRolePermission>()
+        return rolePermissionMapper.selectList(new LambdaQueryWrapper<RbacRolePermission>()
                 .eq(RbacRolePermission::getScope, scope.code())
                 .in(RbacRolePermission::getRoleId, roleIds)).stream()
                 .map(RbacRolePermission::getPermissionId)
@@ -81,7 +83,7 @@ public class RbacRolePermissionService
             return Map.of();
         }
         Map<Integer, List<Integer>> result = new LinkedHashMap<>();
-        list(new LambdaQueryWrapper<RbacRolePermission>()
+        rolePermissionMapper.selectList(new LambdaQueryWrapper<RbacRolePermission>()
                 .eq(RbacRolePermission::getScope, scope.code())
                 .in(RbacRolePermission::getRoleId, roleIds)).forEach(relation ->
                 result.computeIfAbsent(relation.getRoleId(), ignored ->
@@ -90,7 +92,7 @@ public class RbacRolePermissionService
     }
 
     private RbacRole getRequiredRole(Integer roleId) {
-        RbacRole role = roleId == null ? null : roleService.getById(roleId);
+        RbacRole role = roleService.findById(roleId).orElse(null);
         ApiAssert.isTrue(ApiCode.PARAM_IS_INVALID, role != null);
         return role;
     }

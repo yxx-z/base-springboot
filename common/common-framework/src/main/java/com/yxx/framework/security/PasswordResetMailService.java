@@ -14,6 +14,7 @@ import com.yxx.common.utils.redis.RedissonCache;
 import com.yxx.security.model.PasswordResetTokenPayload;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.concurrent.TimeUnit;
 
@@ -28,7 +29,7 @@ import java.util.concurrent.TimeUnit;
 public class PasswordResetMailService {
 
     private final RedissonCache redissonCache;
-    private final MailUtils mailUtils;
+    private final ObjectProvider<MailUtils> mailUtilsProvider;
     private final MailProperties mailProperties;
     private final ResetPwdProperties resetPwdProperties;
     private final MyWebProperties webProperties;
@@ -77,7 +78,7 @@ public class PasswordResetMailService {
                     .replace("{domain}", webProperties.getDomain())
                     .replace("{formName}", mailProperties.getFromName())
                     .replace("{form}", mailProperties.getFrom());
-            mailUtils.baseSendMail(email, EmailSubject.RESET_PASSWORD, content, true);
+            requiredMailUtils().baseSendMail(email, EmailSubject.RESET_PASSWORD, content, true);
             // 发送成功后用真实 Token 替换占位，保留窗口状态并便于必要时诊断。
             redissonCache.putString(sendingKey, token, tokenSeconds);
         } catch (RuntimeException exception) {
@@ -86,5 +87,13 @@ public class PasswordResetMailService {
             redissonCache.remove(sendingKey);
             throw exception;
         }
+    }
+
+    private MailUtils requiredMailUtils() {
+        MailUtils mailUtils = mailUtilsProvider.getIfAvailable();
+        if (mailUtils == null) {
+            throw new ApiException(ApiCode.FEATURE_DISABLED.code(), "邮件功能未启用");
+        }
+        return mailUtils;
     }
 }

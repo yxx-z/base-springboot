@@ -14,8 +14,24 @@ spring:
 app:
   name: user
 
+features:
+  mail:
+    # 关闭后应用仍可启动，但验证码和密码重置邮件接口会返回“功能未启用”。
+    enabled: ${FEATURE_MAIL_ENABLED:true}
+  alipay-login:
+    # 不需要支付宝登录的项目可关闭；关闭后不会创建支付宝客户端、策略和接口。
+    enabled: ${FEATURE_ALIPAY_LOGIN_ENABLED:true}
+
 # 密码策略可由具体部署覆盖；默认规则适用于基础框架，不把策略写死在 DTO 中。
 security:
+  session:
+    sliding-expiration:
+      enabled: ${SECURITY_SESSION_SLIDING_ENABLED:true}
+      timeout: ${SECURITY_SESSION_SLIDING_TIMEOUT:7d}
+    # 数据库提交后立即注销会话；Redis 瞬时故障时按配置执行有限内存重试。
+    invalidation:
+      retry-enabled: ${SECURITY_SESSION_INVALIDATION_RETRY_ENABLED:true}
+      retry-delays: ${SECURITY_SESSION_INVALIDATION_RETRY_DELAYS:1s,5s,30s}
   password-policy:
     min-length: ${SECURITY_PASSWORD_MIN_LENGTH:12}
     max-bytes: ${SECURITY_PASSWORD_MAX_BYTES:72}

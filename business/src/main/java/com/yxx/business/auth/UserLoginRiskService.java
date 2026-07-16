@@ -6,6 +6,7 @@ import com.yxx.common.utils.ServletUtils;
 import com.yxx.common.utils.agent.UserAgentUtil;
 import com.yxx.common.utils.ip.ClientIpResolver;
 import com.yxx.framework.security.LoginRiskNotificationService;
+import com.yxx.framework.security.LoginRiskResult;
 import com.yxx.security.constant.SecurityRealm;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -56,10 +57,14 @@ public class UserLoginRiskService {
 
     private void updateMetadataAndCheckRisk(User user, String requestIp, String agent) {
         // 先比较历史与当前登录特征并发送提醒，再持久化本次特征供下次比较。
-        String ipRegion = loginRiskNotificationService.process(
+        LoginRiskResult result = loginRiskNotificationService.process(
                 SecurityRealm.USER, user.getId(), user.getEmail(),
                 user.getAgent(), user.getIpHomePlace(), requestIp, agent);
-        boolean updated = userService.updateLoginMetadata(user.getId(), agent, ipRegion);
+        if (!result.metadataUpdateRequired()) {
+            return;
+        }
+        boolean updated = userService.updateLoginMetadata(
+                user.getId(), agent, result.ipRegion());
         if (!updated) {
             log.warn("用户登录元数据未更新，userId={}", user.getId());
         }

@@ -21,6 +21,8 @@ public record AuditEvent(
         String httpMethod,
         String requestParams,
         String subjectAccount,
+        String subjectType,
+        String subjectId,
         String traceId,
         Long durationMillis,
         String exceptionMessage) {

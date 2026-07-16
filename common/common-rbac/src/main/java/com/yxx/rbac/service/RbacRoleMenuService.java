@@ -1,7 +1,6 @@
 package com.yxx.rbac.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.utils.ApiAssert;
 import com.yxx.common.utils.NavigationTreeBuilder;
@@ -26,8 +25,9 @@ import java.util.stream.Collectors;
 /** 统一角色菜单服务，菜单读取和写入都按权限域隔离。 */
 @Service
 @RequiredArgsConstructor
-public class RbacRoleMenuService extends ServiceImpl<RbacRoleMenuMapper, RbacRoleMenu> {
+public class RbacRoleMenuService {
 
+    private final RbacRoleMenuMapper roleMenuMapper;
     private final RbacRoleService roleService;
     private final RbacMenuService menuService;
 
@@ -44,12 +44,11 @@ public class RbacRoleMenuService extends ServiceImpl<RbacRoleMenuMapper, RbacRol
         }
 
         List<RbacMenu> enabledMenus = menuService.findEnabledMenus(scope);
-        boolean hasSuperRole = roles.stream().anyMatch(
-                role -> Boolean.TRUE.equals(role.getSuperRole()));
+        boolean hasSuperRole = roles.stream().anyMatch(roleService::isCanonicalSuperRole);
         Set<Integer> selectedMenuIds = hasSuperRole
                 ? enabledMenus.stream().map(RbacMenu::getId)
                         .collect(Collectors.toCollection(HashSet::new))
-                : list(new LambdaQueryWrapper<RbacRoleMenu>()
+                : roleMenuMapper.selectList(new LambdaQueryWrapper<RbacRoleMenu>()
                         .eq(RbacRoleMenu::getScope, scope.code())
                         .in(RbacRoleMenu::getRoleId,
                                 roles.stream().map(RbacRole::getId).toList()))
@@ -71,7 +70,7 @@ public class RbacRoleMenuService extends ServiceImpl<RbacRoleMenuMapper, RbacRol
     /** 替换角色菜单；角色和菜单必须属于同一权限域。 */
     @Transactional(rollbackFor = Exception.class)
     public void replaceMenus(Integer roleId, Collection<Integer> menuIds) {
-        RbacRole role = roleId == null ? null : roleService.getById(roleId);
+        RbacRole role = roleService.findById(roleId).orElse(null);
         ApiAssert.isTrue(ApiCode.PARAM_IS_INVALID, role != null);
         ApiAssert.isTrue(ApiCode.BUILT_IN_ROLE_IMMUTABLE,
                 !Boolean.TRUE.equals(role.getBuiltIn()));
@@ -84,7 +83,7 @@ public class RbacRoleMenuService extends ServiceImpl<RbacRoleMenuMapper, RbacRol
                 menuService.findEnabledByIds(scope, distinctMenuIds).size()
                         == distinctMenuIds.size());
 
-        remove(new LambdaQueryWrapper<RbacRoleMenu>()
+        roleMenuMapper.delete(new LambdaQueryWrapper<RbacRoleMenu>()
                 .eq(RbacRoleMenu::getRoleId, roleId));
         if (!distinctMenuIds.isEmpty()) {
             List<RbacRoleMenu> relations = distinctMenuIds.stream().map(menuId -> {
@@ -94,7 +93,8 @@ public class RbacRoleMenuService extends ServiceImpl<RbacRoleMenuMapper, RbacRol
                 relation.setMenuId(menuId);
                 return relation;
             }).toList();
-            ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, saveBatch(relations));
+            int inserted = relations.stream().mapToInt(roleMenuMapper::insert).sum();
+            ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, inserted == relations.size());
         }
     }
 
@@ -105,7 +105,7 @@ public class RbacRoleMenuService extends ServiceImpl<RbacRoleMenuMapper, RbacRol
             return Map.of();
         }
         Map<Integer, List<Integer>> result = new LinkedHashMap<>();
-        list(new LambdaQueryWrapper<RbacRoleMenu>()
+        roleMenuMapper.selectList(new LambdaQueryWrapper<RbacRoleMenu>()
                 .eq(RbacRoleMenu::getScope, scope.code())
                 .in(RbacRoleMenu::getRoleId, roleIds)).forEach(relation ->
                 result.computeIfAbsent(relation.getRoleId(), ignored ->

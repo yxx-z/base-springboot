@@ -140,7 +140,7 @@ public class ExceptionAdvice {
         // 完整数据库原因只进入服务端日志，对外隐藏表名、索引名和 SQL 等内部结构。
         log.warn("数据完整性约束冲突：{}", exception.getMostSpecificCause().getMessage());
         return response(HttpStatus.CONFLICT,
-                ErrorResponse.fail(ApiCode.USER_EXIST.code(), "数据已存在或关联关系不合法"));
+                ErrorResponse.fail(ApiCode.DATA_CONFLICT.code(), ApiCode.DATA_CONFLICT.message()));
     }
 
     /**

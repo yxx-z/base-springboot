@@ -56,10 +56,8 @@ public class UserAuthenticationService {
             throw new ApiException(ApiCode.PARAM_IS_INVALID);
         }
 
-        // 认证策略返回统一用户后，后续风控、授权和会话创建流程对所有登录方式一致。
+        // 认证策略返回统一用户后，后续授权和会话创建流程对所有登录方式一致。
         AuthenticatedUser authenticatedUser = strategy.authenticate(command);
-        // 登录地点、设备等副作用在身份验证成功后处理，避免记录攻击请求为成功登录。
-        loginRiskService.handleSuccessfulLogin(authenticatedUser.user());
         // 登录时生成权限快照；权限变更通过注销会话使快照立即失效。
         AuthorizationSnapshot authorization = authorizationProvider.load(
                 SecurityRealm.USER, authenticatedUser.user().getId());
@@ -73,7 +71,10 @@ public class UserAuthenticationService {
                 .permissions(authorization.permissions())
                 .loginTime(LocalDateTime.now())
                 .build();
-        return loginSessionService.loginUser(principal, device);
+        String token = loginSessionService.loginUser(principal, device);
+        // 只有授权快照加载和 Session 创建全部成功后，才记录成功登录元数据并发送风险提醒。
+        loginRiskService.handleSuccessfulLogin(authenticatedUser.user());
+        return token;
     }
 
     private Map<String, UserAuthenticationStrategy> indexStrategies(

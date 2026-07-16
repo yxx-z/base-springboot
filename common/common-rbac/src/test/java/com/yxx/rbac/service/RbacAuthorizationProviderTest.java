@@ -16,6 +16,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 /** 统一 RBAC 超级管理员授权安全不变量测试。 */
 class RbacAuthorizationProviderTest {
@@ -38,6 +39,7 @@ class RbacAuthorizationProviderTest {
                 RbacSubjectType.ADMIN_USER.code(), 10L)).thenReturn(List.of(1));
         when(roleService.findByIds(RbacScope.ADMIN, List.of(1)))
                 .thenReturn(List.of(superAdmin));
+        when(roleService.isCanonicalSuperRole(superAdmin)).thenReturn(true);
 
         AuthorizationSnapshot snapshot = provider.load(SecurityRealm.ADMIN, 10L);
 
@@ -45,5 +47,26 @@ class RbacAuthorizationProviderTest {
         assertEquals(Set.of(RbacSecurityCodes.PERMISSION_ALL), snapshot.permissions());
         verify(rolePermissionService, never())
                 .listPermissionIdsByRoleIds(RbacScope.ADMIN, List.of(1));
+    }
+
+    @Test
+    void shouldNotGrantPermissionsFromLogicallyDeletedRoleIds() {
+        RbacSubjectRoleService subjectRoleService = mock(RbacSubjectRoleService.class);
+        RbacRoleService roleService = mock(RbacRoleService.class);
+        RbacRolePermissionService rolePermissionService = mock(RbacRolePermissionService.class);
+        RbacPermissionService permissionService = mock(RbacPermissionService.class);
+        RbacAuthorizationProvider provider = new RbacAuthorizationProvider(
+                subjectRoleService, roleService, rolePermissionService, permissionService);
+
+        when(subjectRoleService.listRoleIdsBySubject(
+                RbacSubjectType.BUSINESS_USER.code(), 20L)).thenReturn(List.of(99));
+        // MyBatis-Plus 逻辑删除过滤后，有关联记录但加载不到有效角色。
+        when(roleService.findByIds(RbacScope.BUSINESS, List.of(99))).thenReturn(List.of());
+
+        AuthorizationSnapshot snapshot = provider.load(SecurityRealm.USER, 20L);
+
+        assertEquals(Set.of(), snapshot.roles());
+        assertEquals(Set.of(), snapshot.permissions());
+        verifyNoInteractions(rolePermissionService, permissionService);
     }
 }

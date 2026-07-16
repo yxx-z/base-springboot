@@ -78,7 +78,6 @@ public class AdminUserController {
      * 发送重置密码邮件
      *
      * @param req 要求事情
-     * @return {@link Boolean }
      * @author yxx
      */
     @AllowAnonymous
@@ -93,7 +92,6 @@ public class AdminUserController {
      * 重置密码
      *
      * @param req 要求事情
-     * @return {@link Boolean }
      * @author yxx
      */
     @AllowAnonymous
@@ -108,7 +106,6 @@ public class AdminUserController {
      * 修改密码
      *
      * @param req 要求事情
-     * @return {@link Boolean }
      * @author yxx
      */
     @AuditLog(module = "用户模块", action = "修改密码",

@@ -70,13 +70,48 @@ class SharedDatabaseFlywayIntegrationTest {
                 """), "复合外键必须拒绝跨权限域角色权限关联");
 
         Flyway latest = flyway(null);
-        assertEquals(1, latest.migrate().migrationsExecuted);
+        assertEquals(2, latest.migrate().migrationsExecuted);
         assertEquals(0, latest.migrate().migrationsExecuted);
         assertTrue(columnExists("operate_log", "actor_account"));
         assertTrue(columnExists("operate_admin_log", "actor_account"));
-        assertEquals(2L, count("""
+        assertTrue(columnExists("user", "active_email"));
+        assertTrue(columnExists("user_identity", "active_identifier"));
+        assertTrue(columnExists("operate_admin_log", "subject_id"));
+        assertEquals(3L, count("""
                 SELECT COUNT(*) FROM flyway_schema_history
-                WHERE success = 1 AND version IN ('1', '2')
+                WHERE success = 1 AND version IN ('1', '2', '3')
+                """));
+        assertEquals(0L, count("""
+                SELECT COUNT(*) FROM rbac_permission
+                WHERE scope = 'business' AND code = 'business:audit-log:read'
+                  AND is_delete = 0
+                """));
+
+        executeUpdate("""
+                INSERT INTO `user`
+                    (display_name, status, phone, email, update_time, create_time,
+                     create_uid, update_uid, is_delete)
+                VALUES ('历史用户', 1, '13800138000', 'history@example.com', NOW(), NOW(), 0, 0, 0)
+                """);
+        assertThrows(SQLException.class, () -> executeUpdate("""
+                INSERT INTO `user`
+                    (display_name, status, phone, email, update_time, create_time,
+                     create_uid, update_uid, is_delete)
+                VALUES ('重复用户', 1, '13800138000', 'history@example.com', NOW(), NOW(), 0, 0, 0)
+                """));
+        executeUpdate("UPDATE `user` SET is_delete = 1 WHERE email = 'history@example.com'");
+        executeUpdate("""
+                INSERT INTO `user`
+                    (display_name, status, phone, email, update_time, create_time,
+                     create_uid, update_uid, is_delete)
+                VALUES ('重新注册用户', 1, '13800138000', 'history@example.com', NOW(), NOW(), 0, 0, 0)
+                """);
+        assertEquals(2L, count("SELECT COUNT(*) FROM `user` WHERE email = 'history@example.com'"));
+
+        assertThrows(SQLException.class, () -> executeUpdate("""
+                INSERT INTO rbac_role
+                    (scope, code, name, built_in, super_role, is_delete, update_time, create_time)
+                VALUES ('admin', 'admin:custom-super', '非法超级角色', 0, 1, 0, NOW(), NOW())
                 """));
     }
 

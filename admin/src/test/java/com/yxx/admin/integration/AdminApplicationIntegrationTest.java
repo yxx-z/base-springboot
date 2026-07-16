@@ -41,6 +41,10 @@ import org.testcontainers.utility.DockerImageName;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -50,6 +54,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -178,6 +183,21 @@ class AdminApplicationIntegrationTest {
     }
 
     @Test
+    void shouldInvalidateHistoricalSessionWhenAdminIsEnabledAgain() throws Exception {
+        long adminId = createAdmin("reenabled-admin", true, "admin:administrator");
+        String historicalToken = loginAndGetToken("reenabled-admin", "Framework2026");
+
+        /*
+         * 直接更新数据库模拟“停用时 Redis 注销失败，旧 Token 仍然残留”的极端状态。
+         * 随后通过正式服务重新启用账号，必须再次注销全部历史会话。
+         */
+        jdbcTemplate.update("UPDATE admin_user SET status = 0 WHERE id = ?", adminId);
+        adminUserService.changeStatus(adminId, true);
+
+        assertTokenInvalid(historicalToken);
+    }
+
+    @Test
     void shouldInvalidateSessionAfterRoleAndPermissionReplacement() throws Exception {
         long roleChangedAdminId = createAdmin("role-change", true, "admin:administrator");
         String roleChangedToken = loginAndGetToken("role-change", "Framework2026");
@@ -213,6 +233,140 @@ class AdminApplicationIntegrationTest {
         assertEquals(ApiCode.BUILT_IN_ROLE_IMMUTABLE.code(), immutableException.getCode());
         assertEquals(List.of("*"), authorizationProvider
                 .load(SecurityRealm.ADMIN, superAdminId).permissions().stream().toList());
+    }
+
+    @Test
+    void shouldKeepOneSuperAdminUnderConcurrentDisableRequests() throws Exception {
+        long firstAdminId = createAdmin("concurrent-super-1", true, "admin:super-admin");
+        long secondAdminId = createAdmin("concurrent-super-2", true, "admin:super-admin");
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            Future<Integer> first = executor.submit(() -> disableConcurrently(firstAdminId, ready, start));
+            Future<Integer> second = executor.submit(() -> disableConcurrently(secondAdminId, ready, start));
+            ready.await();
+            start.countDown();
+            List<Integer> results = List.of(first.get(), second.get());
+            assertEquals(1, results.stream().filter(code -> code == 0).count());
+            assertEquals(1, results.stream()
+                    .filter(code -> ApiCode.LAST_SUPER_ADMIN.code().equals(code)).count());
+            assertEquals(1L, jdbcTemplate.queryForObject("""
+                    SELECT COUNT(DISTINCT au.id)
+                    FROM admin_user au
+                    JOIN rbac_subject_role relation
+                      ON relation.subject_type = 'admin' AND relation.subject_id = au.id
+                    JOIN rbac_role role ON role.id = relation.role_id
+                    WHERE au.is_delete = 0 AND au.status = 1
+                      AND role.code = 'admin:super-admin' AND role.is_delete = 0
+                    """, Long.class));
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void shouldProvideCompleteAdminAndBusinessUserManagement() throws Exception {
+        createAdmin("management-root", true, "admin:super-admin");
+        String token = loginAndGetToken("management-root", "Framework2026");
+        Integer administratorRoleId = roleId("admin:administrator");
+
+        String createResponse = mockMvc.perform(post("/management/admin-users")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "loginCode":"managed-admin",
+                                  "loginName":"受管管理员",
+                                  "password":"Framework2026",
+                                  "email":"managed-admin@example.com",
+                                  "linkPhone":"13800138000",
+                                  "roleIds":[%d]
+                                }
+                                """.formatted(administratorRoleId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andReturn().getResponse().getContentAsString();
+        Long managedAdminId = ((Number) JsonPath.read(createResponse, "$.data")).longValue();
+
+        mockMvc.perform(put("/management/admin-users/{userId}/status", managedAdminId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"enabled\":false}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/management/admin-users/{userId}", managedAdminId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        assertEquals(1L, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM admin_user WHERE id = ? AND is_delete = 1",
+                Long.class, managedAdminId));
+
+        long businessUserId = createBusinessUser("deletable-business@example.com");
+        mockMvc.perform(put("/management/business-users/{userId}/status", businessUserId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"enabled\":false}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/management/business-users/{userId}", businessUserId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        assertEquals(1L, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM `user` WHERE id = ? AND is_delete = 1",
+                Long.class, businessUserId));
+    }
+
+    @Test
+    void shouldCreateConfigureAndDeleteRbacResourcesThroughAdminApi() throws Exception {
+        createAdmin("rbac-manager", true, "admin:super-admin");
+        String token = loginAndGetToken("rbac-manager", "Framework2026");
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+
+        Integer roleId = responseInteger(mockMvc.perform(post("/management/rbac/roles")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"scope":"admin","code":"admin:test:%s","name":"测试角色","remark":"集成测试"}
+                                """.formatted(suffix)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        Integer permissionId = responseInteger(mockMvc.perform(post("/management/rbac/permissions")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"scope":"admin","code":"admin:test:%s:read","name":"测试权限",
+                                 "resourceType":"api","description":"集成测试","enabled":true}
+                                """.formatted(suffix)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        Integer menuId = responseInteger(mockMvc.perform(post("/management/rbac/menus")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"scope":"admin","menuCode":"admin-test-%s","menuName":"测试菜单",
+                                 "path":"/test/%s","component":"test/Index","sort":500,
+                                 "visible":true,"enabled":true}
+                                """.formatted(suffix, suffix)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+
+        mockMvc.perform(put("/management/rbac/roles/{roleId}/permissions", roleId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"permissionIds\":[%d]}".formatted(permissionId)))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/management/rbac/roles/{roleId}/menus", roleId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"menuIds\":[%d]}".formatted(menuId)))
+                .andExpect(status().isOk());
+
+        // 角色删除会先清理权限和菜单关联；资源随后可分别软删。
+        mockMvc.perform(delete("/management/rbac/roles/{roleId}", roleId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/management/rbac/permissions/{permissionId}", permissionId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/management/rbac/menus/{menuId}", menuId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -299,6 +453,20 @@ class AdminApplicationIntegrationTest {
         return adminId;
     }
 
+    private int disableConcurrently(Long adminId, CountDownLatch ready, CountDownLatch start) {
+        ready.countDown();
+        try {
+            start.await();
+            adminUserService.changeStatus(adminId, false);
+            return 0;
+        } catch (ApiException exception) {
+            return exception.getCode();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(exception);
+        }
+    }
+
     private long createBusinessUser(String email) {
         jdbcTemplate.update("""
                 INSERT INTO `user`
@@ -320,6 +488,10 @@ class AdminApplicationIntegrationTest {
                 .andExpect(jsonPath("$.code").value(200))
                 .andReturn().getResponse().getContentAsString();
         return JsonPath.read(response, "$.data.token");
+    }
+
+    private Integer responseInteger(String response) {
+        return ((Number) JsonPath.read(response, "$.data")).intValue();
     }
 
     private void assertTokenInvalid(String token) throws Exception {

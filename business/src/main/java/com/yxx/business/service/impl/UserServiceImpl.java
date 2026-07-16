@@ -3,7 +3,6 @@ package com.yxx.business.service.impl;
 import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yxx.business.mapper.UserMapper;
 import com.yxx.business.model.entity.User;
 import com.yxx.business.model.entity.UserIdentity;
@@ -11,6 +10,8 @@ import com.yxx.business.model.request.*;
 import com.yxx.business.service.UserIdentityService;
 import com.yxx.business.service.UserRoleService;
 import com.yxx.business.service.UserService;
+import com.yxx.rbac.model.RbacSubjectType;
+import com.yxx.rbac.service.RbacSubjectRoleService;
 import com.yxx.common.constant.EmailSubject;
 import com.yxx.common.constant.RedisKeyPrefix;
 import com.yxx.common.enums.ApiCode;
@@ -29,10 +30,12 @@ import com.yxx.security.context.LoginSessionService;
 import com.yxx.security.context.OneTimeTemporaryTokenService;
 import com.yxx.security.context.OneTimeVerificationCodeService;
 import com.yxx.security.context.SessionInvalidationService;
+import com.yxx.security.context.SessionInvalidationReason;
 import com.yxx.security.model.PasswordResetTokenPayload;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.concurrent.TimeUnit;
@@ -43,10 +46,13 @@ import java.util.concurrent.TimeUnit;
  */
 @Service
 @RequiredArgsConstructor
-public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
+public class UserServiceImpl implements UserService {
+    private final UserMapper userMapper;
     private final UserRoleService userRoleService;
 
     private final UserIdentityService userIdentityService;
+
+    private final RbacSubjectRoleService subjectRoleService;
 
     private final LoginSessionService loginSessionService;
 
@@ -58,7 +64,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     private final RedissonCache redissonCache;
 
-    private final MailUtils mailUtils;
+    private final ObjectProvider<MailUtils> mailUtilsProvider;
 
     private final MailProperties mailProperties;
 
@@ -73,21 +79,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public User findById(Long userId) {
-        return getById(userId);
+        return userMapper.selectById(userId);
     }
 
     @Override
     public boolean create(User user) {
-        return save(user);
+        return userMapper.insert(user) == 1;
     }
 
     @Override
     public boolean updateLoginMetadata(Long userId, String agent, String ipHomePlace) {
         // 登录元数据采用定向 UPDATE，避免用不完整实体覆盖昵称、邮箱等业务字段。
-        return update(new LambdaUpdateWrapper<User>()
+        return userMapper.update(new LambdaUpdateWrapper<User>()
                 .eq(User::getId, userId)
                 .set(User::getAgent, agent)
-                .set(User::getIpHomePlace, ipHomePlace));
+                .set(User::getIpHomePlace, ipHomePlace)) == 1;
     }
 
     @Override
@@ -95,14 +101,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public void changeStatus(Long userId, boolean enabled) {
         // 先明确区分“不存在”和“更新失败”，便于接口返回稳定、可诊断的错误语义。
         ApiAssert.isTrue(ApiCode.USER_NOT_EXIST, findById(userId) != null);
-        boolean updated = update(new LambdaUpdateWrapper<User>()
+        boolean updated = userMapper.update(new LambdaUpdateWrapper<User>()
                 .eq(User::getId, userId)
-                .set(User::getStatus, enabled));
+                .set(User::getStatus, enabled)) == 1;
         ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, updated);
-        if (!enabled) {
-            // 等事务提交后再注销会话；若数据库回滚，当前可用状态和会话状态应保持一致。
-            sessionInvalidationService.invalidateUserAfterCommit(userId);
-        }
+        /*
+         * 启用和停用都在提交后清理历史会话。重新启用时不复用停用前的 Token，避免
+         * 注销曾因 Redis 瞬时故障失败时，旧登录态随账号启用而重新获得访问能力。
+         */
+        sessionInvalidationService.invalidateUserAfterCommit(
+                userId, SessionInvalidationReason.ACCOUNT_STATUS_CHANGED);
     }
 
     @Override
@@ -110,8 +118,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public void delete(Long userId) {
         // 删除主体前先校验存在性，防止幂等删除掩盖调用方传错 ID。
         ApiAssert.isTrue(ApiCode.USER_NOT_EXIST, findById(userId) != null);
-        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, removeById(userId));
-        sessionInvalidationService.invalidateUserAfterCommit(userId);
+        // 主体仍存在时先撤销角色，公共 RBAC 服务会在提交后同步失效旧权限快照。
+        subjectRoleService.replaceRoles(RbacSubjectType.BUSINESS_USER.code(), userId, java.util.List.of());
+        // 身份与主体采用同一事务软删，保留登录账号和第三方标识供历史风控使用。
+        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, userIdentityService.deleteByUserId(userId));
+        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, userMapper.deleteById(userId) == 1);
+        sessionInvalidationService.invalidateUserAfterCommit(
+                userId, SessionInvalidationReason.ACCOUNT_DELETED);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -137,9 +150,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .orElse(null);
         // 邮箱是主体级唯一联系方式，需要与登录账号分别检查。
         User userByEmail = getUserByEmail(email);
+        User userByPhone = getUserByPhone(phone);
         // 应用层校验提供友好错误，数据库唯一约束仍负责最终并发一致性。
         ApiAssert.isTrue(ApiCode.USER_EXIST,
-                userByLoginCode == null && userByEmail == null);
+                userByLoginCode == null && userByEmail == null && userByPhone == null);
         // 只保存不可逆密码摘要，明文密码不得进入实体、日志或缓存。
         String password = passwordEncoder.encode(req.getPassword());
         // 先创建统一用户主体，使后续任意认证身份都能绑定到稳定的内部 userId。
@@ -179,6 +193,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             // 找回密码接口始终返回成功，避免被用于枚举平台注册邮箱。
             return;
         }
+        if (!userIdentityService.hasActivePasswordIdentity(user.getId())) {
+            // 第三方登录用户即使补充了邮箱，也不发送无法使用的密码重置链接。
+            return;
+        }
         passwordResetMailService.send(
                 SecurityRealm.USER, user.getId(), email,
                 RedisKeyPrefix.USER_RESET_PASSWORD_TOKEN,
@@ -211,14 +229,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, updated);
 
         // 凭据变更只有在事务成功提交后才注销旧会话。
-        sessionInvalidationService.invalidateUserAfterCommit(user.getId());
+        sessionInvalidationService.invalidateUserAfterCommit(
+                user.getId(), SessionInvalidationReason.PASSWORD_RESET);
     }
 
     @Override
     public User getUserByEmail(String email) {
         // 即便内部调用也再次规范化，避免未来新增调用方绕过统一邮箱规则。
-        return getOne(new LambdaQueryWrapper<User>()
+        return userMapper.selectOne(new LambdaQueryWrapper<User>()
                 .eq(User::getEmail, AccountNormalizer.normalizeEmail(email)));
+    }
+
+    @Override
+    public User getUserByPhone(String phone) {
+        String normalizedPhone = AccountNormalizer.normalizeMainlandPhone(phone);
+        if (normalizedPhone == null || normalizedPhone.isBlank()) {
+            return null;
+        }
+        return userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getPhone, normalizedPhone));
     }
 
     @Override
@@ -242,7 +271,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         boolean updated = userIdentityService.updateCredential(passwordIdentity.getId(), newPassword);
         ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, updated);
         // 密码修改提交成功后注销该用户所有旧 Token，阻止已泄露会话继续访问。
-        sessionInvalidationService.invalidateUserAfterCommit(userId);
+        sessionInvalidationService.invalidateUserAfterCommit(
+                userId, SessionInvalidationReason.PASSWORD_CHANGED);
     }
 
     @Override
@@ -280,7 +310,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
         try {
             // 只有邮件成功交给发送器后才用真实验证码替换 sending 占位。
-            mailUtils.baseSendMail(email, EmailSubject.REGISTER, resultText, true);
+            requiredMailUtils().baseSendMail(email, EmailSubject.REGISTER, resultText, true);
             redissonCache.putString(captchaKey, String.valueOf(random), captchaSeconds);
         } catch (RuntimeException exception) {
             // 发送失败归还额度并释放窗口，让用户可以立即重试而不是等待验证码过期。
@@ -288,6 +318,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             redissonCache.remove(captchaKey);
             throw exception;
         }
+    }
+
+    private MailUtils requiredMailUtils() {
+        MailUtils mailUtils = mailUtilsProvider.getIfAvailable();
+        if (mailUtils == null) {
+            throw new ApiException(ApiCode.FEATURE_DISABLED.code(), "邮件功能未启用");
+        }
+        return mailUtils;
     }
 
 }

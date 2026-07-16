@@ -409,6 +409,39 @@ Token 存储建议：
 
 当前配置 `sa-token.is-concurrent=false`，同一账号新登录会使旧 Token 失效。因此其他设备收到 401 时，应退出旧会话并提示“账号可能已在其他设备重新登录”，不要在后台无限刷新 Token。
 
+Token 采用服务端 Session 和七天滑动过期：登录时 Redis TTL 为七天，每次通过认证拦截器
+的有效请求都会调用 Sa-Token `renewTimeout`，把 Token、Token-Session 和 Account-Session
+剩余时间重新续签到七天。连续七天完全没有访问时 Redis 自动清理会话；续期不会生成新
+Token，前端继续使用原 UUID。相关配置：
+
+```yaml
+security:
+  session:
+    sliding-expiration:
+      enabled: true
+      timeout: 7d
+    invalidation:
+      retry-enabled: true
+      retry-delays: 1s,5s,30s
+
+sa-token:
+  timeout: 604800
+  active-timeout: -1
+  auto-renew: false
+```
+
+密码、账号状态、注销、角色和权限等安全数据发生变化时，系统不会等待七天自然过期，
+而是在数据库事务成功提交后立即按照内部用户 ID 注销该账号的全部 Token。首次 Redis
+注销失败不会把已经提交成功的业务接口错误地返回为失败，而是由独立调度线程池依次在
+1 秒、5 秒和 30 秒后有限重试。重试耗尽后会输出包含安全域、主体 ID、失效原因和异常
+类型的 ERROR 日志，并发布 `SessionInvalidationExhaustedEvent`，具体项目可以监听该事件
+接入 Micrometer、Prometheus 或外部告警平台。
+
+重试任务只保存在当前 JVM 内存中，不提供 MQ 或数据库 Outbox 级别的持久化保证。这是
+通用基础框架对复杂度的明确控制；金融级或统一认证中心项目可以监听失败事件并替换为
+持久化补偿实现。重新启用账号时同样会清理历史 Session，避免停用阶段残留的旧 Token
+随账号恢复而重新获得访问能力。
+
 管理端密码登录使用管理端地址的 `POST /auth/login`，请求字段相同，但 Token 属于独立 `admin` 安全域。前端如果同时提供用户端和管理端页面，必须使用不同的状态容器和 API Client，不能共用 Token。
 
 #### 支付宝登录补充
@@ -566,7 +599,7 @@ Content-Type: application/json
 该命令会执行单元测试和 Testcontainers 集成测试，覆盖：
 
 - MySQL、Redis 和完整 Spring 上下文启动
-- business/admin Flyway 从空库迁移及 V1 到 V2 升级
+- business/admin Flyway 从空库迁移及 V1 到 V3 升级
 - Mapper XML 实际执行
 - Redis Lua 原子行为
 - Sa-Token Session 实际读写
@@ -574,6 +607,7 @@ Content-Type: application/json
 - 支付宝首次登录并发绑定
 - 密码修改、重置和旧会话失效
 - 用户端及管理端 RBAC 安全不变量
+- 超级管理员并发保护、软删后重新注册和完整管理端 CRUD
 - bootstrap 和共享数据库部署边界
 
 测试环境需要可用的 Docker。普通单元测试禁止连接开发机上的真实 MySQL、Redis 或邮件服务。
@@ -710,7 +744,9 @@ com.yxx.framework.audit.annotation.AuditLog
         module = "订单模块",
         action = "取消订单",
         eventType = AuditEventType.OPERATION,
-        resource = "order")
+        resource = "order",
+        subjectType = "order",
+        subjectId = "#id")
 @PostMapping("/{id}/cancel")
 public void cancel(@PathVariable Long id) {
     orderService.cancel(id);
@@ -726,7 +762,9 @@ public void cancel(@PathVariable Long id) {
 | `eventType` | 否 | `AUTHENTICATION`、`OPERATION` 或 `SECURITY`，默认 `OPERATION` |
 | `resource` | 否 | 资源类型或说明，例如 `order` |
 | `recordRequest` | 否 | 是否记录脱敏后的请求参数，默认 `true` |
-| `subjectField` | 否 | 匿名请求中只提取指定账号字段，不记录整个请求对象 |
+| `subjectType` | 否 | 被操作主体或资源类型，例如 `business-user`、`order` |
+| `subjectId` | 否 | 主体稳定标识 SpEL，例如 `#userId`、`#request.orderId` |
+| `subjectAccount` | 否 | 尝试登录或被操作账号 SpEL，例如 `#request.loginCode` |
 
 登录、修改密码、重置密码、验证码等敏感接口必须关闭请求参数记录：
 
@@ -736,7 +774,7 @@ public void cancel(@PathVariable Long id) {
         action = "用户密码登录",
         eventType = AuditEventType.AUTHENTICATION,
         recordRequest = false,
-        subjectField = "loginCode")
+        subjectAccount = "#request.loginCode")
 ```
 
 审计切面只采集上下文并发布 `AuditEvent`。数据库存储由具体应用的事件监听器负责，因此新增业务应用时可以建立自己的审计表和监听器，而不需要修改公共切面。
@@ -844,7 +882,7 @@ User（统一主体） 1 ---- N UserIdentity（登录身份）
 数据库实现。后续接入 LDAP、IAM 或远程权限中心时，可以替换授权实现，而不需要修改登录
 编排和 Sa-Token 会话代码。
 
-### 管理端管理业务用户
+### 管理端账号、业务用户和 RBAC 管理
 
 管理端提供以下基础接口：
 
@@ -852,10 +890,29 @@ User（统一主体） 1 ---- N UserIdentity（登录身份）
 GET /management/business-users
 GET /management/business-users/{userId}
 PUT /management/business-users/{userId}/roles
+PUT /management/business-users/{userId}/status
+DELETE /management/business-users/{userId}
+
+GET /management/admin-users
+GET /management/admin-users/{userId}
+POST /management/admin-users
+PUT /management/admin-users/{userId}
+PUT /management/admin-users/{userId}/status
+PUT /management/admin-users/{userId}/roles
+DELETE /management/admin-users/{userId}
 
 GET /management/rbac/roles?scope=admin|business
 GET /management/rbac/permissions?scope=admin|business
 GET /management/rbac/menus?scope=admin|business
+POST /management/rbac/roles
+PUT /management/rbac/roles/{roleId}
+DELETE /management/rbac/roles/{roleId}
+POST /management/rbac/permissions
+PUT /management/rbac/permissions/{permissionId}
+DELETE /management/rbac/permissions/{permissionId}
+POST /management/rbac/menus
+PUT /management/rbac/menus/{menuId}
+DELETE /management/rbac/menus/{menuId}
 PUT /management/rbac/roles/{roleId}/permissions
 PUT /management/rbac/roles/{roleId}/menus
 ```
@@ -863,6 +920,11 @@ PUT /management/rbac/roles/{roleId}/menus
 业务用户没有直接修改角色的接口。前端管理系统先读取 `business` 权限域角色，再把最终
 角色主键集合提交给业务用户角色接口。后端会验证目标用户存在、角色全部属于 business
 权限域，并在事务提交后注销该用户旧会话。
+
+业务用户注销采用可重新注册式软删：用户主体和全部登录身份保留原邮箱、手机号、登录账号
+及第三方身份标识，但生成列唯一索引只约束未删除记录。这样既允许重新注册，也能基于历史
+数据识别反复注销注册行为。业务端不提供全局审计日志查询权限；如果项目需要“我的操作
+记录”，必须由服务端使用当前登录 userId 强制过滤。
 
 ### 角色与权限编码
 

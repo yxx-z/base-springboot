@@ -39,4 +39,12 @@ class SaInterfaceImplTest {
 
         assertEquals(List.of(), saInterface.getPermissionList(1L, "user"));
     }
+
+    @Test
+    void shouldFailClosedForUnknownLoginType() {
+        when(loginSessionService.findByLoginId("unknown", 1L)).thenReturn(Optional.empty());
+
+        assertEquals(List.of(), saInterface.getPermissionList(1L, "unknown"));
+        assertEquals(List.of(), saInterface.getRoleList(1L, "unknown"));
+    }
 }

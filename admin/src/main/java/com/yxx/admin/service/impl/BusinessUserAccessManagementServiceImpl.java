@@ -2,6 +2,7 @@ package com.yxx.admin.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.yxx.admin.mapper.ManagedBusinessUserMapper;
 import com.yxx.admin.model.entity.ManagedBusinessUser;
 import com.yxx.admin.model.request.BusinessUserPageReq;
@@ -10,10 +11,14 @@ import com.yxx.admin.service.BusinessUserAccessManagementService;
 import com.yxx.common.core.page.PageResponse;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.exceptions.ApiException;
+import com.yxx.common.utils.ApiAssert;
 import com.yxx.rbac.model.RbacSubjectType;
 import com.yxx.rbac.service.RbacSubjectRoleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import com.yxx.security.context.SessionInvalidationService;
+import com.yxx.security.context.SessionInvalidationReason;
 
 import java.util.Collection;
 import java.util.List;
@@ -27,6 +32,7 @@ public class BusinessUserAccessManagementServiceImpl
 
     private final ManagedBusinessUserMapper businessUserMapper;
     private final RbacSubjectRoleService subjectRoleService;
+    private final SessionInvalidationService sessionInvalidationService;
 
     @Override
     public PageResponse<ManagedBusinessUserRes> page(BusinessUserPageReq request) {
@@ -72,6 +78,32 @@ public class BusinessUserAccessManagementServiceImpl
         // 公共服务会再次校验主体存在性以及所有角色是否属于 business 权限域。
         subjectRoleService.replaceRoles(
                 RbacSubjectType.BUSINESS_USER.code(), userId, roleIds);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void changeStatus(Long userId, boolean enabled) {
+        ApiAssert.isTrue(ApiCode.USER_NOT_EXIST, businessUserMapper.selectById(userId) != null);
+        int updated = businessUserMapper.update(new LambdaUpdateWrapper<ManagedBusinessUser>()
+                .eq(ManagedBusinessUser::getId, userId)
+                .set(ManagedBusinessUser::getStatus, enabled));
+        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, updated == 1);
+        // 无论启用还是停用，都要求用户重新认证并重新装配当前角色权限。
+        sessionInvalidationService.invalidateUserAfterCommit(
+                userId, SessionInvalidationReason.ACCOUNT_STATUS_CHANGED);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void delete(Long userId) {
+        ApiAssert.isTrue(ApiCode.USER_NOT_EXIST, businessUserMapper.selectById(userId) != null);
+        // 主体仍可被校验时先撤销角色，随后软删身份与用户，保证同一事务内不存在半成品状态。
+        subjectRoleService.replaceRoles(
+                RbacSubjectType.BUSINESS_USER.code(), userId, List.of());
+        businessUserMapper.softDeleteIdentities(userId);
+        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, businessUserMapper.deleteById(userId) == 1);
+        sessionInvalidationService.invalidateUserAfterCommit(
+                userId, SessionInvalidationReason.ACCOUNT_DELETED);
     }
 
     private ManagedBusinessUserRes toResponse(

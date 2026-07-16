@@ -34,6 +34,12 @@ public class OperateAdminLog {
     /** 匿名认证请求尝试操作的账号。 */
     private String subjectAccount;
 
+    /** 被操作主体或资源类型。 */
+    private String subjectType;
+
+    /** 被操作主体或资源稳定标识。 */
+    private String subjectId;
+
     /** 执行结果：1-成功，2-失败。 */
     private Integer type;
 

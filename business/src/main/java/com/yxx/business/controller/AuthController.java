@@ -41,7 +41,7 @@ public class AuthController {
     @AllowAnonymous
     @AuditLog(module = "鉴权模块", action = "用户密码登录",
             eventType = AuditEventType.AUTHENTICATION, recordRequest = false,
-            subjectField = "loginCode")
+            subjectAccount = "#request.loginCode")
     @PostMapping("/login")
     public LoginRes login(@Valid @RequestBody LoginReq request) {
         String token = authenticationService.login(

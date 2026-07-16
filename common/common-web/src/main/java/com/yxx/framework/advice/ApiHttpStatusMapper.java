@@ -28,13 +28,17 @@ public final class ApiHttpStatusMapper {
             return HttpStatus.FORBIDDEN;
         }
         if (code.equals(ApiCode.USER_EXIST.code())
-                || code.equals(ApiCode.EMAIL_EXIST.code())) {
+                || code.equals(ApiCode.EMAIL_EXIST.code())
+                || code.equals(ApiCode.DATA_CONFLICT.code())) {
             return HttpStatus.CONFLICT;
         }
         if (code.equals(ApiCode.LOGIN_TOO_FREQUENT.code())
                 || code.equals(ApiCode.RESET_PWD_MAX.code())
                 || code.equals(ApiCode.REGISTER_MAX.code())) {
             return HttpStatus.TOO_MANY_REQUESTS;
+        }
+        if (code.equals(ApiCode.EXTERNAL_SERVICE_UNAVAILABLE.code())) {
+            return HttpStatus.SERVICE_UNAVAILABLE;
         }
         if (code.equals(ApiCode.SYSTEM_ERROR.code())) {
             return HttpStatus.INTERNAL_SERVER_ERROR;

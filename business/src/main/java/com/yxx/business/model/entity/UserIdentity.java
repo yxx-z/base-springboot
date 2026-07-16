@@ -1,8 +1,13 @@
 package com.yxx.business.model.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import lombok.Data;
+
+import java.time.LocalDateTime;
 
 
 /**
@@ -35,4 +40,21 @@ public class UserIdentity {
 
     /** 身份状态：1-启用，0-停用。停用身份不会参与认证。 */
     private Boolean status;
+
+    /** 最后修改时间，由 MyBatis-Plus 审计字段处理器统一维护。 */
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private LocalDateTime updateTime;
+
+    /** 创建时间，由 MyBatis-Plus 审计字段处理器统一维护。 */
+    @TableField(fill = FieldFill.INSERT)
+    private LocalDateTime createTime;
+
+    /**
+     * 逻辑删除标记。
+     *
+     * <p>注销用户时身份记录不会物理删除，支付宝用户编号、登录账号等历史标识继续保留，
+     * 供后续反复注销注册风控使用；数据库生成列只约束未删除身份的唯一性。</p>
+     */
+    @TableLogic
+    private Boolean isDelete;
 }

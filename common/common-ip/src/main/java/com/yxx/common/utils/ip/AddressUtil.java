@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.lionsoul.ip2region.xdb.Searcher;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -18,6 +19,7 @@ import java.io.InputStream;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(prefix = "ip", name = "check", havingValue = "true")
 public class AddressUtil {
 
     private static final String DATABASE_PATH = "ip2region/ip2region.xdb";

@@ -6,6 +6,8 @@ import com.yxx.business.properties.AlipayProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 /**
  * 支付宝 OAuth 客户端配置。
@@ -14,6 +16,9 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 @RequiredArgsConstructor
+@EnableConfigurationProperties(AlipayProperties.class)
+@ConditionalOnProperty(prefix = "features.alipay-login", name = "enabled",
+        havingValue = "true", matchIfMissing = true)
 public class AlipayOAuthConfig {
 
     private final AlipayProperties properties;
