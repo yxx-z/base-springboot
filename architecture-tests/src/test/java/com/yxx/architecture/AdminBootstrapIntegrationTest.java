@@ -4,11 +4,13 @@ import com.yxx.admin.bootstrap.AdminBootstrapConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.context.ApplicationListener;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.mysql.MySQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.sql.Connection;
@@ -16,6 +18,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -27,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 class AdminBootstrapIntegrationTest {
 
     @Container
-    private static final MySQLContainer<?> MYSQL = new MySQLContainer<>(
+    private static final MySQLContainer MYSQL = new MySQLContainer(
             DockerImageName.parse("mysql:8.0"))
             .withDatabaseName("admin_bootstrap_it")
             .withUsername("integration")
@@ -35,9 +40,15 @@ class AdminBootstrapIntegrationTest {
 
     @Test
     void shouldCreateInitialSuperAdminAndCloseMinimalContext() throws Exception {
+        CountDownLatch contextClosedSignal = new CountDownLatch(1);
+        AtomicReference<Thread> contextClosingThread = new AtomicReference<>();
         ConfigurableApplicationContext context = new SpringApplicationBuilder(
                 AdminBootstrapConfiguration.class)
                 .web(WebApplicationType.NONE)
+                .listeners((ApplicationListener<ContextClosedEvent>) event -> {
+                    contextClosingThread.set(Thread.currentThread());
+                    contextClosedSignal.countDown();
+                })
                 .run(
                         "--spring.profiles.active=bootstrap",
                         "--spring.datasource.url=" + MYSQL.getJdbcUrl(),
@@ -50,7 +61,8 @@ class AdminBootstrapIntegrationTest {
                         "--bootstrap.admin.email=bootstrap@example.com",
                         "--bootstrap.admin.password=Framework2026");
 
-        waitUntilClosed(context, Duration.ofSeconds(5));
+        waitUntilClosed(context, contextClosedSignal, contextClosingThread,
+                Duration.ofSeconds(5));
         assertFalse(context.isActive(), "bootstrap 完成事务后应主动关闭最小上下文");
         assertEquals(1L, count("SELECT COUNT(*) FROM admin_user"));
         assertEquals("bootstrapadmin", queryString(
@@ -66,15 +78,37 @@ class AdminBootstrapIntegrationTest {
                 """));
     }
 
-    private void waitUntilClosed(ConfigurableApplicationContext context, Duration timeout)
+    /**
+     * 等待 bootstrap 线程主动关闭 Spring 上下文。
+     *
+     * <p>上下文关闭事件只表示关闭流程已经开始，因此收到事件后还需要等待实际执行
+     * {@code close()} 的线程结束，才能断言上下文已经完全关闭。整个过程使用事件信号和线程
+     * 终止通知进行阻塞等待，避免通过循环休眠轮询状态。</p>
+     */
+    private void waitUntilClosed(ConfigurableApplicationContext context,
+                                 CountDownLatch contextClosedSignal,
+                                 AtomicReference<Thread> contextClosingThread,
+                                 Duration timeout)
             throws InterruptedException {
         long deadline = System.nanoTime() + timeout.toNanos();
-        while (context.isActive() && System.nanoTime() < deadline) {
-            Thread.sleep(25L);
-        }
-        if (context.isActive()) {
+        if (!contextClosedSignal.await(timeout.toNanos(), TimeUnit.NANOSECONDS)) {
             context.close();
             fail("bootstrap 上下文未在限定时间内退出");
+        }
+
+        Thread closingThread = contextClosingThread.get();
+        long remainingNanos = deadline - System.nanoTime();
+        if (closingThread == null || remainingNanos <= 0L) {
+            context.close();
+            fail("bootstrap 上下文未在限定时间内完成关闭");
+        }
+        long remainingMillis = TimeUnit.NANOSECONDS.toMillis(remainingNanos);
+        int remainingNanoPart = (int) (remainingNanos
+                - TimeUnit.MILLISECONDS.toNanos(remainingMillis));
+        closingThread.join(remainingMillis, remainingNanoPart);
+        if (closingThread.isAlive()) {
+            context.close();
+            fail("bootstrap 上下文未在限定时间内完成关闭");
         }
     }
 

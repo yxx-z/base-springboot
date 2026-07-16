@@ -2,9 +2,9 @@ package com.yxx.architecture;
 
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.mysql.MySQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.sql.Connection;
@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SharedDatabaseFlywayIntegrationTest {
 
     @Container
-    private static final MySQLContainer<?> MYSQL = new MySQLContainer<>(
+    private static final MySQLContainer MYSQL = new MySQLContainer(
             DockerImageName.parse("mysql:8.0"))
             .withDatabaseName("shared_app_it")
             .withUsername("integration")

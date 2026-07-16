@@ -27,9 +27,9 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.mysql.MySQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import java.util.UUID;
@@ -104,7 +104,7 @@ class BusinessApplicationIntegrationTest {
     private static final Pattern RESET_TOKEN_PATTERN = Pattern.compile("[?&]token=([^<\\\"]+)");
 
     @Container
-    private static final MySQLContainer<?> MYSQL = new MySQLContainer<>(
+    private static final MySQLContainer MYSQL = new MySQLContainer(
             DockerImageName.parse("mysql:8.0"))
             .withDatabaseName("business_app_it")
             .withUsername("integration")
