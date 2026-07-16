@@ -7,13 +7,9 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yxx.business.mapper.UserMapper;
 import com.yxx.business.model.entity.User;
 import com.yxx.business.model.entity.UserIdentity;
-import com.yxx.business.model.request.EditPwdReq;
-import com.yxx.business.model.request.RegisterCaptchaReq;
-import com.yxx.business.model.request.ResetPwdEmailReq;
-import com.yxx.business.model.request.ResetPwdReq;
-import com.yxx.business.model.request.UserRegisterReq;
-import com.yxx.business.service.UserRoleService;
+import com.yxx.business.model.request.*;
 import com.yxx.business.service.UserIdentityService;
+import com.yxx.business.service.UserRoleService;
 import com.yxx.business.service.UserService;
 import com.yxx.common.constant.EmailSubject;
 import com.yxx.common.constant.RedisKeyPrefix;
@@ -21,17 +17,12 @@ import com.yxx.common.enums.ApiCode;
 import com.yxx.common.exceptions.ApiException;
 import com.yxx.common.properties.MailProperties;
 import com.yxx.common.properties.MyWebProperties;
-import com.yxx.common.utils.ApiAssert;
 import com.yxx.common.utils.AccountNormalizer;
+import com.yxx.common.utils.ApiAssert;
 import com.yxx.common.utils.DateUtils;
 import com.yxx.common.utils.email.MailUtils;
 import com.yxx.common.utils.redis.RedissonCache;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.concurrent.TimeUnit;
+import com.yxx.framework.security.PasswordResetMailService;
 import com.yxx.security.constant.LoginMode;
 import com.yxx.security.constant.SecurityRealm;
 import com.yxx.security.context.LoginSessionService;
@@ -39,7 +30,12 @@ import com.yxx.security.context.OneTimeTemporaryTokenService;
 import com.yxx.security.context.OneTimeVerificationCodeService;
 import com.yxx.security.context.SessionInvalidationService;
 import com.yxx.security.model.PasswordResetTokenPayload;
-import com.yxx.framework.security.PasswordResetMailService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author yxx
@@ -226,7 +222,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Long userId = loginSessionService.currentUser()
                 .map(com.yxx.security.model.LoginPrincipal::getSubjectId)
                 .orElseThrow(() -> new ApiException(ApiCode.TOKEN_ERROR));
-        User user = getById(userId);
         UserIdentity passwordIdentity = userIdentityService
                 .findByUserId(userId, LoginMode.PASSWORD)
                 .orElseThrow(() -> new ApiException(ApiCode.PASSWORD_ERROR));
@@ -277,7 +272,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         try {
             mailUtils.baseSendMail(email, EmailSubject.REGISTER, resultText, true);
             redissonCache.putString(captchaKey, String.valueOf(random), captchaSeconds);
-            return;
         } catch (RuntimeException exception) {
             redissonCache.decrement(countKey);
             redissonCache.remove(captchaKey);

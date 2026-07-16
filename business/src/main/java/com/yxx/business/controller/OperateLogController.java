@@ -34,7 +34,7 @@ public class OperateLogController {
      * 身份验证登录日志数据分页
      *
      * @param req 要求事情
-     * @return {@link Page }<{@link OperateLogResp }>
+     * @return {@link PageResponse }<{@link OperateLogResp }>
      * @author yxx
      */
     @PostMapping("/auth")
@@ -46,7 +46,7 @@ public class OperateLogController {
      * 操作日志数据分页
      *
      * @param req 要求事情
-     * @return {@link Page }<{@link OperateLogResp }>
+     * @return {@link PageResponse }<{@link OperateLogResp }>
      * @author yxx
      */
     @PostMapping("/operation")
