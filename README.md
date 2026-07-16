@@ -26,6 +26,7 @@ base-springboot
 ├── common
 │   ├── common-core       纯 Java 公共契约、错误码和基础工具
 │   ├── common-cache      Redis、Redisson 和缓存原子操作
+│   ├── common-mq         RabbitMQ JSON 消息与可靠发布能力
 │   ├── common-security   登录主体、Sa-Token、密码与会话安全
 │   ├── common-web        Servlet、统一响应、JSON 和 Web 拦截器
 │   ├── common-ip         可信代理客户端 IP 与归属地解析
@@ -70,6 +71,7 @@ architecture-tests -> admin / business -> common-rbac / common-framework -> 各�
 | 公共契约、错误码、分页模型和纯 Java 工具 | `common-core` |
 | MyBatis-Plus、分页和审计字段填充 | `common-data` |
 | Redis、Redisson 和缓存原子操作 | `common-cache` |
+| RabbitMQ JSON 消息、publisher confirm 和 mandatory return | `common-mq` |
 | Servlet、统一响应、异常处理和 Web 拦截器 | `common-web` |
 | 登录主体、密码、Sa-Token 和会话安全 | `common-security` |
 | 统一角色、权限、菜单和授权实现 | `common-rbac` |
@@ -1101,6 +1103,60 @@ public class OrderAuditEventListener {
 - 所有临时数据必须有 TTL；配置异常时宁可使用有限默认值，也不要创建永久安全状态。
 - 不要自行创建新的 `RedissonClient`，连接生命周期由 Starter 和 Spring 容器统一管理。
 
+### 集成 RabbitMQ
+
+RabbitMQ 是按需基础设施，不进入 `common-framework`。只有实际生产或消费消息的模块才声明：
+
+```xml
+<dependency>
+    <groupId>com.yxx</groupId>
+    <artifactId>common-mq</artifactId>
+</dependency>
+```
+
+连接和可靠发布使用 Spring Boot 标准配置：
+
+```yaml
+spring:
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VIRTUAL_HOST:/}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+
+framework:
+  rabbitmq:
+    publisher:
+      enabled: true
+      mandatory: true
+      confirm-timeout: 5s
+```
+
+生产环境禁止使用默认 guest 凭据，并应限制 vhost、用户权限和网络来源。公共模块会自动使用
+应用统一 ObjectMapper 发送 JSON，并提供 `RabbitMessagePublisher`：
+
+```java
+@Service
+@RequiredArgsConstructor
+public class OrderEventPublisher {
+
+    private final RabbitMessagePublisher messagePublisher;
+
+    public String publish(OrderCreatedEvent event) {
+        return messagePublisher.publishAndConfirm(
+                "order.events", "order.created", event);
+    }
+}
+```
+
+方法正常返回只代表 Broker 已确认接收且消息已成功路由，不代表消费者处理成功。交换机、队列、
+绑定、重试、死信队列和消费幂等属于业务语义，必须由实际业务模块声明，禁止在 `common-mq`
+中建立订单、用户等领域拓扑。消费者必须按稳定业务键实现幂等；涉及数据库状态与发消息原子性时，
+使用事务消息表/Outbox 等一致性方案，不能把“先提交数据库再直接发消息”当作强一致事务。
+
 ### 扩展配置项
 
 新增可配置能力时：
@@ -1190,6 +1246,7 @@ public class OrderAuditEventListener {
 - 数据库、Redis、SMTP 和第三方平台密钥全部通过环境变量或密钥管理系统注入；轮换任何曾进入 Git 历史的凭据。
 - admin 与 business 的数据源指向同一个预期 Schema，并在发布前备份数据库、验证全部 Flyway 迁移。
 - 业务 Redis 与 Sa-Token Session Redis 使用不同 database 或独立实例，并配置认证、网络访问控制和持久化策略。
+- 使用 RabbitMQ 的应用必须配置独立 vhost、最小权限账号、publisher confirm/return、消费幂等、重试和死信告警。
 - 配置准确的 CORS 来源、可信代理地址、前端密码重置页面 URL 和站点域名。
 - 对外流量使用 HTTPS；SMTP 按服务商要求开启 TLS，不通过明文网络传输认证信息。
 - bootstrap 只在首个管理员初始化期间启用，执行完成后使用正常生产 Profile 启动。

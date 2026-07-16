@@ -1,0 +1,2 @@
+com.yxx.common.mq.config.RabbitMqSerializationAutoConfiguration
+com.yxx.common.mq.config.RabbitMqPublisherAutoConfiguration

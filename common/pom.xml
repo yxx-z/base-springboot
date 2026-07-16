@@ -14,6 +14,7 @@
     <modules>
         <module>common-core</module>
         <module>common-cache</module>
+        <module>common-mq</module>
         <module>common-security</module>
         <module>common-web</module>
         <module>common-ip</module>

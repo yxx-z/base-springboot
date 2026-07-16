@@ -11,7 +11,7 @@
 
 ## 环境变量
 
-- 生产数据库、Redis、SMTP、支付宝等凭据必须通过环境变量或密钥管理系统注入。
+- 生产数据库、Redis、RabbitMQ、SMTP、支付宝等凭据必须通过环境变量或密钥管理系统注入。
 - 不新增明文生产凭据；发现仓库已有真实凭据时明确报告并建议轮换，不在输出中重复泄露。
 - 使用 Spring Boot relaxed binding 的稳定键名，必要时在 YAML 中给出显式占位符和安全默认值。
 - Duration 使用 `1s`、`5m`、`7d` 等明确单位。
@@ -45,3 +45,11 @@
 - 相对日志路径相对于 JVM 当前工作目录，不等于仓库根目录。
 - 生产日志、上传目录、临时目录等使用外部绝对路径。
 - Classpath 资源使用 `classpath:`，不要拼接源码目录路径。
+
+## RabbitMQ
+
+- 使用 `common-mq` 的应用必须显式配置 `spring.rabbitmq.publisher-confirm-type=correlated` 和
+  `spring.rabbitmq.publisher-returns=true`；缺失时可靠发布器应在启动阶段拒绝装配。
+- 生产使用独立 vhost 和最小权限账号，禁止保留 guest 默认凭据。
+- `framework.rabbitmq.publisher.confirm-timeout` 必须大于 0。
+- 关闭公共发布器只移除 `RabbitMessagePublisher`，不等于移除 Spring AMQP 依赖或消费者能力。

@@ -6,6 +6,7 @@
 - 使用 `./mvnw`，不要依赖机器全局 Maven 版本。
 - 需要 MySQL/Redis 的测试使用 Testcontainers 和本机 Docker。
 - Testcontainers 2.x 的 MySQL 类为 `org.testcontainers.mysql.MySQLContainer`，不使用已弃用旧包。
+- RabbitMQ 集成测试使用 `org.testcontainers.rabbitmq.RabbitMQContainer`。
 
 ## 风险矩阵
 
@@ -16,6 +17,7 @@
 | Controller、统一响应 | 对应应用集成测试 |
 | 登录、密码、Token、Session、RBAC | admin/business 安全集成测试和相关单元测试 |
 | Redis、并发消费、频控 | 真实 Redis Testcontainers 测试 |
+| RabbitMQ 发布、路由和 JSON 消息 | 真实 RabbitMQ Testcontainers 测试 |
 | 表结构、Flyway、约束 | 真实 MySQL 架构测试 |
 | bootstrap | AdminBootstrapIntegrationTest |
 | POM、模块边界、共享基础设施 | 全量 `clean verify` |
