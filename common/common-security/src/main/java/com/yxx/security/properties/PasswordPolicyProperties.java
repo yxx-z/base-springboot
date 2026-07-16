@@ -19,12 +19,12 @@ import jakarta.validation.constraints.AssertTrue;
 public class PasswordPolicyProperties {
 
     /** 密码最少字符数。 */
-    @Min(value = 8, message = "密码最小长度不能小于8位")
+    @Min(value = 6, message = "密码最小长度不能小于6位")
     @Max(value = 72, message = "密码最小长度不能超过72位")
     private int minLength = 12;
 
     /** BCrypt 可安全处理的最大 UTF-8 字节数。 */
-    @Min(value = 8, message = "密码最大字节数不能小于8")
+    @Min(value = 6, message = "密码最大字节数不能小于6")
     @Max(value = 72, message = "BCrypt密码最大字节数不能超过72")
     private int maxBytes = 72;
 

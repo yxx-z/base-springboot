@@ -35,7 +35,7 @@ security:
       retry-enabled: ${SECURITY_SESSION_INVALIDATION_RETRY_ENABLED:true}
       retry-delays: ${SECURITY_SESSION_INVALIDATION_RETRY_DELAYS:1s,5s,30s}
   password-policy:
-    min-length: ${SECURITY_PASSWORD_MIN_LENGTH:12}
+    min-length: ${SECURITY_PASSWORD_MIN_LENGTH:6}
     max-bytes: ${SECURITY_PASSWORD_MAX_BYTES:72}
     require-uppercase: ${SECURITY_PASSWORD_REQUIRE_UPPERCASE:true}
     require-lowercase: ${SECURITY_PASSWORD_REQUIRE_LOWERCASE:true}
