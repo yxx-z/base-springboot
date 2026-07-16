@@ -9,6 +9,7 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Profile;
 
 /**
  * 管理员首次初始化专用配置。
@@ -17,6 +18,7 @@ import org.springframework.context.annotation.Import;
  * Redis、安全会话及邮件组件。</p>
  */
 @SpringBootConfiguration
+@Profile("bootstrap")
 @EnableAutoConfiguration
 @ComponentScan(basePackageClasses = AdminBootstrapRunner.class)
 @MapperScan("com.yxx.admin.mapper")

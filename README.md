@@ -27,13 +27,14 @@ base-springboot
 │   └── common-framework  基础设施聚合入口、跨安全域协调器和异步执行器
 ├── business              用户端业务及支付宝 OAuth 登录
 ├── admin                 管理端业务
+├── architecture-tests    跨应用共享库、bootstrap 与部署边界集成测试
 └── db                    数据库迁移说明
 ```
 
 模块依赖方向固定为：
 
 ```text
-admin / business -> common-framework -> 各职责模块 -> common-core
+architecture-tests -> admin / business -> common-framework -> 各职责模块 -> common-core
 ```
 
 约束原则：
@@ -44,6 +45,7 @@ admin / business -> common-framework -> 各职责模块 -> common-core
 - 支付宝等业务专属 SDK 只能由 `business` 声明，不能进入管理端运行时依赖。
 - 基础框架只提供支付宝 OAuth 登录，不内置脱离订单领域的支付、退款或支付回调示例。
 - 启动模块只声明自己实际需要的依赖，版本统一由根 POM 管理。
+- `architecture-tests` 只参与测试，禁止被任何生产模块反向依赖。
 
 ## 本地运行
 
@@ -79,6 +81,9 @@ export CORS_ALLOWED_ORIGIN_PATTERN=https://your-frontend.example.com
 普通单元测试禁止连接开发机上的真实 MySQL、Redis 或邮件服务。需要完整基础设施的测试应放入独立集成测试阶段，并使用 Testcontainers 或 CI 服务容器提供依赖。
 
 仓库包含 GitHub Actions 配置，每次推送和 Pull Request 都会在 JDK 17 下执行完整 `verify`。
+
+打包后 business 和 admin 均生成普通 JAR 与 `-exec.jar`；普通 JAR 用于模块依赖和架构测试，
+部署启动使用可执行的 `business-1.0.0-exec.jar`、`admin-1.0.0-exec.jar`。
 
 ## 基础设施约定
 

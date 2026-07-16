@@ -38,6 +38,15 @@
             <artifactId>sa-token-alone-redis</artifactId>
             <version>${sa-token.version}</version>
         </dependency>
+        <!--
+            Sa-Token 独立 Redis 数据源底层使用 Jedis 连接池。
+            该依赖需要由基础架构显式声明，避免应用仅在启用 alone-redis 配置后才因
+            GenericObjectPoolConfig 缺失而启动失败。
+        -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-pool2</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-tx</artifactId>

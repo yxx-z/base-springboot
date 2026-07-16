@@ -9,7 +9,8 @@
     <dependencies>
         <dependency><groupId>com.yxx</groupId><artifactId>common-core</artifactId></dependency>
         <dependency><groupId>com.yxx</groupId><artifactId>common-security</artifactId></dependency>
-        <dependency><groupId>com.baomidou</groupId><artifactId>mybatis-plus-boot-starter</artifactId><version>${mybatis-plus.version}</version></dependency>
+        <!-- Spring Boot 3 必须使用专用 Starter，避免引入与 Spring 6 不兼容的 mybatis-spring 2.x。 -->
+        <dependency><groupId>com.baomidou</groupId><artifactId>mybatis-plus-spring-boot3-starter</artifactId><version>${mybatis-plus.version}</version></dependency>
         <dependency><groupId>com.baomidou</groupId><artifactId>mybatis-plus-jsqlparser</artifactId><version>${mybatis-plus.version}</version></dependency>
         <dependency><groupId>org.projectlombok</groupId><artifactId>lombok</artifactId><version>${lombok.version}</version><optional>true</optional></dependency>
     </dependencies>

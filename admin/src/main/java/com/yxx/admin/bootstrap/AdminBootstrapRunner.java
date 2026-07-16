@@ -17,6 +17,7 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Profile;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -31,6 +32,7 @@ import java.time.LocalDateTime;
  */
 @Slf4j
 @Component
+@Profile("bootstrap")
 @RequiredArgsConstructor
 public class AdminBootstrapRunner implements ApplicationRunner {
 

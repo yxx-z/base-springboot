@@ -9,6 +9,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Optional;
+import java.util.function.Function;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -33,10 +34,11 @@ public class OneTimeTemporaryTokenService {
      * 尝试在当前事务中独占消费临时令牌。
      *
      * @param token 临时令牌
-     * @param payloadType 令牌载荷类型
+     * @param payloadDecoder 版本化字符串载荷解码器
      * @return 令牌有效且成功取得消费权时返回载荷，否则返回空
      */
-    public <T> Optional<T> reserve(String token, Class<T> payloadType) {
+    public <T> Optional<T> reserve(String token,
+                                   Function<String, Optional<T>> payloadDecoder) {
         long timeout = SaTempUtil.getTimeout(token);
         if (timeout == -2) {
             return Optional.empty();
@@ -49,20 +51,21 @@ public class OneTimeTemporaryTokenService {
             return Optional.empty();
         }
 
-        T payload;
+        Optional<T> payload;
         try {
-            payload = SaTempUtil.parseToken(token, payloadType);
+            String serializedPayload = SaTempUtil.parseToken(token, String.class);
+            payload = payloadDecoder.apply(serializedPayload);
         } catch (RuntimeException exception) {
             redissonCache.remove(reservationKey);
             return Optional.empty();
         }
-        if (payload == null) {
+        if (payload.isEmpty()) {
             redissonCache.remove(reservationKey);
             return Optional.empty();
         }
 
         registerCompletion(token, reservationKey, reservationSeconds);
-        return Optional.of(payload);
+        return payload;
     }
 
     private void registerCompletion(String token, String reservationKey, long reservationSeconds) {

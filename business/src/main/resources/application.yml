@@ -9,7 +9,9 @@ spring:
     enabled: true
     locations: classpath:db/migration/business
     table: flyway_schema_history_business
-    baseline-on-migrate: false
+    # 允许管理端表已存在的共享 Schema 创建本应用独立历史表；基线从 0 开始，V1 仍会完整执行。
+    baseline-on-migrate: true
+    baseline-version: 0
     validate-on-migrate: true
 
 app:

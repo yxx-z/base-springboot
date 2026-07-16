@@ -46,12 +46,12 @@
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>mysql</artifactId>
+            <artifactId>testcontainers-mysql</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -63,6 +63,8 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
                     <mainClass>com.yxx.admin.AdminApplication</mainClass>
+                    <!-- 保留普通 JAR 供架构测试依赖，可执行应用使用 -exec.jar 制品。 -->
+                    <classifier>exec</classifier>
                 </configuration>
                 <executions>
                     <execution>

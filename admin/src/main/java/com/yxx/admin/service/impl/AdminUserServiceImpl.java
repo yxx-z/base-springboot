@@ -191,7 +191,7 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
     public void resetPwd(ResetPwdReq req) {
         // 原子取得一次性令牌消费权，避免同一个重置链接被并发使用。
         PasswordResetTokenPayload payload = oneTimeTemporaryTokenService
-                .reserve(req.getToken(), PasswordResetTokenPayload.class)
+                .reserve(req.getToken(), PasswordResetTokenPayload::decode)
                 .filter(value -> SecurityRealm.ADMIN.equals(value.realm()))
                 .orElse(null);
         ApiAssert.isTrue(ApiCode.RESET_PWD_TOKEN_ERROR, payload != null);

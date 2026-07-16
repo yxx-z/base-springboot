@@ -16,6 +16,7 @@
         <module>common</module>
         <module>business</module>
         <module>admin</module>
+        <module>architecture-tests</module>
     </modules>
 
     <properties>
@@ -33,6 +34,7 @@
         <ip2region.version>2.6.4</ip2region.version>
         <alipay.version>4.40.472.ALL</alipay.version>
         <lombok.version>1.18.38</lombok.version>
+        <testcontainers.version>2.0.5</testcontainers.version>
 
         <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
@@ -47,6 +49,20 @@
                 <version>${spring-boot.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Spring Boot 3.5 BOM 仍管理 Testcontainers 1.x；显式覆盖核心包，确保 2.x
+                 模块不会被旧版本传递依赖降级，并兼容 Docker Engine 29。 -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers</artifactId>
+                <version>${testcontainers.version}</version>
             </dependency>
 
             <dependency>

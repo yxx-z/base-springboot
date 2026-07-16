@@ -1,11 +1,26 @@
 spring:
   main:
     web-application-type: none
+  # bootstrap 只依赖数据库与 MyBatis；显式排除常规应用的会话和缓存基础设施。
+  autoconfigure:
+    exclude:
+      - org.redisson.spring.starter.RedissonAutoConfigurationV2
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+      - cn.dev33.satoken.spring.SaTokenContextRegister
+      - cn.dev33.satoken.dao.SaTokenDaoForRedisTemplate
+      - cn.dev33.satoken.dao.alone.SaAloneRedisInject
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: ${BOOTSTRAP_DB_URL}
     username: ${BOOTSTRAP_DB_USERNAME}
     password: ${BOOTSTRAP_DB_PASSWORD}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration/admin
+    table: flyway_schema_history_admin
+    baseline-on-migrate: true
+    baseline-version: 0
 
 bootstrap:
   admin:
@@ -17,3 +32,7 @@ bootstrap:
 logging:
   level:
     root: info
+
+# 即使安全依赖仍存在于构建 classpath，bootstrap 也不输出常规应用的 Sa-Token 横幅。
+sa-token:
+  is-print: false

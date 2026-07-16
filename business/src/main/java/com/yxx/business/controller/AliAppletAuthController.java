@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 @ResponseResult
 @RestController
-@RequestMapping("/aliAuth")
+@RequestMapping("/ali-auth")
 @RequiredArgsConstructor
 public class AliAppletAuthController {
 

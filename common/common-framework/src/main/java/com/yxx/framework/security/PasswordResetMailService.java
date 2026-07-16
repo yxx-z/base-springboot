@@ -62,7 +62,8 @@ public class PasswordResetMailService {
 
         try {
             PasswordResetTokenPayload payload = new PasswordResetTokenPayload(realm, subjectId, email);
-            String token = SaTempUtil.createToken(payload, tokenSeconds);
+            // 临时 Token 仅保存稳定的版本化字符串，避免复杂对象受 Redis 序列化器实现影响。
+            String token = SaTempUtil.createToken(payload.encode(), tokenSeconds);
             String resetPassHref = resetPwdProperties.getBasePath() + "?token=" + token;
             String content = resetPwdProperties.getResetPwdContent()
                     .replace("{url}", resetPassHref)

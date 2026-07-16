@@ -16,7 +16,7 @@ export BOOTSTRAP_ADMIN_LOGIN_NAME='系统管理员'
 export BOOTSTRAP_ADMIN_EMAIL='admin@example.com'
 export BOOTSTRAP_ADMIN_PASSWORD='至少12位的临时密码'
 
-java -jar admin.jar
+java -jar admin-1.0.0-exec.jar
 ```
 
 bootstrap 模式会：
