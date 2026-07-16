@@ -13,7 +13,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -34,17 +33,26 @@ class SharedDatabaseFlywayIntegrationTest {
             .withPassword("integration");
 
     @Test
-    void shouldMigrateEmptySchemaAndUpgradeFromV1ToLatest() throws SQLException {
-        Flyway v1 = flyway("1");
-        v1.clean();
-        assertEquals(1, v1.migrate().migrationsExecuted);
+    void shouldMigrateEmptySchemaToFinalBaseline() throws SQLException {
+        Flyway flyway = flyway();
+        flyway.clean();
+        assertEquals(1, flyway.migrate().migrationsExecuted);
+        // 最终基线已经完整落库，重复执行迁移不应产生额外变更。
+        assertEquals(0, flyway.migrate().migrationsExecuted);
 
         assertTrue(tableExists("user"));
         assertTrue(tableExists("admin_user"));
         assertTrue(tableExists("rbac_role"));
         assertTrue(tableExists("rbac_subject_role"));
-        assertFalse(columnExists("operate_log", "actor_account"));
-        assertFalse(columnExists("operate_admin_log", "actor_account"));
+        assertTrue(columnExists("operate_log", "actor_account"));
+        assertTrue(columnExists("operate_admin_log", "actor_account"));
+        assertTrue(columnExists("user", "active_email"));
+        assertTrue(columnExists("user_identity", "active_identifier"));
+        assertTrue(columnExists("operate_admin_log", "subject_id"));
+        assertEquals(1L, count("""
+                SELECT COUNT(*) FROM flyway_schema_history
+                WHERE success = 1 AND version = '1'
+                """));
         assertEquals(1L, count("""
                 SELECT COUNT(*) FROM rbac_role
                 WHERE scope = 'business' AND code = 'business:member'
@@ -60,6 +68,14 @@ class SharedDatabaseFlywayIntegrationTest {
                 FROM rbac_role
                 WHERE scope = 'admin' AND code = 'admin:administrator'
                 """), "数据库 CHECK 约束必须拒绝业务用户关联管理端角色");
+        // 初始基线不再创建已经废弃的业务端全局审计权限，先构造一个合法的业务权限，
+        // 再验证 admin 角色无法通过伪造 scope 关联 business 权限。
+        executeUpdate("""
+                INSERT INTO rbac_permission
+                    (scope, code, name, resource_type, description, status, is_delete)
+                VALUES ('business', 'business:test:read', '测试业务权限', 'api',
+                        '仅用于验证权限域复合外键', 1, 0)
+                """);
         assertThrows(SQLException.class, () -> executeUpdate("""
                 INSERT INTO rbac_role_permission (scope, role_id, permission_id)
                 SELECT 'admin', r.id, p.id
@@ -68,19 +84,6 @@ class SharedDatabaseFlywayIntegrationTest {
                 WHERE r.scope = 'admin' AND r.code = 'admin:administrator'
                 LIMIT 1
                 """), "复合外键必须拒绝跨权限域角色权限关联");
-
-        Flyway latest = flyway(null);
-        assertEquals(2, latest.migrate().migrationsExecuted);
-        assertEquals(0, latest.migrate().migrationsExecuted);
-        assertTrue(columnExists("operate_log", "actor_account"));
-        assertTrue(columnExists("operate_admin_log", "actor_account"));
-        assertTrue(columnExists("user", "active_email"));
-        assertTrue(columnExists("user_identity", "active_identifier"));
-        assertTrue(columnExists("operate_admin_log", "subject_id"));
-        assertEquals(3L, count("""
-                SELECT COUNT(*) FROM flyway_schema_history
-                WHERE success = 1 AND version IN ('1', '2', '3')
-                """));
         assertEquals(0L, count("""
                 SELECT COUNT(*) FROM rbac_permission
                 WHERE scope = 'business' AND code = 'business:audit-log:read'
@@ -115,16 +118,13 @@ class SharedDatabaseFlywayIntegrationTest {
                 """));
     }
 
-    private Flyway flyway(String target) {
-        var configuration = Flyway.configure()
+    private Flyway flyway() {
+        return Flyway.configure()
                 .dataSource(MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword())
                 .locations("classpath:db/migration/shared")
                 .table("flyway_schema_history")
-                .cleanDisabled(false);
-        if (target != null) {
-            configuration.target(target);
-        }
-        return configuration.load();
+                .cleanDisabled(false)
+                .load();
     }
 
     private boolean tableExists(String tableName) throws SQLException {

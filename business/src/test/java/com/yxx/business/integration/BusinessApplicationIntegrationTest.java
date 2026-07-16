@@ -66,6 +66,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Testcontainers(disabledWithoutDocker = true)
 @ActiveProfiles("integration")
 @SpringBootTest(classes = BusinessApplication.class, properties = {
+        // 生产默认关闭可选支付宝登录；本集成测试显式开启，避免测试依赖应用默认开关。
+        "features.alipay-login.enabled=true",
         "ip.check=false",
         "mail.from=integration@example.com",
         "mail.from-name=集成测试",

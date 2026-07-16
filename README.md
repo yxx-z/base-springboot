@@ -628,7 +628,7 @@ Content-Type: application/json
 该命令会执行单元测试和 Testcontainers 集成测试，覆盖：
 
 - MySQL、Redis 和完整 Spring 上下文启动
-- business/admin Flyway 从空库迁移及 V1 到 V3 升级
+- business/admin 从空库执行统一 Flyway 基线并验证重复迁移幂等
 - Mapper XML 实际执行
 - Redis Lua 原子行为
 - Sa-Token Session 实际读写
@@ -1205,8 +1205,8 @@ public class OrderAuditEventListener {
 已经发布或提交到共享分支的迁移文件禁止修改。表、字段、索引、约束和初始化数据变化必须新增更高版本迁移，例如：
 
 ```text
-V4__add_order_permission.sql
-V5__add_order_refund_record.sql
+V2__add_order_permission.sql
+V3__add_order_refund_record.sql
 ```
 
 SQL 规范：

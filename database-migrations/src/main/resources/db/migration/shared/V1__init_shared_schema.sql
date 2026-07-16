@@ -13,9 +13,17 @@ CREATE TABLE `user` (
   `create_uid` bigint NOT NULL DEFAULT 0 COMMENT '创建人；0表示系统行为',
   `update_uid` bigint NOT NULL DEFAULT 0 COMMENT '修改人；0表示系统行为',
   `is_delete` tinyint(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记：0-未删除，1-已删除',
+  `active_email` varchar(100)
+    GENERATED ALWAYS AS (CASE WHEN `is_delete` = 0 THEN `email` ELSE NULL END) STORED
+    COMMENT '仅未删除用户参与唯一约束的邮箱；软删记录为NULL',
+  `active_phone` varchar(20)
+    GENERATED ALWAYS AS (CASE WHEN `is_delete` = 0 THEN `phone` ELSE NULL END) STORED
+    COMMENT '仅未删除用户参与唯一约束的手机号；软删记录为NULL',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_user_email` (`email`),
-  KEY `idx_user_phone` (`phone`),
+  UNIQUE KEY `uk_user_active_email` (`active_email`),
+  UNIQUE KEY `uk_user_active_phone` (`active_phone`),
+  KEY `idx_user_history_email` (`email`),
+  KEY `idx_user_history_phone` (`phone`),
   KEY `idx_user_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='业务端-用户主体表';
 
@@ -27,9 +35,17 @@ CREATE TABLE `user_identity` (
   `credential` varchar(255) DEFAULT NULL COMMENT '认证凭证；密码身份保存BCrypt摘要，第三方身份为空',
   `verified` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否已通过可信渠道验证：1-是，0-否',
   `status` tinyint(1) NOT NULL DEFAULT 1 COMMENT '身份状态：1-启用，0-停用',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ON UPDATE CURRENT_TIMESTAMP COMMENT '最后修改时间',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `is_delete` tinyint NOT NULL DEFAULT 0 COMMENT '逻辑删除标记：0-未删除，1-已删除',
+  `active_identifier` varchar(191)
+    GENERATED ALWAYS AS (CASE WHEN `is_delete` = 0 THEN `identifier` ELSE NULL END) STORED
+    COMMENT '仅未删除身份参与唯一约束的身份标识；软删记录为NULL',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_user_identity_type_identifier` (`identity_type`, `identifier`),
-  KEY `idx_user_identity_user_id` (`user_id`),
+  UNIQUE KEY `uk_user_identity_active_identifier` (`identity_type`, `active_identifier`),
+  KEY `idx_user_identity_history_identifier` (`identity_type`, `identifier`),
+  KEY `idx_user_identity_user_delete` (`user_id`, `is_delete`),
   CONSTRAINT `fk_user_identity_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='业务端-多登录身份绑定表';
 
@@ -48,9 +64,22 @@ CREATE TABLE `admin_user` (
   `create_uid` bigint NOT NULL DEFAULT 0 COMMENT '创建人；0表示系统行为',
   `update_uid` bigint NOT NULL DEFAULT 0 COMMENT '修改人；0表示系统行为',
   `is_delete` tinyint(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记：0-未删除，1-已删除',
+  `active_login_code` varchar(50)
+    GENERATED ALWAYS AS (CASE WHEN `is_delete` = 0 THEN `login_code` ELSE NULL END) STORED
+    COMMENT '仅未删除管理员参与唯一约束的登录账号；软删记录为NULL',
+  `active_email` varchar(100)
+    GENERATED ALWAYS AS (CASE WHEN `is_delete` = 0 THEN `email` ELSE NULL END) STORED
+    COMMENT '仅未删除管理员参与唯一约束的邮箱；软删记录为NULL',
+  `active_link_phone` varchar(20)
+    GENERATED ALWAYS AS (CASE WHEN `is_delete` = 0 THEN `link_phone` ELSE NULL END) STORED
+    COMMENT '仅未删除管理员参与唯一约束的手机号；软删记录为NULL',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_admin_user_login_code` (`login_code`),
-  UNIQUE KEY `uk_admin_user_email` (`email`),
+  UNIQUE KEY `uk_admin_user_active_login_code` (`active_login_code`),
+  UNIQUE KEY `uk_admin_user_active_email` (`active_email`),
+  UNIQUE KEY `uk_admin_user_active_link_phone` (`active_link_phone`),
+  KEY `idx_admin_user_history_login_code` (`login_code`),
+  KEY `idx_admin_user_history_email` (`email`),
+  KEY `idx_admin_user_history_link_phone` (`link_phone`),
   KEY `idx_admin_user_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='管理端-管理员账号表';
 
@@ -66,11 +95,19 @@ CREATE TABLE `rbac_role` (
   `is_delete` tinyint(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记：0-未删除，1-已删除',
   `update_time` datetime NOT NULL COMMENT '最后修改时间',
   `create_time` datetime NOT NULL COMMENT '创建时间',
+  `active_code` varchar(100)
+    GENERATED ALWAYS AS (CASE WHEN `is_delete` = 0 THEN `code` ELSE NULL END) STORED
+    COMMENT '仅未删除角色参与唯一约束的角色编码；软删记录为NULL',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_rbac_role_scope_code` (`scope`, `code`),
+  UNIQUE KEY `uk_rbac_role_scope_active_code` (`scope`, `active_code`),
   UNIQUE KEY `uk_rbac_role_id_scope` (`id`, `scope`),
+  KEY `idx_rbac_role_history_code` (`scope`, `code`),
   CONSTRAINT `ck_rbac_role_scope` CHECK (`scope` IN ('admin', 'business')),
-  CONSTRAINT `ck_rbac_role_super_scope` CHECK (`super_role` = 0 OR `scope` = 'admin')
+  CONSTRAINT `ck_rbac_role_super_invariant` CHECK (
+    (`super_role` = 0 AND `code` <> 'admin:super-admin') OR
+    (`super_role` = 1 AND `built_in` = 1 AND `scope` = 'admin'
+      AND `code` = 'admin:super-admin')
+  )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='统一RBAC-角色表';
 
 CREATE TABLE `rbac_permission` (
@@ -82,9 +119,13 @@ CREATE TABLE `rbac_permission` (
   `description` varchar(255) DEFAULT NULL COMMENT '权限用途说明',
   `status` tinyint(1) NOT NULL DEFAULT 1 COMMENT '权限状态：1-启用，0-停用',
   `is_delete` tinyint(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记：0-未删除，1-已删除',
+  `active_code` varchar(150)
+    GENERATED ALWAYS AS (CASE WHEN `is_delete` = 0 THEN `code` ELSE NULL END) STORED
+    COMMENT '仅未删除权限参与唯一约束的权限编码；软删记录为NULL',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_rbac_permission_scope_code` (`scope`, `code`),
+  UNIQUE KEY `uk_rbac_permission_scope_active_code` (`scope`, `active_code`),
   UNIQUE KEY `uk_rbac_permission_id_scope` (`id`, `scope`),
+  KEY `idx_rbac_permission_history_code` (`scope`, `code`),
   KEY `idx_rbac_permission_scope_status` (`scope`, `status`),
   CONSTRAINT `ck_rbac_permission_scope` CHECK (`scope` IN ('admin', 'business'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='统一RBAC-后端权限资源表';
@@ -102,9 +143,13 @@ CREATE TABLE `rbac_menu` (
   `visible` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否在导航中显示：1-显示，0-隐藏',
   `status` tinyint(1) NOT NULL DEFAULT 1 COMMENT '菜单状态：1-启用，0-停用',
   `is_delete` tinyint(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记：0-未删除，1-已删除',
+  `active_menu_code` varchar(100)
+    GENERATED ALWAYS AS (CASE WHEN `is_delete` = 0 THEN `menu_code` ELSE NULL END) STORED
+    COMMENT '仅未删除菜单参与唯一约束的菜单编码；软删记录为NULL',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_rbac_menu_scope_code` (`scope`, `menu_code`),
+  UNIQUE KEY `uk_rbac_menu_scope_active_code` (`scope`, `active_menu_code`),
   UNIQUE KEY `uk_rbac_menu_id_scope` (`id`, `scope`),
+  KEY `idx_rbac_menu_history_code` (`scope`, `menu_code`),
   KEY `idx_rbac_menu_parent_scope` (`parent_id`, `scope`),
   CONSTRAINT `fk_rbac_menu_parent_scope` FOREIGN KEY (`parent_id`, `scope`)
     REFERENCES `rbac_menu` (`id`, `scope`),
@@ -163,6 +208,12 @@ CREATE TABLE `rbac_role_menu` (
 CREATE TABLE `operate_log` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '业务端审计日志主键',
   `user_id` bigint DEFAULT NULL COMMENT '操作用户主键；匿名操作为空',
+  `actor_type` varchar(30) DEFAULT NULL COMMENT '事件发生时的主体类型快照',
+  `actor_account` varchar(191) DEFAULT NULL COMMENT '事件发生时的登录账号快照',
+  `actor_name` varchar(100) DEFAULT NULL COMMENT '事件发生时的显示名称快照',
+  `subject_account` varchar(191) DEFAULT NULL COMMENT '匿名请求尝试操作的账号',
+  `subject_type` varchar(50) DEFAULT NULL COMMENT '被操作主体或资源类型',
+  `subject_id` varchar(100) DEFAULT NULL COMMENT '被操作主体或资源稳定标识',
   `type` tinyint NOT NULL COMMENT '执行结果：1-成功，2-失败',
   `event_type` varchar(30) NOT NULL COMMENT '事件分类：AUTHENTICATION、OPERATION、SECURITY',
   `module` varchar(100) NOT NULL COMMENT '业务模块',
@@ -183,6 +234,9 @@ CREATE TABLE `operate_log` (
   `is_delete` tinyint(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记：0-未删除，1-已删除',
   PRIMARY KEY (`id`),
   KEY `idx_operate_log_user_time` (`user_id`, `create_time`),
+  KEY `idx_operate_log_actor_account` (`actor_account`),
+  KEY `idx_operate_log_subject_account` (`subject_account`),
+  KEY `idx_operate_log_subject` (`subject_type`, `subject_id`),
   KEY `idx_operate_log_type_time` (`type`, `create_time`),
   KEY `idx_operate_log_event_type_time` (`event_type`, `create_time`),
   KEY `idx_operate_log_trace_id` (`trace_id`)
@@ -191,6 +245,12 @@ CREATE TABLE `operate_log` (
 CREATE TABLE `operate_admin_log` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '管理端审计日志主键',
   `user_id` bigint DEFAULT NULL COMMENT '操作管理员主键；匿名操作为空',
+  `actor_type` varchar(30) DEFAULT NULL COMMENT '事件发生时的主体类型快照',
+  `actor_account` varchar(191) DEFAULT NULL COMMENT '事件发生时的登录账号快照',
+  `actor_name` varchar(100) DEFAULT NULL COMMENT '事件发生时的显示名称快照',
+  `subject_account` varchar(191) DEFAULT NULL COMMENT '匿名请求尝试操作的账号',
+  `subject_type` varchar(50) DEFAULT NULL COMMENT '被操作主体或资源类型',
+  `subject_id` varchar(100) DEFAULT NULL COMMENT '被操作主体或资源稳定标识',
   `type` tinyint NOT NULL COMMENT '执行结果：1-成功，2-失败',
   `event_type` varchar(30) NOT NULL COMMENT '事件分类：AUTHENTICATION、OPERATION、SECURITY',
   `module` varchar(100) NOT NULL COMMENT '业务模块',
@@ -211,6 +271,9 @@ CREATE TABLE `operate_admin_log` (
   `is_delete` tinyint(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记：0-未删除，1-已删除',
   PRIMARY KEY (`id`),
   KEY `idx_operate_admin_log_user_time` (`user_id`, `create_time`),
+  KEY `idx_operate_admin_log_actor_account` (`actor_account`),
+  KEY `idx_operate_admin_log_subject_account` (`subject_account`),
+  KEY `idx_operate_admin_log_subject` (`subject_type`, `subject_id`),
   KEY `idx_operate_admin_log_type_time` (`type`, `create_time`),
   KEY `idx_operate_admin_log_event_type_time` (`event_type`, `create_time`),
   KEY `idx_operate_admin_log_trace_id` (`trace_id`)
@@ -229,18 +292,20 @@ INSERT INTO `rbac_permission`
 VALUES
   ('admin', 'admin:business-user:read', '查看业务用户', 'api', '允许管理端查询业务用户及其角色', 1, 0),
   ('admin', 'admin:business-user:role:write', '配置业务用户角色', 'api', '允许管理端替换业务用户的业务端角色', 1, 0),
+  ('admin', 'admin:business-user:write', '管理业务用户', 'api', '允许启停和注销业务用户', 1, 0),
+  ('admin', 'admin:admin-user:read', '查看管理员', 'api', '允许分页和查看管理员账号及角色', 1, 0),
+  ('admin', 'admin:admin-user:write', '管理管理员', 'api', '允许新增、修改、启停、删除管理员及配置角色', 1, 0),
   ('admin', 'admin:rbac:read', '查看权限配置', 'api', '允许查询管理端和业务端的角色、权限及菜单', 1, 0),
   ('admin', 'admin:rbac:write', '修改权限配置', 'api', '允许修改角色的权限和菜单关联', 1, 0),
-  ('admin', 'admin:audit-log:read', '查看管理端审计日志', 'api', '允许查询管理端操作审计日志', 1, 0),
-  ('business', 'business:audit-log:read', '查看业务端审计日志', 'api', '示例业务权限，允许查询业务端操作日志', 1, 0);
+  ('admin', 'admin:audit-log:read', '查看管理端审计日志', 'api', '允许查询管理端操作审计日志', 1, 0);
 
 INSERT INTO `rbac_menu`
   (`scope`, `parent_id`, `menu_code`, `menu_name`, `path`, `component`, `icon`, `sort`, `visible`, `status`, `is_delete`)
 VALUES
   ('admin', NULL, 'admin-business-users', '业务用户管理', '/business/users', 'business/UserIndex', 'user', 10, 1, 1, 0),
+  ('admin', NULL, 'admin-users', '管理员管理', '/system/admin-users', 'system/AdminUserIndex', 'admin', 15, 1, 1, 0),
   ('admin', NULL, 'admin-rbac', '权限管理', '/system/rbac', 'system/RbacIndex', 'lock', 20, 1, 1, 0),
-  ('admin', NULL, 'admin-audit-log', '管理端审计日志', '/audit/log', 'audit/LogIndex', 'document', 100, 1, 1, 0),
-  ('business', NULL, 'business-audit-log', '操作日志', '/audit/log', 'audit/LogIndex', 'document', 100, 1, 1, 0);
+  ('admin', NULL, 'admin-audit-log', '管理端审计日志', '/audit/log', 'audit/LogIndex', 'document', 100, 1, 1, 0);
 
 INSERT INTO `rbac_role_permission` (`scope`, `role_id`, `permission_id`)
 SELECT 'admin', r.id, p.id FROM `rbac_role` r JOIN `rbac_permission` p ON p.scope = 'admin'
@@ -249,11 +314,3 @@ WHERE r.scope = 'admin' AND r.code = 'admin:administrator';
 INSERT INTO `rbac_role_menu` (`scope`, `role_id`, `menu_id`)
 SELECT 'admin', r.id, m.id FROM `rbac_role` r JOIN `rbac_menu` m ON m.scope = 'admin'
 WHERE r.scope = 'admin' AND r.code = 'admin:administrator';
-
-INSERT INTO `rbac_role_permission` (`scope`, `role_id`, `permission_id`)
-SELECT 'business', r.id, p.id FROM `rbac_role` r JOIN `rbac_permission` p ON p.scope = 'business'
-WHERE r.scope = 'business' AND r.code = 'business:operator';
-
-INSERT INTO `rbac_role_menu` (`scope`, `role_id`, `menu_id`)
-SELECT 'business', r.id, m.id FROM `rbac_role` r JOIN `rbac_menu` m ON m.scope = 'business'
-WHERE r.scope = 'business' AND r.code = 'business:operator';

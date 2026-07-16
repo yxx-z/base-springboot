@@ -18,14 +18,12 @@ flyway_schema_history
 
 当前迁移：
 
-- `V1__init_shared_schema.sql`：初始化管理端账号、业务用户、统一 RBAC 和两端审计表。
-- `V2__add_audit_actor_snapshot.sql`：为两端审计表增加事件发生时的主体快照字段和索引。
-- `V3__strengthen_identity_and_rbac_constraints.sql`：加强用户身份、软删唯一性、RBAC 安全不变量和审计目标字段约束。
+- `V1__init_shared_schema.sql`：一次性建立管理端账号、业务用户、软删唯一约束、统一 RBAC、安全不变量和两端审计表的最终初始结构。
 
 迁移规范：
 
 - 已经发布或提交到共享分支的迁移文件禁止修改。
-- 后续变化必须新增更高版本，例如 `V4__add_order_schema.sql`。
+- 后续变化必须新增更高版本，例如 `V2__add_order_schema.sql`。
 - 表、字段必须提供中文 `COMMENT`。
 - 必须明确主键、唯一约束、外键、`CHECK` 约束和必要索引。
 - RBAC 关联必须保留 `scope` 复合外键，不能只依赖 Java 代码约定权限域。
