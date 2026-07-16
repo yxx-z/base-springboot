@@ -12,15 +12,32 @@
     <springProperty scope="context" name="TOTAL_SIZE_CAP"
                     source="logging.logback.rollingpolicy.total-size-cap" defaultValue="10GB"/>
 
-    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
-            <charset>UTF-8</charset>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [traceId:%X{Trace-Id:--}] %logger{50} - %msg%n</pattern>
-        </encoder>
-    </appender>
+    <!-- 开发环境使用彩色控制台日志，便于快速区分时间、级别、调用线程和日志来源。 -->
+    <springProfile name="dev">
+        <appender name="STDOUT_COLOR" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+                <charset>UTF-8</charset>
+                <pattern>%red(%d{yyyy-MM-dd HH:mm:ss.SSS}) %green([%thread]) %highlight(%-5level) [traceId:%X{Trace-Id:--}] %cyan(%logger{50}) - %magenta(%msg) %n</pattern>
+            </encoder>
+        </appender>
 
-    <!-- 开发、测试和一次性 bootstrap 任务只输出控制台，避免在不同工作目录生成重复日志。 -->
-    <springProfile name="!prod">
+        <root level="INFO">
+            <appender-ref ref="STDOUT_COLOR"/>
+        </root>
+    </springProfile>
+
+    <!-- 非开发环境共用无颜色控制台 appender，确保测试报告和生产采集日志保持纯文本。 -->
+    <springProfile name="!dev">
+        <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+                <charset>UTF-8</charset>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [traceId:%X{Trace-Id:--}] %logger{50} - %msg%n</pattern>
+            </encoder>
+        </appender>
+    </springProfile>
+
+    <!-- 测试和一次性 bootstrap 任务使用纯文本控制台，避免测试报告混入 ANSI 颜色码。 -->
+    <springProfile name="!dev &amp; !prod">
         <root level="INFO">
             <appender-ref ref="STDOUT"/>
         </root>

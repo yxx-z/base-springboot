@@ -1145,7 +1145,7 @@ public class OrderAuditEventListener {
 - 每个 HTTP 请求都会生成或继承合法的 `Trace-Id`，并通过响应头返回。
 - 请求结束后清理 ThreadLocal 和 MDC，防止容器线程复用导致串号。
 - 密码、Token、授权头、密钥和签名进入日志前统一脱敏。
-- dev、integration 和 bootstrap 等非生产 Profile 只输出控制台日志，避免测试或本地启动在不同工作目录生成多套日志文件。
+- dev、integration 和 bootstrap 等非生产 Profile 只输出控制台日志，避免测试或本地启动在不同工作目录生成多套日志文件；其中 dev 使用彩色格式，测试和 bootstrap 保持纯文本。
 - prod Profile 同时输出控制台和滚动文件；admin、business 分别使用 `admin.log`、`business.log`。
 - 生产环境应通过 `LOG_PATH` 指定独立于程序目录的绝对日志路径。默认 `./logs` 相对于 JVM 当前工作目录，不代表项目根目录。
 - Controller 访问日志默认关闭，可通过 `WEB_ACCESS_LOG_ENABLED=true` 开启。
