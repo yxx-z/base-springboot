@@ -20,6 +20,7 @@ public record AuditEvent(
         String requestUri,
         String httpMethod,
         String requestParams,
+        String subjectAccount,
         String traceId,
         Long durationMillis,
         String exceptionMessage) {

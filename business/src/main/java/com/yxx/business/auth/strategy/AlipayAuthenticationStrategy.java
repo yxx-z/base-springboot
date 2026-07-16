@@ -8,10 +8,6 @@ import com.yxx.business.auth.command.AlipayAuthenticationCommand;
 import com.yxx.business.auth.command.UserAuthenticationCommand;
 import com.yxx.business.auth.model.AuthenticatedUser;
 import com.yxx.business.model.entity.User;
-import com.yxx.business.model.entity.UserIdentity;
-import com.yxx.business.service.UserIdentityService;
-import com.yxx.business.service.UserRoleService;
-import com.yxx.business.service.UserService;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.exceptions.ApiException;
 import com.yxx.common.utils.ApiAssert;
@@ -19,7 +15,7 @@ import com.yxx.security.constant.LoginMode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.DataIntegrityViolationException;
 
 /**
  * 支付宝授权认证策略。
@@ -33,9 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AlipayAuthenticationStrategy implements UserAuthenticationStrategy {
 
     private final AlipayClient alipayClient;
-    private final UserIdentityService userIdentityService;
-    private final UserService userService;
-    private final UserRoleService userRoleService;
+    private final AlipayIdentityBindingService identityBindingService;
 
     @Override
     public String loginMode() {
@@ -43,35 +37,17 @@ public class AlipayAuthenticationStrategy implements UserAuthenticationStrategy 
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public AuthenticatedUser authenticate(UserAuthenticationCommand command) {
         ApiAssert.isTrue(ApiCode.PARAM_IS_INVALID, command instanceof AlipayAuthenticationCommand);
         String alipayUserId = exchangeUserId(((AlipayAuthenticationCommand) command).authCode());
-
-        UserIdentity existingIdentity = userIdentityService
-                .findIdentity(LoginMode.ALIPAY, alipayUserId)
-                .orElse(null);
-        if (existingIdentity != null) {
-            User existingUser = userService.getById(existingIdentity.getUserId());
-            ApiAssert.isTrue(ApiCode.USER_NOT_EXIST,
-                    existingUser != null && Boolean.TRUE.equals(existingUser.getStatus()));
-            return new AuthenticatedUser(existingUser, systemAccount(existingUser.getId()), loginMode());
+        User user;
+        try {
+            user = identityBindingService.bindOrLoad(alipayUserId);
+        } catch (DataIntegrityViolationException exception) {
+            // 两个首次登录请求可能同时通过存在性检查，唯一键会保证只有一个事务成功。
+            // 失败请求在原事务回滚后重新读取已完成的绑定，避免向客户端暴露数据库异常。
+            user = identityBindingService.loadBoundUser(alipayUserId);
         }
-
-        // 第三方平台首次登录时先创建系统主体，再绑定外部身份。后续业务数据始终关联 user.id。
-        User user = new User();
-        user.setDisplayName("支付宝用户");
-        user.setStatus(Boolean.TRUE);
-        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, userService.save(user));
-
-        UserIdentity identity = new UserIdentity();
-        identity.setUserId(user.getId());
-        identity.setIdentityType(LoginMode.ALIPAY);
-        identity.setIdentifier(alipayUserId);
-        identity.setVerified(Boolean.TRUE);
-        identity.setStatus(Boolean.TRUE);
-        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, userIdentityService.save(identity));
-        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, userRoleService.setDefaultRole(user));
         return new AuthenticatedUser(user, systemAccount(user.getId()), loginMode());
     }
 

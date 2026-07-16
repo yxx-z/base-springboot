@@ -5,7 +5,6 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import lombok.Data;
 
-import java.io.Serializable;
 
 /**
  * 用户端后端权限资源。
@@ -14,7 +13,7 @@ import java.io.Serializable;
  * 决定是否显示。</p>
  */
 @Data
-public class Permission implements Serializable {
+public class Permission {
 
     /** 权限主键。 */
     @TableId(type = IdType.AUTO)

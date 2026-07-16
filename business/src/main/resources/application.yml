@@ -15,6 +15,22 @@ spring:
 app:
   name: user
 
+# 密码策略可由具体部署覆盖；默认规则适用于基础框架，不把策略写死在 DTO 中。
+security:
+  password-policy:
+    min-length: ${SECURITY_PASSWORD_MIN_LENGTH:12}
+    max-bytes: ${SECURITY_PASSWORD_MAX_BYTES:72}
+    require-uppercase: ${SECURITY_PASSWORD_REQUIRE_UPPERCASE:true}
+    require-lowercase: ${SECURITY_PASSWORD_REQUIRE_LOWERCASE:true}
+    require-digit: ${SECURITY_PASSWORD_REQUIRE_DIGIT:true}
+    require-special-character: ${SECURITY_PASSWORD_REQUIRE_SPECIAL:false}
+    allow-whitespace: ${SECURITY_PASSWORD_ALLOW_WHITESPACE:false}
+
+# Controller 参数访问日志默认关闭；需要时显式开启，业务审计仍由 @AuditLog 独立控制。
+web:
+  access-log:
+    enabled: ${WEB_ACCESS_LOG_ENABLED:false}
+
 logging:
   file:
     path: ./logs

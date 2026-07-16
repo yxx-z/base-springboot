@@ -5,8 +5,8 @@
     <select id="authLogPage" resultType="com.yxx.admin.model.response.OperateLogResp">
         SELECT
             operate_admin_log.id,
-            admin_user.login_code,
-            admin_user.login_name,
+            COALESCE(operate_admin_log.subject_account, operate_admin_log.actor_account) AS login_code,
+            operate_admin_log.actor_name AS login_name,
             operate_admin_log.module,
             operate_admin_log.title,
             operate_admin_log.resource,
@@ -16,7 +16,6 @@
             operate_admin_log.create_time
         FROM
             operate_admin_log
-            LEFT JOIN admin_user ON operate_admin_log.user_id = admin_user.id
         <where>
             operate_admin_log.is_delete = 0
             AND operate_admin_log.event_type = 'AUTHENTICATION'
@@ -27,10 +26,11 @@
                 AND operate_admin_log.create_time &lt;= #{req.endTime}
             </if>
             <if test="req.loginCode != null and req.loginCode != ''">
-                AND admin_user.login_code LIKE CONCAT('%', #{req.loginCode}, '%')
+                AND COALESCE(operate_admin_log.subject_account, operate_admin_log.actor_account)
+                    LIKE CONCAT('%', #{req.loginCode}, '%')
             </if>
             <if test="req.loginName != null and req.loginName != ''">
-                AND admin_user.login_name LIKE CONCAT('%', #{req.loginName}, '%')
+                AND operate_admin_log.actor_name LIKE CONCAT('%', #{req.loginName}, '%')
             </if>
             <if test="req.title != null and req.title != ''">
                 AND operate_admin_log.title LIKE CONCAT('%', #{req.title}, '%')
@@ -42,8 +42,8 @@
     <select id="operationLogPage" resultType="com.yxx.admin.model.response.OperateLogResp">
         SELECT
             operate_admin_log.id,
-            admin_user.login_code,
-            admin_user.login_name,
+            COALESCE(operate_admin_log.subject_account, operate_admin_log.actor_account) AS login_code,
+            operate_admin_log.actor_name AS login_name,
             operate_admin_log.type,
             operate_admin_log.exception,
             operate_admin_log.module,
@@ -53,7 +53,6 @@
             operate_admin_log.create_time
         FROM
             operate_admin_log
-            LEFT JOIN admin_user ON operate_admin_log.user_id = admin_user.id
         <where>
             operate_admin_log.is_delete = 0
             AND operate_admin_log.event_type != 'AUTHENTICATION'
@@ -64,10 +63,11 @@
                 AND operate_admin_log.create_time &lt;= #{req.endTime}
             </if>
             <if test="req.loginCode != null and req.loginCode != ''">
-                AND admin_user.login_code LIKE CONCAT('%', #{req.loginCode}, '%')
+                AND COALESCE(operate_admin_log.subject_account, operate_admin_log.actor_account)
+                    LIKE CONCAT('%', #{req.loginCode}, '%')
             </if>
             <if test="req.loginName != null and req.loginName != ''">
-                AND admin_user.login_name LIKE CONCAT('%', #{req.loginName}, '%')
+                AND operate_admin_log.actor_name LIKE CONCAT('%', #{req.loginName}, '%')
             </if>
             <if test="req.title != null and req.title != ''">
                 AND operate_admin_log.title LIKE CONCAT('%', #{req.title}, '%')

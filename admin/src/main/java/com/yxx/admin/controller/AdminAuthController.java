@@ -9,7 +9,6 @@ import com.yxx.framework.audit.model.AuditEventType;
 import com.yxx.security.annotation.AllowAnonymous;
 import com.yxx.security.satoken.StpAdminUtil;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,7 +21,6 @@ import jakarta.validation.Valid;
  * @author yxx
  * @since 2023-05-17 10:02
  */
-@Slf4j
 @Validated
 @ResponseResult
 @RestController
@@ -40,7 +38,8 @@ public class AdminAuthController {
      */
     @AllowAnonymous
     @AuditLog(module = "鉴权模块", action = "管理员密码登录",
-            eventType = AuditEventType.AUTHENTICATION, recordRequest = false)
+            eventType = AuditEventType.AUTHENTICATION, recordRequest = false,
+            subjectField = "loginCode")
     @PostMapping("/login")
     public LoginRes login(@Valid @RequestBody LoginReq request) {
         return adminUserService.login(request);

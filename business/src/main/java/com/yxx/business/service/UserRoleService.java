@@ -18,7 +18,7 @@ public interface UserRoleService {
      * @return {@link Boolean }
      * @author yxx
      */
-    Boolean setDefaultRole(User user);
+    Boolean assignMemberRole(User user);
 
     /**
      * 替换用户角色并注销该用户全部会话，使旧授权快照立即失效。

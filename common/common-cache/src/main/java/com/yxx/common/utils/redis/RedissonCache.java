@@ -2,17 +2,13 @@ package com.yxx.common.utils.redis;
 
 import lombok.RequiredArgsConstructor;
 import org.redisson.api.RBucket;
-import org.redisson.api.RAtomicLong;
-import org.redisson.api.RList;
-import org.redisson.api.RLock;
-import org.redisson.api.RMapCache;
-import org.redisson.api.RScoredSortedSet;
-import org.redisson.api.RSet;
+import org.redisson.api.RScript;
 import org.redisson.api.RedissonClient;
 import org.redisson.client.codec.StringCodec;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -30,40 +26,46 @@ public class RedissonCache {
 
     private final RedissonClient redissonClient;
 
-    public <T> T get(String key) {
-        return this.<T>bucket(key).get();
-    }
-
-    public Boolean isExists(String key) {
-        return bucket(key).isExists();
-    }
-
-    public String getString(String key) {
-        return stringBucket(key).get();
-    }
-
-    public <T> void put(String key, T value) {
-        this.<T>bucket(key).set(value, Duration.ofSeconds(DEFAULT_EXPIRED_SECONDS));
-    }
-
-    public void putString(String key, String value) {
-        stringBucket(key).set(value, Duration.ofSeconds(DEFAULT_EXPIRED_SECONDS));
-    }
-
     public void putString(String key, String value, long expiredSeconds) {
         stringBucket(key).set(value, duration(expiredSeconds, TimeUnit.SECONDS));
-    }
-
-    public void putString(String key, String value, long expired, TimeUnit timeUnit) {
-        stringBucket(key).set(value, duration(expired, timeUnit));
     }
 
     public boolean putStringIfAbsent(String key, String value, long expiredSeconds) {
         return stringBucket(key).setIfAbsent(value, duration(expiredSeconds, TimeUnit.SECONDS));
     }
 
-    public boolean putStringIfAbsent(String key, String value) {
-        return stringBucket(key).setIfAbsent(value);
+    /**
+     * 仅当当前字符串值与 expected 一致时替换为 reservation，并保留原 TTL。
+     *
+     * @return -1-Key 不存在，0-值不匹配，1-预占成功
+     */
+    public long reserveStringIfEquals(String key, String expected, String reservation) {
+        String script = "local current = redis.call('get', KEYS[1]); "
+                + "if not current then return -1; end; "
+                + "if current ~= ARGV[1] then return 0; end; "
+                + "redis.call('set', KEYS[1], ARGV[2], 'KEEPTTL'); return 1;";
+        Number result = redissonClient.getScript(StringCodec.INSTANCE).eval(
+                RScript.Mode.READ_WRITE, script, RScript.ReturnType.INTEGER,
+                List.of(fullKey(key)), expected, reservation);
+        return result.longValue();
+    }
+
+    /** 仅当 Key 仍持有指定预占标记时删除。 */
+    public void deleteStringIfEquals(String key, String expected) {
+        String script = "if redis.call('get', KEYS[1]) == ARGV[1] then "
+                + "return redis.call('del', KEYS[1]); end; return 0;";
+        redissonClient.getScript(StringCodec.INSTANCE).eval(
+                RScript.Mode.READ_WRITE, script, RScript.ReturnType.INTEGER,
+                List.of(fullKey(key)), expected);
+    }
+
+    /** 事务回滚时仅在预占标记仍匹配的情况下恢复原值，并保留原 TTL。 */
+    public void restoreReservedString(String key, String reservation, String originalValue) {
+        String script = "if redis.call('get', KEYS[1]) == ARGV[1] then "
+                + "redis.call('set', KEYS[1], ARGV[2], 'KEEPTTL'); return 1; end; return 0;";
+        redissonClient.getScript(StringCodec.INSTANCE).eval(
+                RScript.Mode.READ_WRITE, script, RScript.ReturnType.INTEGER,
+                List.of(fullKey(key)), reservation, originalValue);
     }
 
     public <T> void put(String key, T value, long expiredSeconds) {
@@ -86,42 +88,67 @@ public class RedissonCache {
      * @return 递增后的计数值
      */
     public long increment(String key, long expiredSeconds) {
-        RAtomicLong counter = redissonClient.getAtomicLong(fullKey(key));
-        long value = counter.incrementAndGet();
-        if (value == 1L) {
-            counter.expire(duration(expiredSeconds, TimeUnit.SECONDS));
-        }
-        return value;
+        String script = "local value = redis.call('incr', KEYS[1]); "
+                + "if value == 1 then redis.call('expire', KEYS[1], ARGV[1]); end; "
+                + "return value;";
+        Number result = redissonClient.getScript(StringCodec.INSTANCE).eval(
+                RScript.Mode.READ_WRITE, script, RScript.ReturnType.INTEGER,
+                List.of(fullKey(key)), Math.max(1L, expiredSeconds));
+        return result.longValue();
     }
 
-    /** 原子减少计数器，用于业务执行失败时归还已预占的次数。 */
+    /**
+     * 原子归还一次计数。Key 不存在时不会重新创建；归还后小于等于 0 时直接删除，避免形成
+     * 没有 TTL 的永久负数计数器。
+     */
     public long decrement(String key) {
-        return redissonClient.getAtomicLong(fullKey(key)).decrementAndGet();
+        String script = "if redis.call('exists', KEYS[1]) == 0 then return 0; end; "
+                + "local value = redis.call('decr', KEYS[1]); "
+                + "if value <= 0 then redis.call('del', KEYS[1]); return 0; end; "
+                + "return value;";
+        Number result = redissonClient.getScript(StringCodec.INSTANCE).eval(
+                RScript.Mode.READ_WRITE, script, RScript.ReturnType.INTEGER,
+                List.of(fullKey(key)));
+        return result.longValue();
     }
 
-    /** 读取原子计数器当前值；计数器不存在时返回 0。 */
-    public long getCounterValue(String key) {
-        return redissonClient.getAtomicLong(fullKey(key)).get();
+    /**
+     * 同时按账号和 IP 原子预占一次登录尝试。只有两个维度都未达到阈值时才增加计数，避免
+     * 并发请求同时越过“先检查、后计数”的窗口。
+     */
+    public boolean reserveLoginAttempt(String accountKey,
+                                       long accountLimit,
+                                       String ipKey,
+                                       long ipLimit,
+                                       long expiredSeconds) {
+        String script = "local account = tonumber(redis.call('get', KEYS[1]) or '0'); "
+                + "local ip = tonumber(redis.call('get', KEYS[2]) or '0'); "
+                + "if account >= tonumber(ARGV[1]) or ip >= tonumber(ARGV[2]) then return 0; end; "
+                + "account = redis.call('incr', KEYS[1]); "
+                + "ip = redis.call('incr', KEYS[2]); "
+                + "if account == 1 then redis.call('expire', KEYS[1], ARGV[3]); end; "
+                + "if ip == 1 then redis.call('expire', KEYS[2], ARGV[3]); end; "
+                + "return 1;";
+        Number result = redissonClient.getScript(StringCodec.INSTANCE).eval(
+                RScript.Mode.READ_WRITE, script, RScript.ReturnType.INTEGER,
+                List.of(fullKey(accountKey), fullKey(ipKey)),
+                accountLimit, ipLimit, Math.max(1L, expiredSeconds));
+        return result.longValue() == 1L;
     }
 
-    public <T> RList<T> getRedisList(String key) {
-        return redissonClient.getList(fullKey(key));
-    }
-
-    public <K, V> RMapCache<K, V> getRedisMap(String key) {
-        return redissonClient.getMapCache(fullKey(key));
-    }
-
-    public <T> RSet<T> getRedisSet(String key) {
-        return redissonClient.getSet(fullKey(key));
-    }
-
-    public <T> RScoredSortedSet<T> getRedisScoredSortedSet(String key) {
-        return redissonClient.getScoredSortedSet(fullKey(key));
-    }
-
-    public RLock getRedisLock(String key) {
-        return redissonClient.getLock(fullKey(key));
+    /**
+     * 登录成功后清除账号失败次数，并只归还本次预占的 IP 次数。IP 上其他账号产生的失败
+     * 记录继续保留到统计窗口结束。
+     */
+    public void completeSuccessfulLoginAttempt(String accountKey, String ipKey) {
+        String script = "redis.call('del', KEYS[1]); "
+                + "if redis.call('exists', KEYS[2]) == 1 then "
+                + "local value = redis.call('decr', KEYS[2]); "
+                + "if value <= 0 then redis.call('del', KEYS[2]); end; end; "
+                + "return 1;";
+        redissonClient.getScript(StringCodec.INSTANCE).eval(
+                RScript.Mode.READ_WRITE, script, RScript.ReturnType.INTEGER,
+                List.of(fullKey(accountKey), fullKey(ipKey)));
     }
 
     private <T> RBucket<T> bucket(String key) {

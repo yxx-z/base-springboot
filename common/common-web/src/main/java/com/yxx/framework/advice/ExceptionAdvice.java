@@ -37,7 +37,8 @@ public class ExceptionAdvice {
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ErrorResponse> handleApiException(ApiException exception) {
         log.warn("业务处理失败，code={}，message={}", exception.getCode(), exception.getMessage());
-        return response(HttpStatus.BAD_REQUEST, ErrorResponse.fail(exception.getCode(), exception.getMessage()));
+        return response(ApiHttpStatusMapper.resolve(exception.getCode()),
+                ErrorResponse.fail(exception.getCode(), exception.getMessage()));
     }
 
     /**
@@ -154,4 +155,5 @@ public class ExceptionAdvice {
     private ResponseEntity<ErrorResponse> response(HttpStatus status, ErrorResponse body) {
         return ResponseEntity.status(status).body(body);
     }
+
 }

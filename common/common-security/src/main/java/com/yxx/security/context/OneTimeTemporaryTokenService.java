@@ -3,11 +3,16 @@ package com.yxx.security.context;
 import cn.dev33.satoken.temp.SaTempUtil;
 import com.yxx.common.utils.redis.RedissonCache;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Optional;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 
 /**
  * Sa-Token 临时令牌的一次性消费协调器。
@@ -17,6 +22,7 @@ import java.util.Optional;
  */
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class OneTimeTemporaryTokenService {
 
     private static final String RESERVATION_PREFIX = "security:temporary-token:reservation:";
@@ -38,7 +44,7 @@ public class OneTimeTemporaryTokenService {
 
         // 永久临时令牌也只给占位设置有限存活时间，避免进程异常退出后形成永久死锁。
         long reservationSeconds = timeout > 0 ? timeout : 15 * 60L;
-        String reservationKey = RESERVATION_PREFIX + token;
+        String reservationKey = RESERVATION_PREFIX + sha256(token);
         if (!redissonCache.putStringIfAbsent(reservationKey, "reserved", reservationSeconds)) {
             return Optional.empty();
         }
@@ -50,29 +56,57 @@ public class OneTimeTemporaryTokenService {
             redissonCache.remove(reservationKey);
             return Optional.empty();
         }
+        if (payload == null) {
+            redissonCache.remove(reservationKey);
+            return Optional.empty();
+        }
 
-        registerCompletion(token, reservationKey);
-        return Optional.ofNullable(payload);
+        registerCompletion(token, reservationKey, reservationSeconds);
+        return Optional.of(payload);
     }
 
-    private void registerCompletion(String token, String reservationKey) {
+    private void registerCompletion(String token, String reservationKey, long reservationSeconds) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || !TransactionSynchronizationManager.isSynchronizationActive()) {
-            SaTempUtil.deleteToken(token);
-            redissonCache.remove(reservationKey);
+            markConsumedAndDeleteToken(token, reservationKey, reservationSeconds);
             return;
         }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                SaTempUtil.deleteToken(token);
+                markConsumedAndDeleteToken(token, reservationKey, reservationSeconds);
             }
 
             @Override
             public void afterCompletion(int status) {
-                // 无论事务提交还是回滚都清理短期占位；提交时原始令牌已经在 afterCommit 中销毁。
-                redissonCache.remove(reservationKey);
+                // 只有事务回滚才释放占位。提交后即使删除原 Token 失败，也必须保留“已消费”
+                // 标记至原 Token 自然过期，防止同一个重置链接再次提交。
+                if (status != TransactionSynchronization.STATUS_COMMITTED) {
+                    redissonCache.remove(reservationKey);
+                }
             }
         });
+    }
+
+    private void markConsumedAndDeleteToken(String token,
+                                            String reservationKey,
+                                            long reservationSeconds) {
+        redissonCache.putString(reservationKey, "consumed", reservationSeconds);
+        try {
+            SaTempUtil.deleteToken(token);
+        } catch (RuntimeException exception) {
+            // reservation 已经阻止令牌再次消费。删除失败需要运维关注，但不能恢复消费资格。
+            log.error("删除已消费的临时令牌失败，tokenHash={}", sha256(token), exception);
+        }
+    }
+
+    private String sha256(String value) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("当前 Java 运行时不支持 SHA-256", exception);
+        }
     }
 }

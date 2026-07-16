@@ -5,7 +5,6 @@ import com.yxx.common.core.page.BasePageRequest;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-import java.io.Serializable;
 import java.util.Date;
 
 /**
@@ -14,7 +13,7 @@ import java.util.Date;
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class OperateLogReq extends BasePageRequest implements Serializable {
+public class OperateLogReq extends BasePageRequest {
 
     /**
      * 用户名

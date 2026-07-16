@@ -34,7 +34,11 @@ class BusinessApplicationTests {
 
     @Test
     void shouldProvideNonDestructiveBusinessMigration() throws IOException {
-        String resourceName = "db/migration/business/V1__init_business_schema.sql";
+        assertMigrationDoesNotContainDrop("db/migration/business/V1__init_business_schema.sql");
+        assertMigrationDoesNotContainDrop("db/migration/business/V2__add_audit_actor_snapshot.sql");
+    }
+
+    private void assertMigrationDoesNotContainDrop(String resourceName) throws IOException {
         try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(resourceName)) {
             assertNotNull(inputStream, "找不到迁移文件：" + resourceName);
             String sql = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);

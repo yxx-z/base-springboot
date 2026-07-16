@@ -1,26 +1,28 @@
 package com.yxx.business.service.impl;
 
-import cn.dev33.satoken.temp.SaTempUtil;
-import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yxx.business.mapper.UserMapper;
 import com.yxx.business.model.entity.User;
-import com.yxx.business.model.request.*;
 import com.yxx.business.model.entity.UserIdentity;
+import com.yxx.business.model.request.EditPwdReq;
+import com.yxx.business.model.request.RegisterCaptchaReq;
+import com.yxx.business.model.request.ResetPwdEmailReq;
+import com.yxx.business.model.request.ResetPwdReq;
+import com.yxx.business.model.request.UserRegisterReq;
 import com.yxx.business.service.UserRoleService;
 import com.yxx.business.service.UserIdentityService;
 import com.yxx.business.service.UserService;
-import com.yxx.common.constant.EmailSubjectConstant;
-import com.yxx.common.constant.RedisConstant;
+import com.yxx.common.constant.EmailSubject;
+import com.yxx.common.constant.RedisKeyPrefix;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.exceptions.ApiException;
 import com.yxx.common.properties.MailProperties;
 import com.yxx.common.properties.MyWebProperties;
-import com.yxx.common.properties.ResetPwdProperties;
 import com.yxx.common.utils.ApiAssert;
+import com.yxx.common.utils.AccountNormalizer;
 import com.yxx.common.utils.DateUtils;
 import com.yxx.common.utils.email.MailUtils;
 import com.yxx.common.utils.redis.RedissonCache;
@@ -29,14 +31,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 import com.yxx.security.constant.LoginMode;
 import com.yxx.security.constant.SecurityRealm;
 import com.yxx.security.context.LoginSessionService;
 import com.yxx.security.context.OneTimeTemporaryTokenService;
+import com.yxx.security.context.OneTimeVerificationCodeService;
 import com.yxx.security.context.SessionInvalidationService;
 import com.yxx.security.model.PasswordResetTokenPayload;
+import com.yxx.framework.security.PasswordResetMailService;
 
 /**
  * @author yxx
@@ -55,125 +58,136 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     private final OneTimeTemporaryTokenService oneTimeTemporaryTokenService;
 
+    private final OneTimeVerificationCodeService oneTimeVerificationCodeService;
+
     private final RedissonCache redissonCache;
 
     private final MailUtils mailUtils;
 
     private final MailProperties mailProperties;
 
-    private final ResetPwdProperties resetPwdProperties;
-
     private final MyWebProperties myWebProperties;
+
+    private final PasswordResetMailService passwordResetMailService;
 
     /**
      * 统一密码编码器，确保注册、登录、修改和重置密码采用同一套 BCrypt 策略。
      */
     private final PasswordEncoder passwordEncoder;
 
+    @Override
+    public User findById(Long userId) {
+        return getById(userId);
+    }
+
+    @Override
+    public boolean create(User user) {
+        return save(user);
+    }
+
+    @Override
+    public boolean updateLoginMetadata(Long userId, String agent, String ipHomePlace) {
+        return update(new LambdaUpdateWrapper<User>()
+                .eq(User::getId, userId)
+                .set(User::getAgent, agent)
+                .set(User::getIpHomePlace, ipHomePlace));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void changeStatus(Long userId, boolean enabled) {
+        ApiAssert.isTrue(ApiCode.USER_NOT_EXIST, findById(userId) != null);
+        boolean updated = update(new LambdaUpdateWrapper<User>()
+                .eq(User::getId, userId)
+                .set(User::getStatus, enabled));
+        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, updated);
+        if (!enabled) {
+            sessionInvalidationService.invalidateUserAfterCommit(userId);
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void delete(Long userId) {
+        ApiAssert.isTrue(ApiCode.USER_NOT_EXIST, findById(userId) != null);
+        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, removeById(userId));
+        sessionInvalidationService.invalidateUserAfterCommit(userId);
+    }
+
     @Transactional(rollbackFor = Exception.class)
     @Override
-    public Boolean register(UserRegisterReq req) {
-        // 判断该邮箱是否存在验证码
-        Boolean emailIsSend = redissonCache.isExists(RedisConstant.EMAIL_REGISTER + req.getEmail());
-        // 如果不存在，抛出提示
-        ApiAssert.isTrue(ApiCode.CAPTCHA_NOT_EXIST, emailIsSend);
-
-        // 获取验证码
-        String captcha = redissonCache.getString(RedisConstant.EMAIL_REGISTER + req.getEmail());
-        //对比用户传入的验证码是否正确
-        ApiAssert.isTrue(ApiCode.CAPTCHA_ERROR, req.getCaptcha().equals(captcha));
+    public void register(UserRegisterReq req) {
+        String loginCode = AccountNormalizer.normalizeLoginCode(req.getLoginCode());
+        String email = AccountNormalizer.normalizeEmail(req.getEmail());
+        String displayName = AccountNormalizer.normalizeDisplayName(req.getLoginName());
+        String phone = AccountNormalizer.normalizeMainlandPhone(req.getLinkPhone());
+        OneTimeVerificationCodeService.ReservationResult captchaResult =
+                oneTimeVerificationCodeService.reserve(
+                        RedisKeyPrefix.EMAIL_REGISTER + email, req.getCaptcha());
+        ApiAssert.isTrue(ApiCode.CAPTCHA_NOT_EXIST,
+                captchaResult != OneTimeVerificationCodeService.ReservationResult.NOT_FOUND);
+        ApiAssert.isTrue(ApiCode.CAPTCHA_ERROR,
+                captchaResult == OneTimeVerificationCodeService.ReservationResult.RESERVED);
 
         // 根据注册账号查询用户信息
         UserIdentity userByLoginCode = userIdentityService
-                .findIdentity(LoginMode.PASSWORD, req.getLoginCode())
+                .findAnyIdentity(LoginMode.PASSWORD, loginCode)
                 .orElse(null);
         // 根据注册邮箱号查询用户信息
-        User userByEmail = getUserByEmail(req.getEmail());
+        User userByEmail = getUserByEmail(email);
         // 如果存在该账号信息 表示用户已存在，抛出提示
         ApiAssert.isTrue(ApiCode.USER_EXIST,
-                ObjectUtil.isNull(userByLoginCode) && ObjectUtil.isNull(userByEmail));
+                userByLoginCode == null && userByEmail == null);
         // 对密码进行哈希
         String password = passwordEncoder.encode(req.getPassword());
 
 
         // 初始化用户类
         User user = new User();
-        user.setDisplayName(req.getLoginName());
-        user.setPhone(req.getLinkPhone());
-        user.setEmail(req.getEmail());
+        user.setDisplayName(displayName);
+        user.setPhone(phone);
+        user.setEmail(email);
         user.setStatus(Boolean.TRUE);
         // 插入
-        boolean saveResult = save(user);
+        boolean saveResult = create(user);
 
         // 密码只保存在登录身份表，用户主体不再与某一种认证方式绑定。
         UserIdentity passwordIdentity = new UserIdentity();
         passwordIdentity.setUserId(user.getId());
         passwordIdentity.setIdentityType(LoginMode.PASSWORD);
-        passwordIdentity.setIdentifier(req.getLoginCode());
+        passwordIdentity.setIdentifier(loginCode);
         passwordIdentity.setCredential(password);
         passwordIdentity.setVerified(Boolean.TRUE);
         passwordIdentity.setStatus(Boolean.TRUE);
-        boolean identityResult = userIdentityService.save(passwordIdentity);
+        boolean identityResult = userIdentityService.create(passwordIdentity);
 
         // 设置默认角色
-        Boolean result = userRoleService.setDefaultRole(user);
-
-        // 删除该邮箱注册验证码
-        redissonCache.remove(RedisConstant.EMAIL_REGISTER + req.getEmail());
+        Boolean result = userRoleService.assignMemberRole(user);
 
         // 校验操作结果
         if (!(saveResult && identityResult && result)) {
             throw new ApiException(ApiCode.SYSTEM_ERROR);
         }
 
-        return Boolean.TRUE;
     }
 
     @Override
-    public Boolean resetPwdEmail(ResetPwdEmailReq req) {
-        // 先确认邮箱对应用户，再通过 Redis 原子占位避免并发重复发送。
-        User user = getUserByEmail(req.getEmail());
+    public void resetPwdEmail(ResetPwdEmailReq req) {
+        String email = AccountNormalizer.normalizeEmail(req.getEmail());
+        User user = getUserByEmail(email);
         if (user == null) {
             // 找回密码接口始终返回成功，避免被用于枚举平台注册邮箱。
-            return Boolean.TRUE;
+            return;
         }
-        long tokenSeconds = TimeUnit.MINUTES.toSeconds(resetPwdProperties.getResetPwdTime());
-        String sendingKey = RedisConstant.USER_RESET_PWD_CONTENT + req.getEmail();
-        ApiAssert.isTrue(ApiCode.MAIL_EXIST,
-                redissonCache.putStringIfAbsent(sendingKey, "sending", tokenSeconds));
-
-        String countKey = RedisConstant.USER_RESET_PWD_NUM + req.getEmail();
-        long count = redissonCache.increment(countKey, DateUtils.theRestOfTheDaySecond());
-        if (count > resetPwdProperties.getMaxNumber()) {
-            redissonCache.decrement(countKey);
-            redissonCache.remove(sendingKey);
-            throw new ApiException(ApiCode.RESET_PWD_MAX);
-        }
-
-        try {
-            PasswordResetTokenPayload payload = new PasswordResetTokenPayload(
-                    SecurityRealm.USER, user.getId(), user.getEmail());
-            String token = SaTempUtil.createToken(payload, tokenSeconds);
-            String resetPassHref = resetPwdProperties.getBasePath() + "?token=" + token;
-            String emailContent = resetPwdProperties.getResetPwdContent().replace("{url}", resetPassHref)
-                    .replace("{time}", String.valueOf(resetPwdProperties.getResetPwdTime()))
-                    .replace("{domain}", myWebProperties.getDomain())
-                    .replace("{formName}", mailProperties.getFromName())
-                    .replace("{form}", mailProperties.getFrom());
-            mailUtils.baseSendMail(req.getEmail(), EmailSubjectConstant.RESET_PWD, emailContent, true);
-            redissonCache.putString(sendingKey, token, tokenSeconds);
-            return Boolean.TRUE;
-        } catch (RuntimeException exception) {
-            // 邮件发送失败时归还频次并释放占位，允许用户重试。
-            redissonCache.decrement(countKey);
-            redissonCache.remove(sendingKey);
-            throw exception;
-        }
+        passwordResetMailService.send(
+                SecurityRealm.USER, user.getId(), email,
+                RedisKeyPrefix.USER_RESET_PASSWORD_TOKEN,
+                RedisKeyPrefix.USER_RESET_PASSWORD_COUNT);
     }
 
     @Transactional(rollbackFor = Exception.class)
     @Override
-    public Boolean resetPwd(ResetPwdReq req) {
+    public void resetPwd(ResetPwdReq req) {
         // 原子取得一次性令牌消费权，避免同一个重置链接被并发使用。
         PasswordResetTokenPayload payload = oneTimeTemporaryTokenService
                 .reserve(req.getToken(), PasswordResetTokenPayload.class)
@@ -181,9 +195,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .orElse(null);
         ApiAssert.isTrue(ApiCode.RESET_PWD_TOKEN_ERROR, payload != null);
         // 通过令牌绑定的内部 ID 查询，避免邮箱变化或跨安全域令牌造成误操作。
-        User user = getById(payload.subjectId());
+        User user = findById(payload.subjectId());
         ApiAssert.isTrue(ApiCode.USER_NOT_EXIST,
-                ObjectUtil.isNotNull(user) && payload.email().equals(user.getEmail()));
+                user != null && payload.email().equals(user.getEmail()));
 
         // 使用统一 BCrypt 编码器生成新密码，避免重置密码后无法通过登录校验。
         String password = passwordEncoder.encode(req.getNewPassword());
@@ -192,25 +206,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .findByUserId(user.getId(), LoginMode.PASSWORD)
                 .orElse(null);
         ApiAssert.isTrue(ApiCode.USER_NOT_EXIST, passwordIdentity != null);
-        boolean updated = userIdentityService.update(new LambdaUpdateWrapper<UserIdentity>()
-                .eq(UserIdentity::getId, passwordIdentity.getId())
-                .set(UserIdentity::getCredential, password));
+        boolean updated = userIdentityService.updateCredential(passwordIdentity.getId(), password);
         ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, updated);
 
         // 凭据变更只有在事务成功提交后才注销旧会话。
         sessionInvalidationService.invalidateUserAfterCommit(user.getId());
-        return Boolean.TRUE;
     }
 
     @Override
     public User getUserByEmail(String email) {
-        // 根据邮箱号获取用户信息
-        return getOne(new LambdaUpdateWrapper<User>().eq(User::getEmail, email));
+        return getOne(new LambdaQueryWrapper<User>()
+                .eq(User::getEmail, AccountNormalizer.normalizeEmail(email)));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Boolean editPwd(EditPwdReq req) {
+    public void editPwd(EditPwdReq req) {
         // 根据登录id 获取该用户详情
         Long userId = loginSessionService.currentUser()
                 .map(com.yxx.security.model.LoginPrincipal::getSubjectId)
@@ -227,28 +238,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 新密码继续使用统一 BCrypt 策略保存。
         String newPassword = passwordEncoder.encode(req.getNewPassword());
         // 根据用户id修改新密码
-        boolean updated = userIdentityService.update(new LambdaUpdateWrapper<UserIdentity>()
-                .eq(UserIdentity::getId, passwordIdentity.getId())
-                .set(UserIdentity::getCredential, newPassword));
+        boolean updated = userIdentityService.updateCredential(passwordIdentity.getId(), newPassword);
         ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, updated);
         sessionInvalidationService.invalidateUserAfterCommit(userId);
-        return Boolean.TRUE;
     }
 
     @Override
-    public Boolean sendRegisterCaptcha(RegisterCaptchaReq req) {
+    public void sendRegisterCaptcha(RegisterCaptchaReq req) {
+        String email = AccountNormalizer.normalizeEmail(req.getEmail());
         // 判断该邮箱是否注册过
-        User userByEmail = getUserByEmail(req.getEmail());
+        User userByEmail = getUserByEmail(email);
         // 如果注册过，抛出提示
-        ApiAssert.isTrue(ApiCode.EMAIL_EXIST, ObjectUtil.isNull(userByEmail));
+        ApiAssert.isTrue(ApiCode.EMAIL_EXIST, userByEmail == null);
         // 原子占用发送窗口；并发请求中只有一个请求可以真正发送邮件。
-        String captchaKey = RedisConstant.EMAIL_REGISTER + req.getEmail();
+        String captchaKey = RedisKeyPrefix.EMAIL_REGISTER + email;
         long captchaSeconds = TimeUnit.MINUTES.toSeconds(mailProperties.getRegisterTime());
         ApiAssert.isTrue(ApiCode.MAIL_EXIST,
                 redissonCache.putStringIfAbsent(captchaKey, "sending", captchaSeconds));
 
-        String countKey = RedisConstant.EMAIL_REGISTER_NUM + req.getEmail();
-        long count = redissonCache.increment(countKey, DateUtils.theRestOfTheDaySecond());
+        String countKey = RedisKeyPrefix.EMAIL_REGISTER_NUM + email;
+        long count = redissonCache.increment(countKey, DateUtils.secondsUntilNextDay());
         if (count > mailProperties.getRegisterMax()) {
             redissonCache.decrement(countKey);
             redissonCache.remove(captchaKey);
@@ -266,9 +275,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .replace("{form}", mailProperties.getFrom());
 
         try {
-            mailUtils.baseSendMail(req.getEmail(), EmailSubjectConstant.REGISTER_SUBJECT, resultText, true);
+            mailUtils.baseSendMail(email, EmailSubject.REGISTER, resultText, true);
             redissonCache.putString(captchaKey, String.valueOf(random), captchaSeconds);
-            return Boolean.TRUE;
+            return;
         } catch (RuntimeException exception) {
             redissonCache.decrement(countKey);
             redissonCache.remove(captchaKey);

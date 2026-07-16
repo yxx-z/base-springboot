@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import lombok.Data;
 
-import java.io.Serializable;
 
 /**
  * 用户登录身份。
@@ -13,7 +12,7 @@ import java.io.Serializable;
  * 凭证只保存在身份表中，业务表统一使用 {@code userId} 关联系统用户。</p>
  */
 @Data
-public class UserIdentity implements Serializable {
+public class UserIdentity {
 
     /** 身份记录主键。 */
     @TableId(type = IdType.AUTO)

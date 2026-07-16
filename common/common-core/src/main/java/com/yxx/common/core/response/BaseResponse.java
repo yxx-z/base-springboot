@@ -4,8 +4,6 @@ import com.yxx.common.enums.ApiCode;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.io.Serial;
-import java.io.Serializable;
 
 /**
  * 统一 API 响应。
@@ -13,10 +11,7 @@ import java.io.Serializable;
  * @param <T> 响应数据类型
  */
 @Getter
-public class BaseResponse<T> implements Serializable {
-
-    @Serial
-    private static final long serialVersionUID = 1L;
+public class BaseResponse<T> {
 
     /** 业务状态码。 */
     private Integer code;

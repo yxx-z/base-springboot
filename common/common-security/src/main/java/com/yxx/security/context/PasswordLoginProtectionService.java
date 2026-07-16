@@ -28,24 +28,24 @@ public class PasswordLoginProtectionService {
     private final RedissonCache redissonCache;
     private final LoginProtectionProperties properties;
 
-    /** 在执行密码校验前检查当前账号和 IP 是否仍允许尝试。 */
-    public void checkAllowed(String realm, String account, String ip) {
-        if (redissonCache.getCounterValue(accountKey(realm, account)) >= properties.getAccountMaxFailures()
-                || redissonCache.getCounterValue(ipKey(realm, ip)) >= properties.getIpMaxFailures()) {
+    /**
+     * 在执行密码校验前原子预占一次尝试。认证失败时保留计数，认证成功时必须调用
+     * {@link #recordSuccess(String, String, String)} 归还本次预占并清除账号失败记录。
+     */
+    public void reserveAttempt(String realm, String account, String ip) {
+        long windowSeconds = Math.max(1L, properties.getWindow().toSeconds());
+        boolean reserved = redissonCache.reserveLoginAttempt(
+                accountKey(realm, account), properties.getAccountMaxFailures(),
+                ipKey(realm, ip), properties.getIpMaxFailures(), windowSeconds);
+        if (!reserved) {
             throw new ApiException(ApiCode.LOGIN_TOO_FREQUENT);
         }
     }
 
-    /** 密码认证失败后原子增加账号和 IP 两个维度的计数。 */
-    public void recordFailure(String realm, String account, String ip) {
-        long windowSeconds = Math.max(1L, properties.getWindow().toSeconds());
-        redissonCache.increment(accountKey(realm, account), windowSeconds);
-        redissonCache.increment(ipKey(realm, ip), windowSeconds);
-    }
-
     /** 密码认证成功后清除当前账号的失败记录，IP 总体失败记录保留至窗口自然过期。 */
-    public void recordSuccess(String realm, String account) {
-        redissonCache.remove(accountKey(realm, account));
+    public void recordSuccess(String realm, String account, String ip) {
+        redissonCache.completeSuccessfulLoginAttempt(
+                accountKey(realm, account), ipKey(realm, ip));
     }
 
     private String accountKey(String realm, String account) {

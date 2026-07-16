@@ -27,6 +27,7 @@ public class SaTokenCurrentActorProvider implements CurrentActorProvider {
 
     private CurrentActor toActor(LoginPrincipal principal) {
         return new CurrentActor(
-                principal.getSubjectId(), principal.getSubjectType(), principal.getDisplayName());
+                principal.getSubjectId(), principal.getSubjectType(),
+                principal.getAccount(), principal.getDisplayName());
     }
 }

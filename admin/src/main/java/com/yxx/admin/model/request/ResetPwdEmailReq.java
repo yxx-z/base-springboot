@@ -1,9 +1,9 @@
 package com.yxx.admin.model.request;
 
-import lombok.Data;
-
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.Data;
 
 /**
  * 获取重置密码邮件请求参数
@@ -16,6 +16,7 @@ import jakarta.validation.constraints.Pattern;
 public class ResetPwdEmailReq {
 
     @NotBlank(message = "邮箱不能为空")
-    @Pattern(regexp = "^[A-Za-z0-9]+([_.][A-Za-z0-9]+)*@((qq|163|gmail|88|email)+\\.)+[A-Za-z]{2,6}$", message = "请输入正确邮箱号,目前仅支持 qq邮箱、163邮箱、谷歌邮箱等常用邮箱")
+    @Email(message = "请输入正确的邮箱地址")
+    @Size(max = 100, message = "邮箱长度不能超过100位")
     private String email;
 }

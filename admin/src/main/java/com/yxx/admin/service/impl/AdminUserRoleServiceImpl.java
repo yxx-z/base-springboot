@@ -1,9 +1,9 @@
 package com.yxx.admin.service.impl;
 
-import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yxx.admin.mapper.AdminUserRoleMapper;
+import com.yxx.admin.mapper.AdminUserMapper;
 import com.yxx.admin.model.entity.AdminRole;
 import com.yxx.admin.model.entity.AdminUser;
 import com.yxx.admin.model.entity.AdminUserRole;
@@ -31,35 +31,42 @@ public class AdminUserRoleServiceImpl extends ServiceImpl<AdminUserRoleMapper, A
 
     private final SessionInvalidationService sessionInvalidationService;
 
-    @Override
-    public Boolean setDefaultRole(AdminUser user) {
-        // 根据角色code 获取角色详情
-        AdminRole adminRole = adminRoleService.getOne(
-                new LambdaQueryWrapper<AdminRole>()
-                        .eq(AdminRole::getCode, AdminSecurityCodes.ROLE_ADMINISTRATOR));
-        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, ObjectUtil.isNotNull(adminRole));
-        // 初始化用户角色实体类
-        AdminUserRole adminUserRole = new AdminUserRole();
-        // 设置用户id
-        adminUserRole.setUserId(user.getId());
-        // 设置角色id
-        adminUserRole.setRoleId(adminRole.getId());
-        // 保存
-        return save(adminUserRole);
-    }
+    private final AdminUserMapper adminUserMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void replaceRoles(Long userId, Collection<Integer> roleIds) {
+        AdminUser targetUser = adminUserMapper.selectById(userId);
+        ApiAssert.isTrue(ApiCode.USER_NOT_EXIST, targetUser != null);
+        List<Integer> distinctRoleIds = roleIds == null
+                ? List.of()
+                : roleIds.stream().distinct().toList();
+        ApiAssert.isTrue(ApiCode.PARAM_IS_INVALID,
+                adminRoleService.findByIds(distinctRoleIds).size() == distinctRoleIds.size());
+
+        // 禁止移除系统中最后一个超级管理员，避免管理端进入无法恢复的无最高权限状态。
+        AdminRole superAdminRole = adminRoleService.findByCode(AdminSecurityCodes.ROLE_SUPER_ADMIN)
+                .orElse(null);
+        ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, superAdminRole != null);
+        boolean targetIsSuperAdmin = count(new LambdaQueryWrapper<AdminUserRole>()
+                .eq(AdminUserRole::getUserId, userId)
+                .eq(AdminUserRole::getRoleId, superAdminRole.getId())) > 0;
+        boolean keepsSuperAdminRole = distinctRoleIds.contains(superAdminRole.getId());
+        if (targetIsSuperAdmin && Boolean.TRUE.equals(targetUser.getStatus()) && !keepsSuperAdminRole) {
+            long superAdminCount = adminUserMapper.countActiveUsersByRoleCode(
+                    AdminSecurityCodes.ROLE_SUPER_ADMIN);
+            ApiAssert.isTrue(ApiCode.LAST_SUPER_ADMIN, superAdminCount > 1);
+        }
+
         remove(new LambdaQueryWrapper<AdminUserRole>().eq(AdminUserRole::getUserId, userId));
-        if (roleIds != null && !roleIds.isEmpty()) {
-            List<AdminUserRole> relations = roleIds.stream().distinct().map(roleId -> {
+        if (!distinctRoleIds.isEmpty()) {
+            List<AdminUserRole> relations = distinctRoleIds.stream().map(roleId -> {
                 AdminUserRole relation = new AdminUserRole();
                 relation.setUserId(userId);
                 relation.setRoleId(roleId);
                 return relation;
             }).toList();
-            saveBatch(relations);
+            ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, saveBatch(relations));
         }
         sessionInvalidationService.invalidateAdminAfterCommit(userId);
     }

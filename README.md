@@ -24,7 +24,7 @@ base-springboot
 │   ├── common-mail       邮件发送和邮件配置
 │   ├── common-data       MyBatis-Plus 和审计字段填充
 │   ├── common-audit      审计注解、事件和切面
-│   └── common-framework  基础设施聚合入口和异步执行器
+│   └── common-framework  基础设施聚合入口、跨安全域协调器和异步执行器
 ├── business              用户端业务及支付宝 OAuth 登录
 ├── admin                 管理端业务
 └── db                    数据库迁移说明
@@ -40,7 +40,7 @@ admin / business -> common-framework -> 各职责模块 -> common-core
 
 - `common-core` 不允许依赖具体业务模块。
 - `common-core` 不依赖 Spring Web、MyBatis、Redis、邮件和第三方平台 SDK。
-- `common-framework` 只作为基础设施聚合入口，不承载用户、订单、支付等业务规则。
+- `common-framework` 只承载跨模块基础设施协调，不承载用户、订单、支付等领域规则。
 - 支付宝等业务专属 SDK 只能由 `business` 声明，不能进入管理端运行时依赖。
 - 基础框架只提供支付宝 OAuth 登录，不内置脱离订单领域的支付、退款或支付回调示例。
 - 启动模块只声明自己实际需要的依赖，版本统一由根 POM 管理。
@@ -94,25 +94,46 @@ export CORS_ALLOWED_ORIGIN_PATTERN=https://your-frontend.example.com
 - Token 使用 Redis 有状态 Session；用户端最长 7 天、空闲 2 小时，管理端最长 8 小时、空闲 30 分钟。
 - 权限查询必须根据 `loginType` 读取对应 Session。
 - 注册、登录、修改密码和重置密码统一使用 BCrypt。
+- 登录账号和邮箱在查询、缓存 Key 生成和持久化前统一规范化；第三方身份保持平台原始标识。
+- 新密码由 `security.password-policy` 配置长度、BCrypt 字节上限和复杂度，默认最少 12 位且最多 72 个 UTF-8 字节。
 - `@AllowAnonymous` 可标注在 Controller 类或方法上，其他接口默认要求登录。
 - 用户端采用“系统用户主体 + 多登录身份”模型，密码、支付宝等策略最终统一映射到内部用户 ID。
 - 登录身份必须同时满足 `status=true` 和 `verified=true`。
 - 登录时生成角色和权限快照；角色或权限变更后必须注销受影响账号的全部会话。
+- 超级管理员角色属于内置安全角色，拥有权限通配符和全部有效菜单，禁止修改其权限或菜单关联。
+- 系统始终至少保留一个启用的超级管理员，停用、删除或移除最后一个超级管理员角色会被拒绝。
 
 ### TraceId 与日志
 
 - 每个 HTTP 请求都会生成或继承合法的 `Trace-Id`，并通过响应头返回。
 - 请求结束后强制清理 ThreadLocal 和 MDC，防止容器线程复用导致串号。
 - 请求参数进入日志前统一脱敏；密码、Token、授权头、密钥和签名不得明文记录。
-- 访问日志不打印完整响应对象，避免敏感信息和大对象进入日志平台。
+- Controller 访问日志默认关闭，可通过 `WEB_ACCESS_LOG_ENABLED=true` 开启；业务审计由显式 `@AuditLog` 控制。
+- 审计日志保存事件发生时的主体类型、账号和名称快照，历史查询不依赖当前用户表。
+- 失败登录只记录尝试登录的账号，不记录密码、验证码或 Token。
 
 ### 数据与缓存
 
 - 分页大小上限为 200，MyBatis-Plus 同时在拦截器层执行最终限制。
+- Controller 统一返回框架自己的 `PageResponse<T>`，不暴露 MyBatis-Plus 分页类型。
 - 禁止无条件全表更新和删除。
 - business 和 admin 分别维护 Flyway 迁移与历史表，可以使用独立数据库，也可在过渡期共享数据库。
 - Redis 连接由 Starter 统一管理，业务代码不得自行创建第二套 RedissonClient。
 - Redis JSON 多态反序列化仅允许项目类型及必要 JDK 类型。
+- 登录失败次数通过 Redis Lua 原子预占，账号和 IP 两个维度不会在并发下越过限制。
+- 一次性密码重置 Token 使用摘要作为 Redis Key，事务提交后保留已消费标记至原 Token 过期。
+
+### 导航菜单
+
+- 用户端和管理端分别维护独立菜单和角色菜单表。
+- `status=false` 表示菜单不可用；`visible=false` 只表示不在导航中展示。
+- 可见子菜单位于隐藏父菜单下时，会提升到最近的可见祖先；不存在可见祖先时提升为根节点。
+- 菜单树使用公共纯 Java 构建器生成，不修改 MyBatis 持久化实体。
+
+### 接口路径
+
+- 接口路径统一使用 kebab-case，例如 `/send-captcha`、`/reset-password` 和 `/change-password`。
+- 当前工程处于架构阶段，不保留旧 camelCase 路径兼容入口。
 
 ### 异步任务
 

@@ -16,10 +16,10 @@ public class AuditEventLoggingListener {
 
     @EventListener
     public void logEvent(AuditEvent event) {
-        log.info("操作审计 eventType={} module={} action={} actorId={} actorType={} resultType={} durationMs={} traceId={}",
+        log.info("操作审计 eventType={} module={} action={} actorId={} actorType={} subjectAccount={} resultType={} durationMs={} traceId={}",
                 event.eventType(), event.module(), event.action(),
                 event.actor() == null ? null : event.actor().actorId(),
                 event.actor() == null ? null : event.actor().actorType(),
-                event.type(), event.durationMillis(), event.traceId());
+                event.subjectAccount(), event.type(), event.durationMillis(), event.traceId());
     }
 }

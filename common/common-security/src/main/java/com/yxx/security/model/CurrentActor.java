@@ -8,7 +8,8 @@ package com.yxx.security.model;
  *
  * @param actorId    操作人内部稳定标识
  * @param actorType  操作人类型
+ * @param actorAccount 事件发生时的登录账号快照
  * @param actorName  操作人显示名称
  */
-public record CurrentActor(Long actorId, String actorType, String actorName) {
+public record CurrentActor(Long actorId, String actorType, String actorAccount, String actorName) {
 }

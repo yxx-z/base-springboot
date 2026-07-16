@@ -32,4 +32,10 @@ public @interface AuditLog {
 
     /** 是否记录经过脱敏的请求参数。登录、重置密码等敏感接口应关闭。 */
     boolean recordRequest() default true;
+
+    /**
+     * 匿名请求中作为审计对象账号的请求属性名，例如登录请求的 loginCode。只提取该字段，
+     * 不会记录密码、验证码或 Token。
+     */
+    String subjectField() default "";
 }

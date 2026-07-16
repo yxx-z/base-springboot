@@ -1,7 +1,5 @@
 package com.yxx.admin.service;
 
-import com.yxx.admin.model.entity.AdminUser;
-
 import java.util.Collection;
 import java.util.List;
 
@@ -10,15 +8,6 @@ import java.util.List;
  * @since 2023-05-17 10:00
  */
 public interface AdminUserRoleService {
-
-    /**
-     * 设置默认角色: 用户
-     *
-     * @param user 用户信息
-     * @return {@link Boolean }
-     * @author yxx
-     */
-    Boolean setDefaultRole(AdminUser user);
 
     /**
      * 替换管理员角色并注销其全部会话，使旧权限快照立即失效。

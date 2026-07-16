@@ -4,23 +4,23 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yxx.business.mapper.RoleMenuMapper;
 import com.yxx.business.model.entity.Menu;
-import com.yxx.business.model.entity.Role;
 import com.yxx.business.model.entity.RoleMenu;
 import com.yxx.business.service.MenuService;
 import com.yxx.business.service.RoleMenuService;
 import com.yxx.business.service.RoleService;
 import com.yxx.business.model.response.MenuRes;
-import com.yxx.common.utils.TreeUtil;
+import com.yxx.common.enums.ApiCode;
+import com.yxx.common.utils.ApiAssert;
+import com.yxx.common.utils.NavigationTreeBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * @author yxx
@@ -37,11 +37,7 @@ public class RoleMenuServiceImpl extends ServiceImpl<RoleMenuMapper, RoleMenu> i
         if (roleCodes == null || roleCodes.isEmpty()) {
             return List.of();
         }
-        List<Integer> roleIds = roleService.list(new LambdaQueryWrapper<Role>()
-                        .in(Role::getCode, roleCodes))
-                .stream()
-                .map(Role::getId)
-                .toList();
+        List<Integer> roleIds = roleService.findIdsByCodes(roleCodes);
         if (roleIds.isEmpty()) {
             return List.of();
         }
@@ -55,51 +51,44 @@ public class RoleMenuServiceImpl extends ServiceImpl<RoleMenuMapper, RoleMenu> i
             return List.of();
         }
 
-        // 先加载全部有效菜单，再补齐被授权菜单的所有祖先，避免子菜单因父节点未直接授权而丢失。
-        List<Menu> availableMenus = menuService.list(new LambdaQueryWrapper<Menu>()
-                .eq(Menu::getStatus, Boolean.TRUE)
-                .eq(Menu::getVisible, Boolean.TRUE));
-        Map<Integer, Menu> menuIndex = new HashMap<>();
-        availableMenus.forEach(menu -> menuIndex.put(menu.getId(), menu));
-        Set<Integer> visibleIds = new HashSet<>();
-        for (Integer menuId : selectedMenuIds) {
-            addMenuAndAncestors(menuId, menuIndex, visibleIds);
-        }
-
-        List<Menu> visibleMenus = availableMenus.stream()
-                .filter(menu -> visibleIds.contains(menu.getId()))
-                .toList();
-        List<Menu> tree = TreeUtil.buildAscTree(
-                visibleMenus, Menu::getParentId, Menu::getId, Menu::setChildren, null, Menu::getSort);
-        return tree.stream().map(this::toResponse).toList();
+        return NavigationTreeBuilder.build(
+                menuService.findEnabledMenus(), selectedMenuIds,
+                Menu::getId, Menu::getParentId,
+                menu -> Boolean.TRUE.equals(menu.getVisible()),
+                menu -> menu.getSort() == null ? 0 : menu.getSort(),
+                this::toResponse);
     }
 
-    private void addMenuAndAncestors(Integer menuId, Map<Integer, Menu> menuIndex, Set<Integer> visibleIds) {
-        Integer currentId = menuId;
-        Set<Integer> path = new HashSet<>();
-        while (currentId != null && path.add(currentId)) {
-            Menu menu = menuIndex.get(currentId);
-            if (menu == null) {
-                return;
-            }
-            visibleIds.add(currentId);
-            currentId = menu.getParentId();
-        }
-        if (currentId != null) {
-            throw new IllegalStateException("菜单数据存在循环父子关系，menuId=" + menuId);
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void replaceMenus(Integer roleId, Collection<Integer> menuIds) {
+        ApiAssert.isTrue(ApiCode.PARAM_IS_INVALID, roleService.findByIds(List.of(roleId)).size() == 1);
+        Set<Integer> distinctMenuIds = menuIds == null
+                ? Set.of()
+                : new HashSet<>(menuIds);
+        ApiAssert.isTrue(ApiCode.PARAM_IS_INVALID,
+                menuService.findEnabledByIds(distinctMenuIds).size() == distinctMenuIds.size());
+
+        remove(new LambdaQueryWrapper<RoleMenu>().eq(RoleMenu::getRoleId, roleId));
+        if (!distinctMenuIds.isEmpty()) {
+            List<RoleMenu> relations = distinctMenuIds.stream().map(menuId -> {
+                RoleMenu relation = new RoleMenu();
+                relation.setRoleId(roleId);
+                relation.setMenuId(menuId);
+                return relation;
+            }).toList();
+            ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, saveBatch(relations));
         }
     }
 
-    private MenuRes toResponse(Menu menu) {
+    private MenuRes toResponse(Menu menu, List<MenuRes> children) {
         MenuRes response = new MenuRes();
         response.setCode(menu.getMenuCode());
         response.setName(menu.getMenuName());
         response.setPath(menu.getPath());
         response.setComponent(menu.getComponent());
         response.setIcon(menu.getIcon());
-        response.setChildren(menu.getChildren() == null
-                ? List.of()
-                : menu.getChildren().stream().map(this::toResponse).toList());
+        response.setChildren(children);
         return response;
     }
 }

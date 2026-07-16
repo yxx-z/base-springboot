@@ -42,7 +42,7 @@ public class UserAuthorizationService {
             return new AuthorizationSnapshot(Collections.emptySet(), Collections.emptySet());
         }
 
-        Set<String> roles = roleService.listByIds(roleIds).stream()
+        Set<String> roles = roleService.findByIds(roleIds).stream()
                 .map(Role::getCode)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
 
@@ -51,7 +51,7 @@ public class UserAuthorizationService {
             return new AuthorizationSnapshot(roles, Collections.emptySet());
         }
 
-        Set<String> permissions = permissionService.listByIds(permissionIds).stream()
+        Set<String> permissions = permissionService.findActiveByIds(permissionIds).stream()
                 .filter(permission -> Boolean.TRUE.equals(permission.getStatus()))
                 .map(Permission::getCode)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));

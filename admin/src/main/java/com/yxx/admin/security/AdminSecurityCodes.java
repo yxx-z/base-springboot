@@ -11,6 +11,9 @@ public final class AdminSecurityCodes {
     /** 超级管理员角色。 */
     public static final String ROLE_SUPER_ADMIN = "admin:super-admin";
 
+    /** Sa-Token 识别的全部权限通配符，仅授予内置超级管理员角色。 */
+    public static final String PERMISSION_ALL = "*";
+
     /** 查看管理端操作审计日志。 */
     public static final String PERMISSION_AUDIT_LOG_READ = "audit:log:read";
 

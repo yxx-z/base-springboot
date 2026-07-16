@@ -1,10 +1,13 @@
 package com.yxx.admin.model.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
-import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
@@ -12,7 +15,7 @@ import java.time.LocalDateTime;
  * @since 2023-05-17 09:35
  */
 @Data
-public class AdminRole implements Serializable {
+public class AdminRole {
     /**
      * id
      */

@@ -1,6 +1,5 @@
 package com.yxx.business.service;
 
-import com.baomidou.mybatisplus.extension.service.IService;
 import com.yxx.business.model.entity.UserIdentity;
 
 import java.util.Optional;
@@ -8,16 +7,22 @@ import java.util.Optional;
 /**
  * 用户登录身份服务。
  */
-public interface UserIdentityService extends IService<UserIdentity> {
+public interface UserIdentityService {
+
+    /** 创建登录身份。 */
+    boolean create(UserIdentity identity);
+
+    /** 更新密码身份的凭据摘要。 */
+    boolean updateCredential(Long identityId, String encodedCredential);
 
     /**
-     * 按身份类型和唯一标识查找登录身份。
+     * 按身份类型和唯一标识查找任意状态的登录身份，用于区分“身份不存在”和“身份不可用”。
      *
      * @param identityType 身份类型
      * @param identifier   唯一标识
      * @return 登录身份
      */
-    Optional<UserIdentity> findIdentity(String identityType, String identifier);
+    Optional<UserIdentity> findAnyIdentity(String identityType, String identifier);
 
     /**
      * 查找用户绑定的指定类型身份。

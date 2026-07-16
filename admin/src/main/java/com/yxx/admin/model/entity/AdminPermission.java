@@ -5,11 +5,10 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import lombok.Data;
 
-import java.io.Serializable;
 
 /** 管理端后端权限资源。 */
 @Data
-public class AdminPermission implements Serializable {
+public class AdminPermission {
 
     /** 权限主键。 */
     @TableId(type = IdType.AUTO)

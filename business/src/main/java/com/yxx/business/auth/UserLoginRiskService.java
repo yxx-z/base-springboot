@@ -1,30 +1,17 @@
 package com.yxx.business.auth;
 
-import cn.hutool.core.date.DatePattern;
-import cn.hutool.core.date.LocalDateTimeUtil;
-import cn.hutool.core.text.CharSequenceUtil;
 import com.yxx.business.model.entity.User;
 import com.yxx.business.service.UserService;
-import com.yxx.common.constant.EmailSubjectConstant;
-import com.yxx.common.constant.RedisConstant;
-import com.yxx.common.properties.IpProperties;
-import com.yxx.common.properties.MailProperties;
-import com.yxx.common.properties.MyWebProperties;
-import com.yxx.common.utils.DateUtils;
 import com.yxx.common.utils.ServletUtils;
 import com.yxx.common.utils.agent.UserAgentUtil;
-import com.yxx.common.utils.email.MailUtils;
-import com.yxx.common.utils.ip.AddressUtil;
 import com.yxx.common.utils.ip.ClientIpResolver;
-import com.yxx.common.utils.ip.IpUtil;
-import com.yxx.common.utils.redis.RedissonCache;
+import com.yxx.framework.security.LoginRiskNotificationService;
+import com.yxx.security.constant.SecurityRealm;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -40,13 +27,8 @@ import java.util.concurrent.Executor;
 public class UserLoginRiskService {
 
     private final UserService userService;
-    private final IpProperties ipProperties;
-    private final RedissonCache redissonCache;
-    private final MailUtils mailUtils;
-    private final MailProperties mailProperties;
-    private final MyWebProperties webProperties;
     private final ClientIpResolver clientIpResolver;
-    private final AddressUtil addressUtil;
+    private final LoginRiskNotificationService loginRiskNotificationService;
 
     @Qualifier("applicationTaskExecutor")
     private final Executor applicationTaskExecutor;
@@ -59,53 +41,25 @@ public class UserLoginRiskService {
     public void handleSuccessfulLogin(User user) {
         String rawAgent = ServletUtils.getRequest().getHeader("user-agent");
         String agent = UserAgentUtil.getAgent(rawAgent);
-        if (!Boolean.TRUE.equals(ipProperties.getCheck())) {
-            user.setAgent(agent);
-            userService.updateById(user);
-            return;
-        }
-
         String requestIp = clientIpResolver.resolve(ServletUtils.getRequest());
-        String ipRegion = addressUtil.getIpHomePlace(requestIp, 2);
-        User previousSnapshot = new User();
-        BeanUtils.copyProperties(user, previousSnapshot);
-
         CompletableFuture.runAsync(
-                () -> checkRemoteLogin(previousSnapshot, ipRegion, requestIp, agent),
-                applicationTaskExecutor);
-        user.setAgent(agent);
-        user.setIpHomePlace(ipRegion);
-        userService.updateById(user);
+                        () -> updateMetadataAndCheckRisk(user, requestIp, agent),
+                        applicationTaskExecutor)
+                .exceptionally(exception -> {
+                    // 登录元数据和安全提醒属于辅助链路，失败不能使已经通过的认证失效。
+                    log.error("处理用户登录风险信息失败，userId={}", user.getId(), exception);
+                    return null;
+                });
     }
 
-    private void checkRemoteLogin(User user, String currentRegion, String requestIp, String currentAgent) {
-        if (!IpUtil.isValidIPv4(requestIp)) {
-            return;
+    private void updateMetadataAndCheckRisk(User user, String requestIp, String agent) {
+        String ipRegion = loginRiskNotificationService.process(
+                SecurityRealm.USER, user.getId(), user.getEmail(),
+                user.getAgent(), user.getIpHomePlace(), requestIp, agent);
+        boolean updated = userService.updateLoginMetadata(user.getId(), agent, ipRegion);
+        if (!updated) {
+            log.warn("用户登录元数据未更新，userId={}", user.getId());
         }
-        if (redissonCache.exists(RedisConstant.IP_UNUSUAL_LOGIN + user.getId())) {
-            return;
-        }
-        boolean deviceChanged = CharSequenceUtil.isNotBlank(user.getAgent())
-                && !user.getAgent().equals(currentAgent);
-        boolean regionChanged = CharSequenceUtil.isNotBlank(user.getIpHomePlace())
-                && !user.getIpHomePlace().equals(currentRegion);
-        if (!deviceChanged || !regionChanged || CharSequenceUtil.isBlank(user.getEmail())) {
-            return;
-        }
-
-        String unusualAddress = addressUtil.getIpHomePlace(requestIp, 3);
-        String time = LocalDateTimeUtil.format(LocalDateTime.now(), DatePattern.NORM_DATETIME_PATTERN);
-        String content = mailProperties.getIpUnusualContent()
-                .replace("{time}", time)
-                .replace("{ip}", requestIp)
-                .replace("{address}", unusualAddress)
-                .replace("{agent}", currentAgent)
-                .replace("{domain}", webProperties.getDomain())
-                .replace("{formName}", mailProperties.getFromName())
-                .replace("{form}", mailProperties.getFrom());
-        mailUtils.baseSendMail(user.getEmail(), EmailSubjectConstant.IP_UNUSUAL, content, true);
-        redissonCache.put(
-                RedisConstant.IP_UNUSUAL_LOGIN + user.getId(), Boolean.TRUE,
-                DateUtils.theRestOfTheDaySecond());
     }
+
 }

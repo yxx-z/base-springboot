@@ -11,7 +11,6 @@ import com.yxx.security.annotation.AllowAnonymous;
 import com.yxx.security.constant.LoginDeviceType;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,7 +24,6 @@ import org.springframework.web.bind.annotation.RestController;
  * @classname AliAuthController
  * @since 2023-09-14 11:13
  */
-@Slf4j
 @Validated
 @ResponseResult
 @RestController

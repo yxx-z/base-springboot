@@ -1,6 +1,8 @@
 package com.yxx.admin.bootstrap;
 
 import com.yxx.framework.config.security.PasswordConfig;
+import com.yxx.security.properties.PasswordPolicyProperties;
+import com.yxx.security.validation.PasswordPolicyChecker;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -18,7 +20,7 @@ import org.springframework.context.annotation.Import;
 @EnableAutoConfiguration
 @ComponentScan(basePackageClasses = AdminBootstrapRunner.class)
 @MapperScan("com.yxx.admin.mapper")
-@EnableConfigurationProperties(AdminBootstrapProperties.class)
-@Import(PasswordConfig.class)
+@EnableConfigurationProperties({AdminBootstrapProperties.class, PasswordPolicyProperties.class})
+@Import({PasswordConfig.class, PasswordPolicyChecker.class})
 public class AdminBootstrapConfiguration {
 }

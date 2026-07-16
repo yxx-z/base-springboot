@@ -10,6 +10,7 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
 import org.springframework.stereotype.Component;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 /**
  * HTTP 访问日志与业务操作审计切面。
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Component;
 @Aspect
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(prefix = "web.access-log", name = "enabled", havingValue = "true")
 public class LogAspect {
 
     private final SensitiveDataSanitizer sanitizer;

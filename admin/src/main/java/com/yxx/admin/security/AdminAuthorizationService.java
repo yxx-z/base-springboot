@@ -38,14 +38,18 @@ public class AdminAuthorizationService {
             return new Snapshot(Collections.emptySet(), Collections.emptySet());
         }
 
-        Set<String> roles = roleService.listByIds(roleIds).stream()
+        Set<String> roles = roleService.findByIds(roleIds).stream()
                 .map(AdminRole::getCode)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        if (roles.contains(AdminSecurityCodes.ROLE_SUPER_ADMIN)) {
+            // 超级管理员权限由内置安全不变量保证，不依赖可被误修改的角色权限关联数据。
+            return new Snapshot(roles, Set.of(AdminSecurityCodes.PERMISSION_ALL));
+        }
         List<Integer> permissionIds = rolePermissionService.listPermissionIdsByRoleIds(roleIds);
         if (permissionIds.isEmpty()) {
             return new Snapshot(roles, Collections.emptySet());
         }
-        Set<String> permissions = permissionService.listByIds(permissionIds).stream()
+        Set<String> permissions = permissionService.findActiveByIds(permissionIds).stream()
                 .filter(permission -> Boolean.TRUE.equals(permission.getStatus()))
                 .map(AdminPermission::getCode)
                 .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));

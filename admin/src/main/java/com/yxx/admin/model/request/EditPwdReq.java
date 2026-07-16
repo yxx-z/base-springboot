@@ -1,9 +1,8 @@
 package com.yxx.admin.model.request;
 
-import lombok.Data;
-import org.hibernate.validator.constraints.Length;
-
+import com.yxx.security.validation.Password;
 import jakarta.validation.constraints.NotBlank;
+import lombok.Data;
 
 /**
  * 修改密码请求参数
@@ -18,13 +17,13 @@ public class EditPwdReq {
      * 旧密码
      */
     @NotBlank(message = "旧密码不能为空")
-    @Length(min = 8, max = 20, message = "旧密码的长度应为8-20位")
+    @Password(enforcePolicy = false, message = "旧密码长度超过系统限制")
     private String password;
 
     /**
      * 新密码
      */
     @NotBlank(message = "新密码不能为空")
-    @Length(min = 8, max = 20, message = "新密码的长度应为8-20位")
+    @Password
     private String newPassword;
 }

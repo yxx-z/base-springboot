@@ -1,17 +1,17 @@
 package com.yxx.admin.model.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import lombok.Data;
 
-import java.io.Serializable;
-import java.util.List;
 
 /**
  * @author yxx
  * @since 2023-05-18 14:46
  */
 @Data
-public class AdminMenu implements Serializable {
+public class AdminMenu {
     /**
      * 主键
      */
@@ -58,9 +58,4 @@ public class AdminMenu implements Serializable {
     @TableLogic
     private Boolean isDelete;
 
-    /**
-     * 子菜单集合
-     */
-    @TableField(exist = false)
-    private List<AdminMenu> children;
 }

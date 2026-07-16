@@ -45,6 +45,7 @@ class AdminApplicationTests {
     @Test
     void shouldProvideNonDestructiveAdminMigration() throws IOException {
         assertMigrationDoesNotContainDrop("db/migration/admin/V1__init_admin_schema.sql");
+        assertMigrationDoesNotContainDrop("db/migration/admin/V2__add_audit_actor_snapshot.sql");
     }
 
     private void assertValidYaml(String resourceName) throws IOException {

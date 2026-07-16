@@ -1,10 +1,12 @@
 package com.yxx.business.model.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
-import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
@@ -12,7 +14,7 @@ import java.time.LocalDateTime;
  * @since 2023-05-17 09:38
  */
 @Data
-public class UserRole implements Serializable {
+public class UserRole {
     /**
      * id
      */

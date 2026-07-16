@@ -53,6 +53,14 @@ public enum ApiCode {
 
     LOGIN_TOO_FREQUENT(2012, "登录失败次数过多，请稍后再试"),
 
+    IDENTITY_DISABLED(2013, "登录身份已停用"),
+
+    IDENTITY_NOT_VERIFIED(2014, "登录身份尚未完成验证"),
+
+    LAST_SUPER_ADMIN(2015, "系统必须至少保留一个可用的超级管理员"),
+
+    BUILT_IN_ROLE_IMMUTABLE(2016, "内置安全角色不允许修改"),
+
     /**
      * 找回密码
      */

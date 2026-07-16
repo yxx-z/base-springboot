@@ -1,6 +1,7 @@
 package com.yxx.business.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yxx.business.mapper.UserIdentityMapper;
 import com.yxx.business.model.entity.UserIdentity;
@@ -17,12 +18,22 @@ public class UserIdentityServiceImpl extends ServiceImpl<UserIdentityMapper, Use
         implements UserIdentityService {
 
     @Override
-    public Optional<UserIdentity> findIdentity(String identityType, String identifier) {
+    public boolean create(UserIdentity identity) {
+        return save(identity);
+    }
+
+    @Override
+    public boolean updateCredential(Long identityId, String encodedCredential) {
+        return update(new LambdaUpdateWrapper<UserIdentity>()
+                .eq(UserIdentity::getId, identityId)
+                .set(UserIdentity::getCredential, encodedCredential));
+    }
+
+    @Override
+    public Optional<UserIdentity> findAnyIdentity(String identityType, String identifier) {
         return Optional.ofNullable(getOne(new LambdaQueryWrapper<UserIdentity>()
                 .eq(UserIdentity::getIdentityType, identityType)
-                .eq(UserIdentity::getIdentifier, identifier)
-                .eq(UserIdentity::getVerified, Boolean.TRUE)
-                .eq(UserIdentity::getStatus, Boolean.TRUE)));
+                .eq(UserIdentity::getIdentifier, identifier)));
     }
 
     @Override

@@ -22,6 +22,18 @@ public class OperateAdminLog {
     /** 操作管理员主键；匿名操作为空。 */
     private Long userId;
 
+    /** 事件发生时的主体类型快照。 */
+    private String actorType;
+
+    /** 事件发生时的登录账号快照。 */
+    private String actorAccount;
+
+    /** 事件发生时的显示名称快照。 */
+    private String actorName;
+
+    /** 匿名认证请求尝试操作的账号。 */
+    private String subjectAccount;
+
     /** 执行结果：1-成功，2-失败。 */
     private Integer type;
 

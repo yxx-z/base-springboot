@@ -1,14 +1,13 @@
 package com.yxx.business.controller;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yxx.business.model.request.OperateLogReq;
 import com.yxx.business.model.response.OperateLogResp;
 import com.yxx.business.service.OperateLogService;
 import com.yxx.business.security.UserSecurityCodes;
 import com.yxx.common.annotation.response.ResponseResult;
+import com.yxx.common.core.page.PageResponse;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,7 +21,6 @@ import jakarta.validation.Valid;
  * 用户端审计日志查询接口，访问者必须具备审计日志读取权限。
  * @since 2023-05-17 15:39
  */
-@Slf4j
 @Validated
 @ResponseResult
 @RestController
@@ -40,7 +38,7 @@ public class OperateLogController {
      * @author yxx
      */
     @PostMapping("/auth")
-    public Page<OperateLogResp> authLogPage(@Valid @RequestBody OperateLogReq req) {
+    public PageResponse<OperateLogResp> authLogPage(@Valid @RequestBody OperateLogReq req) {
         return operateLogService.authLogPage(req);
     }
 
@@ -52,7 +50,7 @@ public class OperateLogController {
      * @author yxx
      */
     @PostMapping("/operation")
-    public Page<OperateLogResp> operationLogPage(@Valid @RequestBody OperateLogReq req) {
+    public PageResponse<OperateLogResp> operationLogPage(@Valid @RequestBody OperateLogReq req) {
         return operateLogService.operationLogPage(req);
     }
 }

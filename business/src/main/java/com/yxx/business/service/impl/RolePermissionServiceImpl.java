@@ -5,6 +5,10 @@ import com.yxx.business.mapper.RolePermissionMapper;
 import com.yxx.business.model.entity.RolePermission;
 import com.yxx.business.service.RolePermissionService;
 import com.yxx.business.service.UserRoleService;
+import com.yxx.business.service.PermissionService;
+import com.yxx.business.service.RoleService;
+import com.yxx.common.enums.ApiCode;
+import com.yxx.common.utils.ApiAssert;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yxx.security.context.SessionInvalidationService;
 import lombok.RequiredArgsConstructor;
@@ -23,18 +27,29 @@ public class RolePermissionServiceImpl extends ServiceImpl<RolePermissionMapper,
     private final UserRoleService userRoleService;
     private final SessionInvalidationService sessionInvalidationService;
 
+    private final RoleService roleService;
+
+    private final PermissionService permissionService;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void replacePermissions(Integer roleId, Collection<Integer> permissionIds) {
+        ApiAssert.isTrue(ApiCode.PARAM_IS_INVALID, roleService.findByIds(List.of(roleId)).size() == 1);
+        List<Integer> distinctPermissionIds = permissionIds == null
+                ? List.of()
+                : permissionIds.stream().distinct().toList();
+        ApiAssert.isTrue(ApiCode.PARAM_IS_INVALID,
+                permissionService.findActiveByIds(distinctPermissionIds).size()
+                        == distinctPermissionIds.size());
         remove(new LambdaQueryWrapper<RolePermission>().eq(RolePermission::getRoleId, roleId));
-        if (permissionIds != null && !permissionIds.isEmpty()) {
-            List<RolePermission> relations = permissionIds.stream().distinct().map(permissionId -> {
+        if (!distinctPermissionIds.isEmpty()) {
+            List<RolePermission> relations = distinctPermissionIds.stream().map(permissionId -> {
                 RolePermission relation = new RolePermission();
                 relation.setRoleId(roleId);
                 relation.setPermissionId(permissionId);
                 return relation;
             }).toList();
-            saveBatch(relations);
+            ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, saveBatch(relations));
         }
 
         // 采用权限快照模式时，角色权限变更必须使持有该角色的在线用户重新登录。

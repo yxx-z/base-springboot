@@ -16,3 +16,8 @@ V3__add_admin_lock_status.sql
 ```
 
 当前项目没有历史生产数据，首次使用应创建空数据库后直接启动应用，由 Flyway 自动完成初始化。
+
+当前增量迁移：
+
+- `business/V2__add_audit_actor_snapshot.sql`：增加用户端审计主体快照字段和索引。
+- `admin/V2__add_audit_actor_snapshot.sql`：增加管理端审计主体快照字段和索引。

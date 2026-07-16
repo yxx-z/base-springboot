@@ -13,8 +13,6 @@ import java.time.LocalDateTime;
 @Data
 @EqualsAndHashCode(callSuper = false)
 public class OperateLogResp {
-    private static final long serialVersionUID = -6160374035388312821L;
-
     /**
      * 主键ID
      */

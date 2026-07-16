@@ -8,6 +8,8 @@ import com.yxx.admin.model.entity.AdminRole;
 import com.yxx.admin.model.entity.AdminUser;
 import com.yxx.admin.model.entity.AdminUserRole;
 import com.yxx.admin.security.AdminSecurityCodes;
+import com.yxx.common.utils.AccountNormalizer;
+import com.yxx.security.validation.PasswordPolicyChecker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
@@ -37,6 +39,7 @@ public class AdminBootstrapRunner implements ApplicationRunner {
     private final AdminRoleMapper adminRoleMapper;
     private final AdminUserRoleMapper adminUserRoleMapper;
     private final PasswordEncoder passwordEncoder;
+    private final PasswordPolicyChecker passwordPolicyChecker;
     private final ConfigurableApplicationContext applicationContext;
 
     @Override
@@ -55,9 +58,9 @@ public class AdminBootstrapRunner implements ApplicationRunner {
 
         LocalDateTime now = LocalDateTime.now();
         AdminUser admin = new AdminUser();
-        admin.setLoginCode(properties.getLoginCode().trim());
-        admin.setLoginName(properties.getLoginName().trim());
-        admin.setEmail(properties.getEmail().trim());
+        admin.setLoginCode(AccountNormalizer.normalizeLoginCode(properties.getLoginCode()));
+        admin.setLoginName(AccountNormalizer.normalizeDisplayName(properties.getLoginName()));
+        admin.setEmail(AccountNormalizer.normalizeEmail(properties.getEmail()));
         admin.setPassword(passwordEncoder.encode(properties.getPassword()));
         admin.setStatus(Boolean.TRUE);
         admin.setIsDelete(Boolean.FALSE);
@@ -95,8 +98,8 @@ public class AdminBootstrapRunner implements ApplicationRunner {
         requireText(properties.getLoginName(), "bootstrap.admin.login-name");
         requireText(properties.getEmail(), "bootstrap.admin.email");
         requireText(properties.getPassword(), "bootstrap.admin.password");
-        if (properties.getPassword().length() < 12) {
-            throw new IllegalArgumentException("初始管理员临时密码长度不能少于12位");
+        if (!passwordPolicyChecker.isValid(properties.getPassword(), true)) {
+            throw new IllegalArgumentException("初始管理员临时密码不符合系统密码策略");
         }
     }
 

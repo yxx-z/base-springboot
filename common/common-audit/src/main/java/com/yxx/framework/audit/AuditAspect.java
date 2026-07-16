@@ -18,6 +18,7 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.BeanWrapperImpl;
 
 /**
  * 声明式操作审计切面。
@@ -59,7 +60,8 @@ public class AuditAspect {
                         ? actorSnapshot
                         : currentActorProvider.currentActor().orElse(null);
                 auditEventPublisher.publish(createEvent(
-                        request, eventActor, auditLog, type, startNanos, exceptionMessage));
+                        request, point.getArgs(), eventActor, auditLog,
+                        type, startNanos, exceptionMessage));
             } catch (RuntimeException publishException) {
                 // 审计失败不能覆盖业务方法原本的成功或异常语义。
                 log.error("发布操作审计事件失败，module={}，action={}",
@@ -69,6 +71,7 @@ public class AuditAspect {
     }
 
     private AuditEvent createEvent(HttpServletRequest request,
+                                   Object[] arguments,
                                    CurrentActor actor,
                                    AuditLog auditLog,
                                    LogTypeEnum type,
@@ -94,8 +97,30 @@ public class AuditAspect {
                 request.getRequestURI(),
                 request.getMethod(),
                 params,
+                resolveSubjectAccount(arguments, auditLog.subjectField()),
                 AppContext.getTraceId(),
                 (System.nanoTime() - startNanos) / 1_000_000L,
                 exceptionMessage);
+    }
+
+    /**
+     * 从请求对象中只提取明确声明的账号字段。该方法不会序列化完整参数，适用于失败登录等
+     * 尚未建立 CurrentActor、同时又不能记录密码的安全审计场景。
+     */
+    private String resolveSubjectAccount(Object[] arguments, String subjectField) {
+        if (subjectField == null || subjectField.isBlank() || arguments == null) {
+            return null;
+        }
+        for (Object argument : arguments) {
+            if (argument == null) {
+                continue;
+            }
+            BeanWrapperImpl wrapper = new BeanWrapperImpl(argument);
+            if (wrapper.isReadableProperty(subjectField)) {
+                Object value = wrapper.getPropertyValue(subjectField);
+                return value == null ? null : sanitizer.sanitizeText(String.valueOf(value));
+            }
+        }
+        return null;
     }
 }

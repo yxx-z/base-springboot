@@ -4,14 +4,13 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import lombok.Data;
 
-import java.io.Serializable;
 
 /**
  * @author yxx
  * @since 2022-11-12 13:38
  */
 @Data
-public class User extends BaseEntity implements Serializable{
+public class User extends BaseEntity {
     /**
      * 用户id
      */
