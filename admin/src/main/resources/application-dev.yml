@@ -1,6 +1,4 @@
 spring:
-  application:
-    name: admin
   config:
     activate:
       on-profile: dev

@@ -2,6 +2,8 @@ server:
   port: 6059
 
 spring:
+  application:
+    name: business
   profiles:
     # 默认使用开发环境；生产部署必须通过 SPRING_PROFILES_ACTIVE 显式覆盖。
     active: ${SPRING_PROFILES_ACTIVE:dev}
@@ -48,8 +50,8 @@ web:
 
 logging:
   file:
-    path: ./logs
-    name: business
+    # 生产环境应通过 LOG_PATH 配置独立于程序目录的绝对路径。
+    path: ${LOG_PATH:./logs}
   level:
     # 默认不记录 SQL 参数；开发环境可在 application-dev.yml 中临时开启 DEBUG。
     com.yxx.business.mapper: info

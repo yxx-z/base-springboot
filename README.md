@@ -1145,6 +1145,9 @@ public class OrderAuditEventListener {
 - 每个 HTTP 请求都会生成或继承合法的 `Trace-Id`，并通过响应头返回。
 - 请求结束后清理 ThreadLocal 和 MDC，防止容器线程复用导致串号。
 - 密码、Token、授权头、密钥和签名进入日志前统一脱敏。
+- dev、integration 和 bootstrap 等非生产 Profile 只输出控制台日志，避免测试或本地启动在不同工作目录生成多套日志文件。
+- prod Profile 同时输出控制台和滚动文件；admin、business 分别使用 `admin.log`、`business.log`。
+- 生产环境应通过 `LOG_PATH` 指定独立于程序目录的绝对日志路径。默认 `./logs` 相对于 JVM 当前工作目录，不代表项目根目录。
 - Controller 访问日志默认关闭，可通过 `WEB_ACCESS_LOG_ENABLED=true` 开启。
 - 业务审计由显式 `@AuditLog` 控制，与访问日志开关相互独立。
 - 审计日志保存事件发生时的主体快照，历史查询不依赖当前用户资料。
@@ -1190,7 +1193,7 @@ public class OrderAuditEventListener {
 - 配置准确的 CORS 来源、可信代理地址、前端密码重置页面 URL 和站点域名。
 - 对外流量使用 HTTPS；SMTP 按服务商要求开启 TLS，不通过明文网络传输认证信息。
 - bootstrap 只在首个管理员初始化期间启用，执行完成后使用正常生产 Profile 启动。
-- 配置日志采集、磁盘容量和敏感字段检查，并为会话失效耗尽、邮件失败、审计失败建立告警。
+- 通过 `LOG_PATH` 配置绝对日志目录，并配置日志采集、磁盘容量和敏感字段检查；为会话失效耗尽、邮件失败、审计失败建立告警。
 - 执行 `./mvnw clean verify`，并使用生产等价配置完成启动与关键登录流程冒烟验证。
 
 ## 数据库迁移规范

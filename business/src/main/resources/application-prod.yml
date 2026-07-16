@@ -1,6 +1,4 @@
 spring:
-  application:
-    name: business
   config:
     activate:
       on-profile: prod

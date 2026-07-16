@@ -1,29 +1,51 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration debug="false">
-    <springProperty scope="context" name="APP_NAME" source="logging.file.name"/>
-    <springProperty scope="context" name="LOG_HOME" source="logging.file.path"/>
+    <!-- 应用名与日志目录均从 Spring Environment 读取，避免把 logging.file.name 误作应用标识。 -->
+    <springProperty scope="context" name="APP_NAME"
+                    source="spring.application.name" defaultValue="business"/>
+    <springProperty scope="context" name="LOG_HOME"
+                    source="logging.file.path" defaultValue="./logs"/>
+    <springProperty scope="context" name="MAX_FILE_SIZE"
+                    source="logging.logback.rollingpolicy.max-file-size" defaultValue="100MB"/>
+    <springProperty scope="context" name="MAX_HISTORY"
+                    source="logging.logback.rollingpolicy.max-history" defaultValue="30"/>
+    <springProperty scope="context" name="TOTAL_SIZE_CAP"
+                    source="logging.logback.rollingpolicy.total-size-cap" defaultValue="10GB"/>
+
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
-            <pattern>%red(%d{yyyy-MM-dd HH:mm:ss}) %green([%thread]) %highlight(%-5level) [traceId:%X{Trace-Id}] %cyan(%logger{50}) - %magenta(%msg) %n</pattern>
-        </encoder>
-    </appender>
-    <appender name="FILE"  class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <File>${LOG_HOME}/${APP_NAME}.log</File>
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <FileNamePattern>${LOG_HOME}/${APP_NAME}.log.%d{yyyy-MM-dd}.%i.log</FileNamePattern>
-            <MaxHistory>30</MaxHistory>
-            <maxFileSize>100MB</maxFileSize>
-            <totalSizeCap>10GB</totalSizeCap>
-            <cleanHistoryOnStart>true</cleanHistoryOnStart>
-        </rollingPolicy>
-        <!-- 文件日志采用稳定的纯文本格式，便于日志采集平台解析。 -->
-        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [traceId:%X{Trace-Id}] %logger{50} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [traceId:%X{Trace-Id:--}] %logger{50} - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <root level="INFO">
-        <appender-ref ref="STDOUT" />
-        <appender-ref ref="FILE" />
-    </root>
+    <!-- 开发和测试环境只输出控制台，避免在不同工作目录生成重复日志。 -->
+    <springProfile name="!prod">
+        <root level="INFO">
+            <appender-ref ref="STDOUT"/>
+        </root>
+    </springProfile>
+
+    <!-- 生产环境同时保留控制台和滚动文件，便于容器采集与传统主机部署。 -->
+    <springProfile name="prod">
+        <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>${LOG_HOME}/${APP_NAME}.log</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <fileNamePattern>${LOG_HOME}/${APP_NAME}.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+                <maxFileSize>${MAX_FILE_SIZE}</maxFileSize>
+                <maxHistory>${MAX_HISTORY}</maxHistory>
+                <totalSizeCap>${TOTAL_SIZE_CAP}</totalSizeCap>
+            </rollingPolicy>
+            <!-- 文件日志不包含 ANSI 颜色码，确保日志采集平台能够稳定解析。 -->
+            <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+                <charset>UTF-8</charset>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [traceId:%X{Trace-Id:--}] %logger{50} - %msg%n</pattern>
+            </encoder>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="STDOUT"/>
+            <appender-ref ref="FILE"/>
+        </root>
+    </springProfile>
 </configuration>
