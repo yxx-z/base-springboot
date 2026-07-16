@@ -18,6 +18,12 @@ import java.io.UnsupportedEncodingException;
 @RequiredArgsConstructor
 public class MailUtils {
 
+    /**
+     * 该 Bean 由 Spring Boot Mail 在配置 {@code spring.mail.host} 后按条件自动创建。
+     * 公共子模块自身没有最终应用配置，IDE 无法静态推断条件自动配置，因此仅抑制该误报；
+     * 不在此处手工创建 JavaMailSender，避免覆盖 Spring Boot 的连接、认证和超时配置。
+     */
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
     private final JavaMailSender mailSender;
 
     private final MailProperties mailProperties;

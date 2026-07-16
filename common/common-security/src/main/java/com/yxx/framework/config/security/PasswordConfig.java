@@ -1,5 +1,7 @@
 package com.yxx.framework.config.security;
 
+import com.yxx.security.properties.PasswordPolicyProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -12,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
  * 从而确保注册、登录、修改密码和重置密码使用完全一致的安全策略。</p>
  */
 @Configuration
+@EnableConfigurationProperties(PasswordPolicyProperties.class)
 public class PasswordConfig {
 
     /**

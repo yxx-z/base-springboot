@@ -2,7 +2,6 @@ package com.yxx.security.properties;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
 
 /**
  * 用户密码策略配置。
@@ -11,7 +10,6 @@ import org.springframework.stereotype.Component;
  * 字符数校验。各业务项目可以通过配置调整复杂度，但不应绕过最大字节数限制。</p>
  */
 @Data
-@Component
 @ConfigurationProperties(prefix = "security.password-policy")
 public class PasswordPolicyProperties {
 
