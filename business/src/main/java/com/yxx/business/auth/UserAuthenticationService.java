@@ -2,12 +2,13 @@ package com.yxx.business.auth;
 
 import com.yxx.business.auth.command.UserAuthenticationCommand;
 import com.yxx.business.auth.model.AuthenticatedUser;
-import com.yxx.business.auth.model.AuthorizationSnapshot;
 import com.yxx.business.auth.strategy.UserAuthenticationStrategy;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.exceptions.ApiException;
 import com.yxx.security.constant.SecurityRealm;
+import com.yxx.security.authorization.AuthorizationProvider;
 import com.yxx.security.context.LoginSessionService;
+import com.yxx.security.model.AuthorizationSnapshot;
 import com.yxx.security.model.LoginPrincipal;
 import org.springframework.stereotype.Service;
 
@@ -26,17 +27,17 @@ import java.util.Map;
 public class UserAuthenticationService {
 
     private final Map<String, UserAuthenticationStrategy> strategies;
-    private final UserAuthorizationService authorizationService;
+    private final AuthorizationProvider authorizationProvider;
     private final LoginSessionService loginSessionService;
     private final UserLoginRiskService loginRiskService;
 
     public UserAuthenticationService(List<UserAuthenticationStrategy> strategies,
-                                     UserAuthorizationService authorizationService,
+                                     AuthorizationProvider authorizationProvider,
                                      LoginSessionService loginSessionService,
                                      UserLoginRiskService loginRiskService) {
         // 启动时将策略按登录模式建立不可变索引，登录请求无需遍历 Spring Bean 集合。
         this.strategies = indexStrategies(strategies);
-        this.authorizationService = authorizationService;
+        this.authorizationProvider = authorizationProvider;
         this.loginSessionService = loginSessionService;
         this.loginRiskService = loginRiskService;
     }
@@ -60,7 +61,8 @@ public class UserAuthenticationService {
         // 登录地点、设备等副作用在身份验证成功后处理，避免记录攻击请求为成功登录。
         loginRiskService.handleSuccessfulLogin(authenticatedUser.user());
         // 登录时生成权限快照；权限变更通过注销会话使快照立即失效。
-        AuthorizationSnapshot authorization = authorizationService.load(authenticatedUser.user().getId());
+        AuthorizationSnapshot authorization = authorizationProvider.load(
+                SecurityRealm.USER, authenticatedUser.user().getId());
         LoginPrincipal principal = LoginPrincipal.builder()
                 .subjectId(authenticatedUser.user().getId())
                 .subjectType(SecurityRealm.USER)

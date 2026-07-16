@@ -61,6 +61,8 @@ public enum ApiCode {
 
     BUILT_IN_ROLE_IMMUTABLE(2016, "内置安全角色不允许修改"),
 
+    RBAC_SCOPE_MISMATCH(2017, "主体、角色与资源不属于同一权限域"),
+
     /**
      * 找回密码
      */

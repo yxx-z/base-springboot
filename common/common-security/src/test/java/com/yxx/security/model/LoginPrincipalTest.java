@@ -22,7 +22,7 @@ class LoginPrincipalTest {
                 .account("tester")
                 .displayName("测试用户")
                 .loginMode("password")
-                .roles(Set.of("user:member"))
+                .roles(Set.of("business:member"))
                 .permissions(Set.of("user:profile:read"))
                 .loginTime(LocalDateTime.of(2026, 7, 15, 12, 0))
                 .build();
@@ -37,10 +37,10 @@ class LoginPrincipalTest {
     @Test
     void shouldExposeUnmodifiableAuthorizationCollections() {
         LoginPrincipal principal = LoginPrincipal.builder()
-                .roles(Set.of("user:member"))
+                .roles(Set.of("business:member"))
                 .build();
 
         assertThrows(UnsupportedOperationException.class,
-                () -> principal.getRoles().add("user:administrator"));
+                () -> principal.getRoles().add("business:operator"));
     }
 }

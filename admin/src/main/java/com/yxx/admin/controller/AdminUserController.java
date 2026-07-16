@@ -6,8 +6,9 @@ import com.yxx.admin.model.request.ResetPwdReq;
 import com.yxx.admin.service.AdminUserService;
 import com.yxx.admin.model.entity.AdminUser;
 import com.yxx.admin.model.response.AdminCurrentUserRes;
-import com.yxx.admin.model.response.AdminMenuRes;
-import com.yxx.admin.service.AdminRoleMenuService;
+import com.yxx.rbac.model.RbacMenuNode;
+import com.yxx.rbac.model.RbacScope;
+import com.yxx.rbac.service.RbacRoleMenuService;
 import com.yxx.common.annotation.response.ResponseResult;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.exceptions.ApiException;
@@ -42,7 +43,7 @@ public class AdminUserController {
 
     private final LoginSessionService loginSessionService;
 
-    private final AdminRoleMenuService adminRoleMenuService;
+    private final RbacRoleMenuService roleMenuService;
 
     /**
      * 获取用户信息
@@ -67,10 +68,10 @@ public class AdminUserController {
 
     /** 获取当前管理员可见的导航菜单树。 */
     @GetMapping("/menus")
-    public List<AdminMenuRes> menus() {
+    public List<RbacMenuNode> menus() {
         LoginPrincipal principal = loginSessionService.currentAdmin()
                 .orElseThrow(() -> new ApiException(ApiCode.TOKEN_ERROR));
-        return adminRoleMenuService.currentMenuTree(principal.getRoles());
+        return roleMenuService.currentMenuTree(RbacScope.ADMIN, principal.getRoles());
     }
 
     /**

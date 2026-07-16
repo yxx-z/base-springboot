@@ -1,14 +1,16 @@
 package com.yxx.admin.bootstrap;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.yxx.admin.mapper.AdminRoleMapper;
 import com.yxx.admin.mapper.AdminUserMapper;
-import com.yxx.admin.mapper.AdminUserRoleMapper;
-import com.yxx.admin.model.entity.AdminRole;
 import com.yxx.admin.model.entity.AdminUser;
-import com.yxx.admin.model.entity.AdminUserRole;
-import com.yxx.admin.security.AdminSecurityCodes;
 import com.yxx.common.utils.AccountNormalizer;
+import com.yxx.rbac.mapper.RbacRoleMapper;
+import com.yxx.rbac.mapper.RbacSubjectRoleMapper;
+import com.yxx.rbac.model.RbacScope;
+import com.yxx.rbac.constant.RbacSecurityCodes;
+import com.yxx.rbac.model.RbacSubjectType;
+import com.yxx.rbac.model.entity.RbacRole;
+import com.yxx.rbac.model.entity.RbacSubjectRole;
 import com.yxx.security.validation.PasswordPolicyChecker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,8 +40,8 @@ public class AdminBootstrapRunner implements ApplicationRunner {
 
     private final AdminBootstrapProperties properties;
     private final AdminUserMapper adminUserMapper;
-    private final AdminRoleMapper adminRoleMapper;
-    private final AdminUserRoleMapper adminUserRoleMapper;
+    private final RbacRoleMapper roleMapper;
+    private final RbacSubjectRoleMapper subjectRoleMapper;
     private final PasswordEncoder passwordEncoder;
     private final PasswordPolicyChecker passwordPolicyChecker;
     private final ConfigurableApplicationContext applicationContext;
@@ -55,8 +57,9 @@ public class AdminBootstrapRunner implements ApplicationRunner {
         }
 
         // 超级角色由 Flyway 初始化，启动器只绑定既有内置角色，不自行创造权限模型。
-        AdminRole superAdminRole = adminRoleMapper.selectOne(new LambdaQueryWrapper<AdminRole>()
-                .eq(AdminRole::getCode, AdminSecurityCodes.ROLE_SUPER_ADMIN));
+        RbacRole superAdminRole = roleMapper.selectOne(new LambdaQueryWrapper<RbacRole>()
+                .eq(RbacRole::getScope, RbacScope.ADMIN.code())
+                .eq(RbacRole::getCode, RbacSecurityCodes.ROLE_ADMIN_SUPER_ADMIN));
         if (superAdminRole == null) {
             throw new IllegalStateException("未找到超级管理员角色，请先执行管理端数据库迁移");
         }
@@ -80,12 +83,14 @@ public class AdminBootstrapRunner implements ApplicationRunner {
         }
 
         // 管理员和超级角色关联与账号创建处于同一事务，保证初始账号创建后即可管理系统。
-        AdminUserRole relation = new AdminUserRole();
-        relation.setUserId(admin.getId());
+        RbacSubjectRole relation = new RbacSubjectRole();
+        relation.setSubjectType(RbacSubjectType.ADMIN_USER.code());
+        relation.setSubjectId(admin.getId());
+        relation.setScope(RbacScope.ADMIN.code());
         relation.setRoleId(superAdminRole.getId());
         relation.setCreateTime(now);
         relation.setUpdateTime(now);
-        if (adminUserRoleMapper.insert(relation) != 1) {
+        if (subjectRoleMapper.insert(relation) != 1) {
             throw new IllegalStateException("绑定初始管理员角色失败");
         }
 

@@ -8,8 +8,9 @@ import com.yxx.business.model.request.UserRegisterReq;
 import com.yxx.business.service.UserService;
 import com.yxx.business.model.entity.User;
 import com.yxx.business.model.response.CurrentUserRes;
-import com.yxx.business.model.response.MenuRes;
-import com.yxx.business.service.RoleMenuService;
+import com.yxx.rbac.model.RbacMenuNode;
+import com.yxx.rbac.model.RbacScope;
+import com.yxx.rbac.service.RbacRoleMenuService;
 import com.yxx.common.annotation.response.ResponseResult;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.exceptions.ApiException;
@@ -44,7 +45,7 @@ public class UserController {
 
     private final LoginSessionService loginSessionService;
 
-    private final RoleMenuService roleMenuService;
+    private final RbacRoleMenuService roleMenuService;
 
     /**
      * 注册
@@ -99,10 +100,10 @@ public class UserController {
      * @return 当前角色关联的有效菜单
      */
     @GetMapping("/menus")
-    public List<MenuRes> menus() {
+    public List<RbacMenuNode> menus() {
         LoginPrincipal principal = loginSessionService.currentUser()
                 .orElseThrow(() -> new ApiException(ApiCode.TOKEN_ERROR));
-        return roleMenuService.currentMenuTree(principal.getRoles());
+        return roleMenuService.currentMenuTree(RbacScope.BUSINESS, principal.getRoles());
     }
 
     /**

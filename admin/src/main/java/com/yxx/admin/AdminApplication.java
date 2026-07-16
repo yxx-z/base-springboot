@@ -8,8 +8,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import java.util.Arrays;
 
 @SpringBootApplication(scanBasePackages = {
-        "com.yxx.admin", "com.yxx.common", "com.yxx.security", "com.yxx.framework"})
-@MapperScan("com.yxx.admin.mapper")
+        "com.yxx.admin", "com.yxx.common", "com.yxx.security", "com.yxx.framework",
+        "com.yxx.rbac"})
+@MapperScan({"com.yxx.admin.mapper", "com.yxx.rbac.mapper"})
 public class AdminApplication {
 
     public static void main(String[] args) {

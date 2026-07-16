@@ -15,8 +15,10 @@ public interface AdminUserMapper extends BaseMapper<AdminUser> {
     @Select("""
             SELECT COUNT(DISTINCT au.id)
             FROM admin_user au
-            JOIN admin_user_role aur ON aur.user_id = au.id
-            JOIN admin_role ar ON ar.id = aur.role_id
+            JOIN rbac_subject_role aur
+              ON aur.subject_type = 'admin' AND aur.subject_id = au.id
+            JOIN rbac_role ar
+              ON ar.id = aur.role_id AND ar.scope = 'admin'
             WHERE au.is_delete = 0
               AND au.status = 1
               AND ar.is_delete = 0
@@ -27,9 +29,11 @@ public interface AdminUserMapper extends BaseMapper<AdminUser> {
     /** 判断管理员是否拥有指定角色。 */
     @Select("""
             SELECT COUNT(1)
-            FROM admin_user_role aur
-            JOIN admin_role ar ON ar.id = aur.role_id
-            WHERE aur.user_id = #{userId}
+            FROM rbac_subject_role aur
+            JOIN rbac_role ar
+              ON ar.id = aur.role_id AND ar.scope = 'admin'
+            WHERE aur.subject_type = 'admin'
+              AND aur.subject_id = #{userId}
               AND ar.is_delete = 0
               AND ar.code = #{roleCode}
             """)

@@ -1,7 +1,6 @@
 package com.yxx.admin.service;
 
 import java.util.Collection;
-import java.util.List;
 
 /**
  * @author yxx
@@ -17,9 +16,4 @@ public interface AdminUserRoleService {
      */
     void replaceRoles(Long userId, Collection<Integer> roleIds);
 
-    /** 查询拥有指定角色的管理员主键，用于权限变更后的会话失效。 */
-    List<Long> listUserIdsByRoleId(Integer roleId);
-
-    /** 查询指定管理员当前拥有的角色主键。 */
-    List<Integer> listRoleIdsByUserId(Long userId);
 }

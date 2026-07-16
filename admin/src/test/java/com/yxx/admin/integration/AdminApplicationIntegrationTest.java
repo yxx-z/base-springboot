@@ -4,16 +4,20 @@ import com.jayway.jsonpath.JsonPath;
 import com.yxx.admin.AdminApplication;
 import com.yxx.admin.mapper.OperateAdminLogMapper;
 import com.yxx.admin.model.request.OperateLogReq;
-import com.yxx.admin.model.response.AdminMenuRes;
 import com.yxx.admin.model.response.OperateLogResp;
-import com.yxx.admin.security.AdminAuthorizationService;
-import com.yxx.admin.service.AdminRoleMenuService;
-import com.yxx.admin.service.AdminRolePermissionService;
 import com.yxx.admin.service.AdminUserRoleService;
 import com.yxx.admin.service.AdminUserService;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.exceptions.ApiException;
 import com.yxx.common.utils.email.MailUtils;
+import com.yxx.rbac.model.RbacMenuNode;
+import com.yxx.rbac.model.RbacScope;
+import com.yxx.rbac.model.RbacSubjectType;
+import com.yxx.rbac.service.RbacRoleMenuService;
+import com.yxx.rbac.service.RbacRolePermissionService;
+import com.yxx.rbac.service.RbacSubjectRoleService;
+import com.yxx.security.authorization.AuthorizationProvider;
+import com.yxx.security.constant.SecurityRealm;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,6 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -123,13 +128,16 @@ class AdminApplicationIntegrationTest {
     private AdminUserRoleService adminUserRoleService;
 
     @Autowired
-    private AdminRolePermissionService adminRolePermissionService;
+    private RbacRolePermissionService rolePermissionService;
 
     @Autowired
-    private AdminRoleMenuService adminRoleMenuService;
+    private RbacRoleMenuService roleMenuService;
 
     @Autowired
-    private AdminAuthorizationService authorizationService;
+    private AuthorizationProvider authorizationProvider;
+
+    @Autowired
+    private RbacSubjectRoleService subjectRoleService;
 
     @Autowired
     private OperateAdminLogMapper operateAdminLogMapper;
@@ -137,7 +145,7 @@ class AdminApplicationIntegrationTest {
     @BeforeEach
     void cleanAdminUsers() {
         jdbcTemplate.update("DELETE FROM operate_admin_log");
-        jdbcTemplate.update("DELETE FROM admin_user_role");
+        jdbcTemplate.update("DELETE FROM rbac_subject_role WHERE subject_type = 'admin'");
         jdbcTemplate.update("DELETE FROM admin_user");
     }
 
@@ -180,14 +188,15 @@ class AdminApplicationIntegrationTest {
         String suffix = UUID.randomUUID().toString().substring(0, 8);
         Integer customRoleId = createRole("admin:test:" + suffix);
         Integer customPermissionId = createPermission("admin:test:" + suffix + ":read");
-        adminRolePermissionService.replacePermissions(customRoleId, List.of(customPermissionId));
+        rolePermissionService.replacePermissions(customRoleId, List.of(customPermissionId));
         long permissionChangedAdminId = createAdmin("permission-" + suffix, true, null);
         adminUserRoleService.replaceRoles(permissionChangedAdminId, List.of(customRoleId));
         String permissionToken = loginAndGetToken("permission-" + suffix, "Framework2026");
-        assertTrue(authorizationService.load(permissionChangedAdminId).permissions()
+        assertTrue(authorizationProvider.load(SecurityRealm.ADMIN, permissionChangedAdminId)
+                .permissions()
                 .contains("admin:test:" + suffix + ":read"));
 
-        adminRolePermissionService.replacePermissions(customRoleId, List.of());
+        rolePermissionService.replacePermissions(customRoleId, List.of());
         assertTokenInvalid(permissionToken);
     }
 
@@ -200,9 +209,42 @@ class AdminApplicationIntegrationTest {
 
         Integer superRoleId = roleId("admin:super-admin");
         ApiException immutableException = assertThrows(ApiException.class,
-                () -> adminRolePermissionService.replacePermissions(superRoleId, List.of()));
+                () -> rolePermissionService.replacePermissions(superRoleId, List.of()));
         assertEquals(ApiCode.BUILT_IN_ROLE_IMMUTABLE.code(), immutableException.getCode());
-        assertEquals(List.of("*"), authorizationService.load(superAdminId).permissions().stream().toList());
+        assertEquals(List.of("*"), authorizationProvider
+                .load(SecurityRealm.ADMIN, superAdminId).permissions().stream().toList());
+    }
+
+    @Test
+    void shouldManageBusinessUserRolesAndRejectCrossScopeAssignment() throws Exception {
+        createAdmin("business-manager", true, "admin:super-admin");
+        String token = loginAndGetToken("business-manager", "Framework2026");
+        long businessUserId = createBusinessUser("managed-business@example.com");
+        Integer memberRoleId = jdbcTemplate.queryForObject("""
+                SELECT id FROM rbac_role
+                WHERE scope = 'business' AND code = 'business:member'
+                """, Integer.class);
+        Integer adminRoleId = roleId("admin:administrator");
+
+        mockMvc.perform(put("/management/business-users/{userId}/roles", businessUserId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"roleIds":[%d]}
+                                """.formatted(memberRoleId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+        mockMvc.perform(get("/management/business-users/{userId}", businessUserId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(businessUserId))
+                .andExpect(jsonPath("$.data.roleIds[0]").value(memberRoleId));
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> subjectRoleService.replaceRoles(
+                        RbacSubjectType.BUSINESS_USER.code(), businessUserId,
+                        List.of(adminRoleId)));
+        assertEquals(ApiCode.RBAC_SCOPE_MISMATCH.code(), exception.getCode());
     }
 
     @Test
@@ -211,27 +253,28 @@ class AdminApplicationIntegrationTest {
         Integer hiddenParentId = insertMenu(null, "hidden-" + suffix, false, 10);
         Integer visibleChildId = insertMenu(hiddenParentId, "visible-child-" + suffix, true, 11);
 
-        List<AdminMenuRes> menus = assertTimeoutPreemptively(Duration.ofSeconds(2),
-                () -> adminRoleMenuService.currentMenuTree(List.of("admin:super-admin")));
+        List<RbacMenuNode> menus = assertTimeoutPreemptively(Duration.ofSeconds(2),
+                () -> roleMenuService.currentMenuTree(
+                        RbacScope.ADMIN, List.of("admin:super-admin")));
         assertTrue(menus.stream().anyMatch(menu -> ("visible-child-" + suffix).equals(menu.getCode())),
                 "隐藏父菜单的可见子菜单应提升为可导航节点");
 
         Integer cycleA = insertMenu(null, "cycle-a-" + suffix, true, 20);
         Integer cycleB = insertMenu(cycleA, "cycle-b-" + suffix, true, 21);
-        jdbcTemplate.update("UPDATE admin_menu SET parent_id = ? WHERE id = ?", cycleB, cycleA);
+        jdbcTemplate.update("UPDATE rbac_menu SET parent_id = ? WHERE id = ?", cycleB, cycleA);
         try {
             IllegalStateException exception = assertTimeoutPreemptively(Duration.ofSeconds(2),
                     () -> assertThrows(IllegalStateException.class,
-                            () -> adminRoleMenuService.currentMenuTree(
-                                    List.of("admin:super-admin"))));
+                            () -> roleMenuService.currentMenuTree(
+                                    RbacScope.ADMIN, List.of("admin:super-admin"))));
             assertTrue(exception.getMessage().contains("循环父子关系"));
         } finally {
             // 恢复循环关系后再删除测试数据，避免污染同一容器中的其他测试。
-            jdbcTemplate.update("UPDATE admin_menu SET parent_id = NULL WHERE id = ?", cycleA);
-            jdbcTemplate.update("DELETE FROM admin_menu WHERE id = ?", cycleB);
-            jdbcTemplate.update("DELETE FROM admin_menu WHERE id = ?", cycleA);
-            jdbcTemplate.update("DELETE FROM admin_menu WHERE id = ?", visibleChildId);
-            jdbcTemplate.update("DELETE FROM admin_menu WHERE id = ?", hiddenParentId);
+            jdbcTemplate.update("UPDATE rbac_menu SET parent_id = NULL WHERE id = ?", cycleA);
+            jdbcTemplate.update("DELETE FROM rbac_menu WHERE id = ?", cycleB);
+            jdbcTemplate.update("DELETE FROM rbac_menu WHERE id = ?", cycleA);
+            jdbcTemplate.update("DELETE FROM rbac_menu WHERE id = ?", visibleChildId);
+            jdbcTemplate.update("DELETE FROM rbac_menu WHERE id = ?", hiddenParentId);
         }
     }
 
@@ -247,11 +290,24 @@ class AdminApplicationIntegrationTest {
                 "SELECT id FROM admin_user WHERE login_code = ?", Long.class, loginCode);
         if (roleCode != null) {
             jdbcTemplate.update("""
-                    INSERT INTO admin_user_role (user_id, role_id, update_time, create_time)
-                    SELECT ?, id, NOW(), NOW() FROM admin_role WHERE code = ?
+                    INSERT INTO rbac_subject_role
+                        (subject_type, subject_id, scope, role_id, update_time, create_time)
+                    SELECT 'admin', ?, 'admin', id, NOW(), NOW()
+                    FROM rbac_role WHERE scope = 'admin' AND code = ?
                     """, adminId, roleCode);
         }
         return adminId;
+    }
+
+    private long createBusinessUser(String email) {
+        jdbcTemplate.update("""
+                INSERT INTO `user`
+                    (display_name, status, email, update_time, create_time,
+                     create_uid, update_uid, is_delete)
+                VALUES ('被管理业务用户', 1, ?, NOW(), NOW(), 0, 0, 0)
+                """, email);
+        return jdbcTemplate.queryForObject(
+                "SELECT id FROM `user` WHERE email = ?", Long.class, email);
     }
 
     private String loginAndGetToken(String account, String password) throws Exception {
@@ -274,35 +330,42 @@ class AdminApplicationIntegrationTest {
 
     private Integer roleId(String roleCode) {
         return jdbcTemplate.queryForObject(
-                "SELECT id FROM admin_role WHERE code = ?", Integer.class, roleCode);
+                "SELECT id FROM rbac_role WHERE scope = 'admin' AND code = ?",
+                Integer.class, roleCode);
     }
 
     private Integer createRole(String code) {
         jdbcTemplate.update("""
-                INSERT INTO admin_role (code, name, remark, is_delete, update_time, create_time)
-                VALUES (?, '集成测试角色', '仅用于集成测试', 0, NOW(), NOW())
+                INSERT INTO rbac_role
+                    (scope, code, name, remark, built_in, super_role, is_delete,
+                     update_time, create_time)
+                VALUES ('admin', ?, '集成测试角色', '仅用于集成测试', 0, 0, 0,
+                        NOW(), NOW())
                 """, code);
         return roleId(code);
     }
 
     private Integer createPermission(String code) {
         jdbcTemplate.update("""
-                INSERT INTO admin_permission
-                    (code, name, resource_type, description, status, is_delete)
-                VALUES (?, '集成测试权限', 'api', '仅用于集成测试', 1, 0)
+                INSERT INTO rbac_permission
+                    (scope, code, name, resource_type, description, status, is_delete)
+                VALUES ('admin', ?, '集成测试权限', 'api', '仅用于集成测试', 1, 0)
                 """, code);
         return jdbcTemplate.queryForObject(
-                "SELECT id FROM admin_permission WHERE code = ?", Integer.class, code);
+                "SELECT id FROM rbac_permission WHERE scope = 'admin' AND code = ?",
+                Integer.class, code);
     }
 
     private Integer insertMenu(Integer parentId, String code, boolean visible, int sort) {
         jdbcTemplate.update("""
-                INSERT INTO admin_menu
-                    (parent_id, menu_code, menu_name, path, component, sort, visible, status, is_delete)
-                VALUES (?, ?, ?, ?, 'test/Index', ?, ?, 1, 0)
+                INSERT INTO rbac_menu
+                    (scope, parent_id, menu_code, menu_name, path, component, sort,
+                     visible, status, is_delete)
+                VALUES ('admin', ?, ?, ?, ?, 'test/Index', ?, ?, 1, 0)
                 """, parentId, code, code, "/" + code, sort, visible);
         return jdbcTemplate.queryForObject(
-                "SELECT id FROM admin_menu WHERE menu_code = ?", Integer.class, code);
+                "SELECT id FROM rbac_menu WHERE scope = 'admin' AND menu_code = ?",
+                Integer.class, code);
     }
 
 }

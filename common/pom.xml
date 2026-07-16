@@ -20,6 +20,7 @@
         <module>common-mail</module>
         <module>common-data</module>
         <module>common-audit</module>
+        <module>common-rbac</module>
         <module>common-framework</module>
     </modules>
 

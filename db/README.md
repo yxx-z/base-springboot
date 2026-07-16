@@ -1,25 +1,36 @@
 # 数据库迁移说明
 
-数据库结构由各应用独立维护，禁止继续使用可重复执行的全量建表脚本。
-
-- 用户端迁移：`business/src/main/resources/db/migration/business`
-- 管理端迁移：`admin/src/main/resources/db/migration/admin`
-
-两个应用分别使用 `flyway_schema_history_business` 和
-`flyway_schema_history_admin`，因此既可以部署到独立数据库，也可以在过渡阶段共享同一数据库。
-共享同一 Schema 时，后启动的应用会以版本 `0` 创建自己的基线记录，然后继续完整执行
-本应用的 V1 及后续迁移；版本 `0` 不是跳过 V1 的生产基线。
-
-已经发布的迁移文件不得修改。后续结构变化必须新增更高版本的迁移，例如：
+admin 是管理面，business 是业务面；两个应用必须连接同一个 MySQL Schema。数据库结构由
+独立模块统一维护：
 
 ```text
-V2__add_user_profile.sql
-V3__add_admin_lock_status.sql
+database-migrations/src/main/resources/db/migration/shared
 ```
 
-当前项目没有历史生产数据，首次使用应创建空数据库后直接启动应用，由 Flyway 自动完成初始化。
+两个应用都依赖 `database-migrations`，并共同使用：
 
-当前增量迁移：
+```text
+flyway_schema_history
+```
 
-- `business/V2__add_audit_actor_snapshot.sql`：增加用户端审计主体快照字段和索引。
-- `admin/V2__add_audit_actor_snapshot.sql`：增加管理端审计主体快照字段和索引。
+这样无论 admin 还是 business 先启动，都会获得管理员、业务用户、统一 RBAC 和审计日志
+所需的完整表结构；并发启动时由 Flyway 数据库锁保证迁移串行执行。
+
+当前迁移：
+
+- `V1__init_shared_schema.sql`：初始化管理端账号、业务用户、统一 RBAC 和两端审计表。
+- `V2__add_audit_actor_snapshot.sql`：为两端审计表增加事件发生时的主体快照字段和索引。
+
+迁移规范：
+
+- 已经发布或提交到共享分支的迁移文件禁止修改。
+- 后续变化必须新增更高版本，例如 `V3__add_order_schema.sql`。
+- 表、字段必须提供中文 `COMMENT`。
+- 必须明确主键、唯一约束、外键、`CHECK` 约束和必要索引。
+- RBAC 关联必须保留 `scope` 复合外键，不能只依赖 Java 代码约定权限域。
+- 必须同时验证空库完整迁移和从上一版本升级。
+- 禁止在 admin、business 或领域模块中另建 Flyway 历史表。
+- 禁止用可重复执行的全量建表脚本替代版本化迁移。
+
+当前项目没有历史生产数据，首次使用应创建空数据库后直接启动任一应用，由 Flyway 自动
+完成初始化。

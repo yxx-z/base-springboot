@@ -14,6 +14,7 @@
 
     <modules>
         <module>common</module>
+        <module>database-migrations</module>
         <module>business</module>
         <module>admin</module>
         <module>architecture-tests</module>
@@ -108,6 +109,16 @@
             <dependency>
                 <groupId>com.yxx</groupId>
                 <artifactId>common-audit</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.yxx</groupId>
+                <artifactId>common-rbac</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.yxx</groupId>
+                <artifactId>database-migrations</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>

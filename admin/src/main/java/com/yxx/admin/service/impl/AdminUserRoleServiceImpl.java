@@ -1,18 +1,16 @@
 package com.yxx.admin.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.yxx.admin.mapper.AdminUserRoleMapper;
 import com.yxx.admin.mapper.AdminUserMapper;
-import com.yxx.admin.model.entity.AdminRole;
 import com.yxx.admin.model.entity.AdminUser;
-import com.yxx.admin.model.entity.AdminUserRole;
-import com.yxx.admin.service.AdminRoleService;
 import com.yxx.admin.service.AdminUserRoleService;
-import com.yxx.admin.security.AdminSecurityCodes;
 import com.yxx.common.enums.ApiCode;
 import com.yxx.common.utils.ApiAssert;
-import com.yxx.security.context.SessionInvalidationService;
+import com.yxx.rbac.model.RbacScope;
+import com.yxx.rbac.constant.RbacSecurityCodes;
+import com.yxx.rbac.model.RbacSubjectType;
+import com.yxx.rbac.model.entity.RbacRole;
+import com.yxx.rbac.service.RbacRoleService;
+import com.yxx.rbac.service.RbacSubjectRoleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,77 +19,43 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * @author yxx
- * @since 2023-05-17 10:01
+ * 管理员角色领域服务。
+ *
+ * <p>通用角色替换由 common-rbac 完成；“系统必须保留一个启用的超级管理员”属于管理端
+ * 领域规则，因此保留在 admin，而不是污染公共 RBAC 模块。</p>
  */
 @Service
 @RequiredArgsConstructor
-public class AdminUserRoleServiceImpl extends ServiceImpl<AdminUserRoleMapper, AdminUserRole> implements AdminUserRoleService {
-    private final AdminRoleService adminRoleService;
+public class AdminUserRoleServiceImpl implements AdminUserRoleService {
 
-    private final SessionInvalidationService sessionInvalidationService;
-
+    private final RbacRoleService roleService;
+    private final RbacSubjectRoleService subjectRoleService;
     private final AdminUserMapper adminUserMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void replaceRoles(Long userId, Collection<Integer> roleIds) {
-        // 在改变关联前确认管理员存在，并验证目标角色集合中的每一个 ID。
         AdminUser targetUser = adminUserMapper.selectById(userId);
         ApiAssert.isTrue(ApiCode.USER_NOT_EXIST, targetUser != null);
-        // 去重避免重复关联触发唯一约束；空集合表示撤销全部普通角色。
         List<Integer> distinctRoleIds = roleIds == null
                 ? List.of()
                 : roleIds.stream().distinct().toList();
-        ApiAssert.isTrue(ApiCode.PARAM_IS_INVALID,
-                adminRoleService.findByIds(distinctRoleIds).size() == distinctRoleIds.size());
 
-        // 禁止移除系统中最后一个超级管理员，避免管理端进入无法恢复的无最高权限状态。
-        AdminRole superAdminRole = adminRoleService.findByCode(AdminSecurityCodes.ROLE_SUPER_ADMIN)
-                .orElse(null);
+        RbacRole superAdminRole = roleService.findByCode(
+                RbacScope.ADMIN, RbacSecurityCodes.ROLE_ADMIN_SUPER_ADMIN).orElse(null);
         ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, superAdminRole != null);
-        boolean targetIsSuperAdmin = count(new LambdaQueryWrapper<AdminUserRole>()
-                .eq(AdminUserRole::getUserId, userId)
-                .eq(AdminUserRole::getRoleId, superAdminRole.getId())) > 0;
-        // 只有“启用的超级管理员将失去超级角色”才可能减少可用最高权限人数。
+        boolean currentlySuperAdmin = subjectRoleService.hasRole(
+                RbacSubjectType.ADMIN_USER.code(), userId, superAdminRole.getId());
         boolean keepsSuperAdminRole = distinctRoleIds.contains(superAdminRole.getId());
-        if (targetIsSuperAdmin && Boolean.TRUE.equals(targetUser.getStatus()) && !keepsSuperAdminRole) {
-            long superAdminCount = adminUserMapper.countActiveUsersByRoleCode(
-                    AdminSecurityCodes.ROLE_SUPER_ADMIN);
-            ApiAssert.isTrue(ApiCode.LAST_SUPER_ADMIN, superAdminCount > 1);
+        if (currentlySuperAdmin && Boolean.TRUE.equals(targetUser.getStatus())
+                && !keepsSuperAdminRole) {
+            ApiAssert.isTrue(ApiCode.LAST_SUPER_ADMIN,
+                    adminUserMapper.countActiveUsersByRoleCode(
+                            RbacSecurityCodes.ROLE_ADMIN_SUPER_ADMIN) > 1);
         }
 
-        // 校验通过后以最终集合替换旧关联，整个过程受事务保护。
-        remove(new LambdaQueryWrapper<AdminUserRole>().eq(AdminUserRole::getUserId, userId));
-        if (!distinctRoleIds.isEmpty()) {
-            List<AdminUserRole> relations = distinctRoleIds.stream().map(roleId -> {
-                AdminUserRole relation = new AdminUserRole();
-                relation.setUserId(userId);
-                relation.setRoleId(roleId);
-                return relation;
-            }).toList();
-            ApiAssert.isTrue(ApiCode.SYSTEM_ERROR, saveBatch(relations));
-        }
-        // 角色变化会改变登录快照，提交后注销该管理员的全部旧会话。
-        sessionInvalidationService.invalidateAdminAfterCommit(userId);
+        subjectRoleService.replaceRoles(
+                RbacSubjectType.ADMIN_USER.code(), userId, distinctRoleIds);
     }
 
-    @Override
-    public List<Long> listUserIdsByRoleId(Integer roleId) {
-        // 去重可容忍历史脏数据，避免重复注销同一个管理员。
-        return list(new LambdaQueryWrapper<AdminUserRole>().eq(AdminUserRole::getRoleId, roleId))
-                .stream()
-                .map(AdminUserRole::getUserId)
-                .distinct()
-                .toList();
-    }
-
-    @Override
-    public List<Integer> listRoleIdsByUserId(Long userId) {
-        return list(new LambdaQueryWrapper<AdminUserRole>().eq(AdminUserRole::getUserId, userId))
-                .stream()
-                .map(AdminUserRole::getRoleId)
-                .distinct()
-                .toList();
-    }
 }

@@ -20,6 +20,14 @@
             <artifactId>common-framework</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.yxx</groupId>
+            <artifactId>common-rbac</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.yxx</groupId>
+            <artifactId>database-migrations</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>

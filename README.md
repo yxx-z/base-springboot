@@ -32,25 +32,31 @@ base-springboot
 │   ├── common-mail       邮件发送和邮件配置
 │   ├── common-data       MyBatis-Plus 和审计字段填充
 │   ├── common-audit      审计注解、事件和切面
+│   ├── common-rbac       统一 RBAC 数据模型、权限域规则和授权实现
 │   └── common-framework  基础设施聚合入口、跨安全域协调器和异步执行器
-├── business              用户端应用、用户 RBAC 和支付宝 OAuth 登录
-├── admin                 管理端应用和独立管理端 RBAC
-├── architecture-tests    跨应用共享库、bootstrap 与部署边界集成测试
+├── database-migrations   admin/business 共库使用的统一 Flyway 迁移制品
+├── business              业务端应用、用户认证、业务授权消费和支付宝 OAuth 登录
+├── admin                 管理端应用、业务用户管理和统一权限配置入口
+├── architecture-tests    共享 Schema、bootstrap 与部署边界集成测试
 └── db                    数据库迁移规范说明
 ```
 
 模块依赖方向固定为：
 
 ```text
-architecture-tests -> admin / business -> common-framework -> 各职责模块 -> common-core
+architecture-tests -> admin / business -> common-rbac / common-framework -> 各职责模块 -> common-core
 ```
 
 必须遵守以下边界：
 
 - `common-core` 不依赖 Spring Web、MyBatis、Redis、邮件和第三方平台 SDK。
 - `common-framework` 只承载跨模块基础设施协调，不承载用户、订单、支付等领域规则。
+- `common-security` 定义认证、会话和授权提供器抽象，不依赖具体 RBAC 表。
+- `common-rbac` 实现授权提供器并维护统一角色、权限和菜单规则，不承载管理端接口。
 - 支付宝等业务专属 SDK 只能由使用它的业务模块声明。
-- `business` 与 `admin` 分别维护用户、角色、权限、菜单及其关联表，可以独立部署和演进。
+- `business` 只消费 business 权限域；角色、权限和菜单管理入口统一放在 `admin`。
+- `admin` 与 `business` 可以独立运行和发布，但必须连接同一个 MySQL Schema。
+- 数据库迁移只能放入 `database-migrations`，保证任一应用先启动都能得到完整表结构。
 - `architecture-tests` 只参与测试，禁止被任何生产模块反向依赖。
 - 新业务优先建立独立模块；只有多个应用都需要且与领域无关的能力才允许下沉到 `common`。
 
@@ -58,19 +64,16 @@ architecture-tests -> admin / business -> common-framework -> 各职责模块 ->
 
 ### 1. 准备基础设施
 
-分别创建两个空数据库，例如：
+创建一个由管理端和业务端共用的空数据库，例如：
 
 ```sql
-CREATE DATABASE base_business CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-CREATE DATABASE base_admin CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+CREATE DATABASE base_app CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 ```
 
-两个应用也支持临时共用一个 Schema，因为它们分别使用：
-
-- `flyway_schema_history_business`
-- `flyway_schema_history_admin`
-
-正式项目推荐使用独立数据库，便于后续独立部署、授权和维护。
+`business` 和 `admin` 的数据源 URL 必须指向这个相同 Schema。两个应用依赖同一个
+`database-migrations` 制品，并共用 `flyway_schema_history`；无论哪个应用先启动，Flyway
+都会创建业务用户、管理员、统一 RBAC 和审计日志所需的完整结构。两个应用并发启动时由
+Flyway 数据库锁保证迁移只执行一次。
 
 Redis 默认同时承担业务缓存和 Sa-Token Session 存储。两类数据应使用不同 Redis database 或独立实例，具体连接信息在各应用的 `application-dev.yml` 中配置。
 
@@ -121,7 +124,7 @@ export CORS_ALLOWED_ORIGIN_PATTERN=https://your-frontend.example.com
 
 ```bash
 export SPRING_PROFILES_ACTIVE=bootstrap
-export BOOTSTRAP_DB_URL='jdbc:mysql://127.0.0.1:3306/base_admin?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai'
+export BOOTSTRAP_DB_URL='jdbc:mysql://127.0.0.1:3306/base_app?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai'
 export BOOTSTRAP_DB_USERNAME='root'
 export BOOTSTRAP_DB_PASSWORD='your-password'
 export BOOTSTRAP_ADMIN_LOGIN_CODE='root-admin'
@@ -257,7 +260,7 @@ api.interceptors.response.use(
          ├─ 校验账号和邮箱唯一性
          ├─ 创建 User 统一主体
          ├─ 创建 password 类型 UserIdentity
-         ├─ 分配 user:member 默认角色
+         ├─ 分配 business:member 默认角色
          ├─ 提交数据库事务
          └─ 事务提交后删除验证码；回滚时恢复验证码
 ```
@@ -825,26 +828,54 @@ User（统一主体） 1 ---- N UserIdentity（登录身份）
 
 `LoginPrincipal` 是运行时安全快照，不是数据库实体，也不应直接作为接口响应模型使用。
 
-### 用户端与管理端隔离
+### 管理面、业务面与统一 RBAC
 
 - 用户端使用 Sa-Token 默认安全域。
 - 管理端使用独立的 `admin` 安全域。
-- 用户端和管理端分别维护 RBAC 表及 Flyway 迁移。
+- 两个应用共用 `rbac_role`、`rbac_permission`、`rbac_menu` 及三张关联表。
+- `scope=admin` 表示管理后台权限域，`scope=business` 表示业务用户权限域。
+- `subject_type=admin` 只能关联 admin 角色，`subject_type=user` 只能关联 business 角色。
+- Java 服务校验、数据库 `CHECK` 约束和复合外键共同阻止跨权限域授权。
+- admin 可以管理两个权限域；business 只读取业务用户的 business 授权结果。
 - 相同数据库 ID 在两个安全域内没有任何身份关联。
 - 权限或角色变化后，必须在事务提交后注销受影响主体的全部会话，使旧权限快照立即失效。
+
+`common-security` 中的 `AuthorizationProvider` 是稳定授权抽象，`common-rbac` 提供默认
+数据库实现。后续接入 LDAP、IAM 或远程权限中心时，可以替换授权实现，而不需要修改登录
+编排和 Sa-Token 会话代码。
+
+### 管理端管理业务用户
+
+管理端提供以下基础接口：
+
+```text
+GET /management/business-users
+GET /management/business-users/{userId}
+PUT /management/business-users/{userId}/roles
+
+GET /management/rbac/roles?scope=admin|business
+GET /management/rbac/permissions?scope=admin|business
+GET /management/rbac/menus?scope=admin|business
+PUT /management/rbac/roles/{roleId}/permissions
+PUT /management/rbac/roles/{roleId}/menus
+```
+
+业务用户没有直接修改角色的接口。前端管理系统先读取 `business` 权限域角色，再把最终
+角色主键集合提交给业务用户角色接口。后端会验证目标用户存在、角色全部属于 business
+权限域，并在事务提交后注销该用户旧会话。
 
 ### 角色与权限编码
 
 角色和权限编码统一使用冒号分层：
 
 ```text
-user:member
-user:administrator
+business:member
+business:operator
 admin:administrator
 admin:super-admin
-order:read
-order:create
-order:refund:approve
+business:order:read
+business:order:create
+admin:order:refund:approve
 ```
 
 编码必须集中定义在安全常量类中，并同步维护 Flyway 初始化数据。菜单编码用于前端导航，后端接口权限使用独立权限表，二者不要复用同一字段表达不同语义。
@@ -899,27 +930,28 @@ order
 ├── service
 ├── domain 或 model
 ├── mapper
-└── src/main/resources/db/migration/order
+└── test
 ```
 
 标准步骤：
 
 1. 在根 `pom.xml` 注册模块。
 2. 依赖 `common-framework`，不要逐个重复拼装所有公共模块。
-3. 为应用设置唯一 `app.name`、端口和 Flyway 历史表名。
-4. 建立本领域自己的实体、DTO、Mapper、错误码、安全常量和迁移目录。
-5. 如果它是新的独立登录安全域，增加对应 `StpLogic` 和 `CurrentActorProvider` 适配；如果只是用户端下属业务，则复用用户身份。
-6. 增加空库迁移、应用启动、Mapper XML 和核心业务集成测试。
+3. 为应用设置唯一 `app.name` 和端口；仍然连接当前共享 Schema。
+4. 建立本领域自己的实体、DTO、Mapper、错误码和安全常量。
+5. 将表结构变化追加到 `database-migrations` 的下一版本迁移，不允许应用私建历史表。
+6. 如果它是新的独立登录安全域，增加对应 `StpLogic` 和 `CurrentActorProvider` 适配；如果只是用户端下属业务，则复用用户身份。
+7. 增加空库迁移、应用启动、Mapper XML 和核心业务集成测试。
 
 只有确定与领域无关、至少被多个应用复用的能力，才考虑拆到新的 `common-*` 模块。
 
 ### 新增角色、权限和菜单
 
-1. 在对应应用的安全常量类中增加编码。
-2. 新增 Flyway 迁移，插入权限、菜单和必要的角色关联。
+1. 在对应应用的安全常量类中增加权限编码；公共内置角色编码放在 `RbacSecurityCodes`。
+2. 新增共享 Flyway 迁移，写入正确 `scope` 的角色、权限、菜单和必要关联。
 3. Controller 使用对应安全域的权限注解。
 4. 菜单只负责导航，接口权限只使用权限码。
-5. 角色或权限调整必须调用现有替换服务，以确保事务提交后注销受影响会话。
+5. 运行期调整必须通过 admin 管理接口或公共替换服务，以确保权限域校验和会话失效。
 6. 内置超级管理员角色、权限通配符和“至少一个启用超级管理员”属于安全不变量，不得绕开服务直接修改关联表。
 
 菜单约定：
@@ -1026,10 +1058,12 @@ public class OrderAuditEventListener {
 
 ## 数据库迁移规范
 
-迁移目录：
+唯一迁移目录：
 
-- 用户端：`business/src/main/resources/db/migration/business`
-- 管理端：`admin/src/main/resources/db/migration/admin`
+- `database-migrations/src/main/resources/db/migration/shared`
+
+管理端和业务端共同使用 `flyway_schema_history`。禁止在应用模块中再次创建独立迁移目录或
+历史表，否则会重新引入启动顺序和跨模块外键无法统一管理的问题。
 
 已经发布或提交到共享分支的迁移文件禁止修改。表、字段、索引、约束和初始化数据变化必须新增更高版本迁移，例如：
 

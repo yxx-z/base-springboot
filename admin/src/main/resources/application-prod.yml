@@ -7,9 +7,10 @@ spring:
   # mysql 通用配置信息内容 使用HikariDataSource连接池
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://127.0.0.1:3306/base_springboot?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&useSSL=false&serverTimezone=Asia/Shanghai
-    username: root
-    password: admin123
+    # 两个应用必须注入同一个 DB_URL，生产环境不提供可误用的默认库和明文账号。
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     type: com.zaxxer.hikari.HikariDataSource
     hikari:
       minimum-idle: 10

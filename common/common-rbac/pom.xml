@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.yxx</groupId>
+        <artifactId>common</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>common-rbac</artifactId>
+    <packaging>jar</packaging>
+    <description>带权限域隔离的通用 RBAC 数据模型、授权规则及持久化实现</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.yxx</groupId>
+            <artifactId>common-data</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

@@ -43,8 +43,8 @@ class AdminBootstrapIntegrationTest {
                         "--spring.datasource.url=" + MYSQL.getJdbcUrl(),
                         "--spring.datasource.username=" + MYSQL.getUsername(),
                         "--spring.datasource.password=" + MYSQL.getPassword(),
-                        "--spring.flyway.locations=classpath:db/migration/admin",
-                        "--spring.flyway.table=flyway_schema_history_admin",
+                        "--spring.flyway.locations=classpath:db/migration/shared",
+                        "--spring.flyway.table=flyway_schema_history",
                         "--bootstrap.admin.login-code=BootstrapAdmin",
                         "--bootstrap.admin.login-name=初始管理员",
                         "--bootstrap.admin.email=bootstrap@example.com",
@@ -58,9 +58,11 @@ class AdminBootstrapIntegrationTest {
         assertTrue(new BCryptPasswordEncoder().matches(
                 "Framework2026", queryString("SELECT password FROM admin_user LIMIT 1")));
         assertEquals(1L, count("""
-                SELECT COUNT(*) FROM admin_user_role ur
-                JOIN admin_role r ON r.id = ur.role_id
-                WHERE r.code = 'admin:super-admin'
+                SELECT COUNT(*) FROM rbac_subject_role ur
+                JOIN rbac_role r ON r.id = ur.role_id AND r.scope = ur.scope
+                WHERE ur.subject_type = 'admin'
+                  AND r.scope = 'admin'
+                  AND r.code = 'admin:super-admin'
                 """));
     }
 

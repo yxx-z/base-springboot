@@ -20,7 +20,7 @@ import org.springframework.context.annotation.Profile;
 @Profile("bootstrap")
 @EnableAutoConfiguration
 @ComponentScan(basePackageClasses = AdminBootstrapRunner.class)
-@MapperScan("com.yxx.admin.mapper")
+@MapperScan({"com.yxx.admin.mapper", "com.yxx.rbac.mapper"})
 @EnableConfigurationProperties(AdminBootstrapProperties.class)
 @Import({PasswordConfig.class, PasswordPolicyChecker.class})
 public class AdminBootstrapConfiguration {

@@ -34,8 +34,8 @@ class BusinessApplicationTests {
 
     @Test
     void shouldProvideNonDestructiveBusinessMigration() throws IOException {
-        assertMigrationDoesNotContainDrop("db/migration/business/V1__init_business_schema.sql");
-        assertMigrationDoesNotContainDrop("db/migration/business/V2__add_audit_actor_snapshot.sql");
+        assertMigrationDoesNotContainDrop("db/migration/shared/V1__init_shared_schema.sql");
+        assertMigrationDoesNotContainDrop("db/migration/shared/V2__add_audit_actor_snapshot.sql");
     }
 
     private void assertMigrationDoesNotContainDrop(String resourceName) throws IOException {

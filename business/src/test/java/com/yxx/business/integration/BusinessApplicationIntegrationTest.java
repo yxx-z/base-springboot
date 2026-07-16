@@ -10,8 +10,9 @@ import com.yxx.business.BusinessApplication;
 import com.yxx.business.mapper.OperateLogMapper;
 import com.yxx.business.model.request.OperateLogReq;
 import com.yxx.business.model.response.OperateLogResp;
-import com.yxx.business.service.RolePermissionService;
-import com.yxx.business.service.UserRoleService;
+import com.yxx.rbac.model.RbacSubjectType;
+import com.yxx.rbac.service.RbacRolePermissionService;
+import com.yxx.rbac.service.RbacSubjectRoleService;
 import com.yxx.common.constant.RedisKeyPrefix;
 import com.yxx.common.utils.email.MailUtils;
 import com.yxx.common.utils.redis.RedissonCache;
@@ -149,16 +150,16 @@ class BusinessApplicationIntegrationTest {
     private RedissonCache redissonCache;
 
     @Autowired
-    private UserRoleService userRoleService;
+    private RbacSubjectRoleService subjectRoleService;
 
     @Autowired
-    private RolePermissionService rolePermissionService;
+    private RbacRolePermissionService rolePermissionService;
 
     @BeforeEach
     void cleanBusinessData() {
         clearInvocations(alipayClient, mailUtils);
         jdbcTemplate.update("DELETE FROM operate_log");
-        jdbcTemplate.update("DELETE FROM user_role");
+        jdbcTemplate.update("DELETE FROM rbac_subject_role WHERE subject_type = 'user'");
         jdbcTemplate.update("DELETE FROM user_identity");
         jdbcTemplate.update("DELETE FROM `user`");
     }
@@ -365,32 +366,41 @@ class BusinessApplicationIntegrationTest {
                 roleAccount, "Framework2026", true, true, true);
         String roleChangedToken = loginAndGetToken(roleAccount, "Framework2026");
         Integer memberRoleId = jdbcTemplate.queryForObject(
-                "SELECT id FROM role WHERE code = 'user:member'", Integer.class);
-        userRoleService.replaceRoles(roleChangedUserId, List.of(memberRoleId));
+                "SELECT id FROM rbac_role WHERE scope = 'business' AND code = 'business:member'",
+                Integer.class);
+        subjectRoleService.replaceRoles(
+                RbacSubjectType.BUSINESS_USER.code(), roleChangedUserId, List.of(memberRoleId));
         assertUserTokenInvalid(roleChangedToken);
 
         String suffix = UUID.randomUUID().toString().substring(0, 8);
-        String roleCode = "user:test:" + suffix;
+        String roleCode = "business:test:" + suffix;
         String permissionCode = roleCode + ":read";
         jdbcTemplate.update("""
-                INSERT INTO role (code, name, remark, is_delete, update_time, create_time)
-                VALUES (?, '集成测试角色', '仅用于集成测试', 0, NOW(), NOW())
+                INSERT INTO rbac_role
+                    (scope, code, name, remark, built_in, super_role, is_delete,
+                     update_time, create_time)
+                VALUES ('business', ?, '集成测试角色', '仅用于集成测试', 0, 0, 0,
+                        NOW(), NOW())
                 """, roleCode);
         jdbcTemplate.update("""
-                INSERT INTO permission
-                    (code, name, resource_type, description, status, is_delete)
-                VALUES (?, '集成测试权限', 'api', '仅用于集成测试', 1, 0)
+                INSERT INTO rbac_permission
+                    (scope, code, name, resource_type, description, status, is_delete)
+                VALUES ('business', ?, '集成测试权限', 'api', '仅用于集成测试', 1, 0)
                 """, permissionCode);
         Integer customRoleId = jdbcTemplate.queryForObject(
-                "SELECT id FROM role WHERE code = ?", Integer.class, roleCode);
+                "SELECT id FROM rbac_role WHERE scope = 'business' AND code = ?",
+                Integer.class, roleCode);
         Integer customPermissionId = jdbcTemplate.queryForObject(
-                "SELECT id FROM permission WHERE code = ?", Integer.class, permissionCode);
+                "SELECT id FROM rbac_permission WHERE scope = 'business' AND code = ?",
+                Integer.class, permissionCode);
         rolePermissionService.replacePermissions(customRoleId, List.of(customPermissionId));
 
         String permissionAccount = "permission-" + suffix;
         long permissionChangedUserId = createPasswordUser(
                 permissionAccount, "Framework2026", true, true, true);
-        userRoleService.replaceRoles(permissionChangedUserId, List.of(customRoleId));
+        subjectRoleService.replaceRoles(
+                RbacSubjectType.BUSINESS_USER.code(), permissionChangedUserId,
+                List.of(customRoleId));
         String permissionToken = loginAndGetToken(permissionAccount, "Framework2026");
         rolePermissionService.replacePermissions(customRoleId, List.of());
         assertUserTokenInvalid(permissionToken);
@@ -415,8 +425,11 @@ class BusinessApplicationIntegrationTest {
                 VALUES (?, 'password', ?, ?, ?, ?)
                 """, userId, loginCode, passwordEncoder.encode(password), verified, identityStatus);
         jdbcTemplate.update("""
-                INSERT INTO user_role (user_id, role_id, update_time, create_time)
-                SELECT ?, id, NOW(), NOW() FROM role WHERE code = 'user:member'
+                INSERT INTO rbac_subject_role
+                    (subject_type, subject_id, scope, role_id, update_time, create_time)
+                SELECT 'user', ?, 'business', id, NOW(), NOW()
+                FROM rbac_role
+                WHERE scope = 'business' AND code = 'business:member'
                 """, userId);
         return userId;
     }

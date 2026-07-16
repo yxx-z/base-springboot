@@ -11,8 +11,7 @@ import com.yxx.admin.model.request.ResetPwdEmailReq;
 import com.yxx.admin.model.request.ResetPwdReq;
 import com.yxx.admin.model.response.LoginRes;
 import com.yxx.admin.service.AdminUserService;
-import com.yxx.admin.security.AdminAuthorizationService;
-import com.yxx.admin.security.AdminSecurityCodes;
+import com.yxx.rbac.constant.RbacSecurityCodes;
 import com.yxx.security.constant.LoginDeviceType;
 import com.yxx.common.constant.RedisKeyPrefix;
 import com.yxx.common.enums.ApiCode;
@@ -38,11 +37,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import com.yxx.security.constant.LoginMode;
 import com.yxx.security.constant.SecurityRealm;
+import com.yxx.security.authorization.AuthorizationProvider;
 import com.yxx.security.context.LoginSessionService;
 import com.yxx.security.context.OneTimeTemporaryTokenService;
 import com.yxx.security.context.PasswordLoginProtectionService;
 import com.yxx.security.context.SessionInvalidationService;
 import com.yxx.security.model.LoginPrincipal;
+import com.yxx.security.model.AuthorizationSnapshot;
 import com.yxx.security.model.PasswordResetTokenPayload;
 
 /**
@@ -53,7 +54,7 @@ import com.yxx.security.model.PasswordResetTokenPayload;
 @Service
 @RequiredArgsConstructor
 public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser> implements AdminUserService {
-    private final AdminAuthorizationService authorizationService;
+    private final AuthorizationProvider authorizationProvider;
 
     private final LoginSessionService loginSessionService;
 
@@ -125,11 +126,13 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
 
     private void assertNotLastActiveSuperAdmin(Long userId) {
         // 先判断目标是否拥有内置超级角色，普通管理员无需执行全局活跃人数统计。
-        boolean isSuperAdmin = baseMapper.countUserRole(userId, AdminSecurityCodes.ROLE_SUPER_ADMIN) > 0;
+        boolean isSuperAdmin = baseMapper.countUserRole(
+                userId, RbacSecurityCodes.ROLE_ADMIN_SUPER_ADMIN) > 0;
         if (isSuperAdmin) {
             // 必须至少保留另一名启用的超级管理员，避免管理端永久失去最高权限入口。
             ApiAssert.isTrue(ApiCode.LAST_SUPER_ADMIN,
-                    baseMapper.countActiveUsersByRoleCode(AdminSecurityCodes.ROLE_SUPER_ADMIN) > 1);
+                    baseMapper.countActiveUsersByRoleCode(
+                            RbacSecurityCodes.ROLE_ADMIN_SUPER_ADMIN) > 1);
         }
     }
 
@@ -158,7 +161,8 @@ public class AdminUserServiceImpl extends ServiceImpl<AdminUserMapper, AdminUser
         String agent = UserAgentUtil.getAgent(requestAgent);
 
         // 角色与后端权限分别加载，菜单仅用于前端导航，不再作为接口权限使用。
-        AdminAuthorizationService.Snapshot authorization = authorizationService.load(user.getId());
+        AuthorizationSnapshot authorization = authorizationProvider.load(
+                SecurityRealm.ADMIN, user.getId());
         LoginPrincipal principal = LoginPrincipal.builder()
                 .subjectId(user.getId())
                 .subjectType(SecurityRealm.ADMIN)
