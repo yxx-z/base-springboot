@@ -31,6 +31,8 @@
         <mybatis-plus.version>3.5.12</mybatis-plus.version>
         <sa-token.version>1.42.0</sa-token.version>
         <redisson.version>3.45.1</redisson.version>
+        <forest.version>1.8.0</forest.version>
+        <mockwebserver.version>3.14.9</mockwebserver.version>
         <hutool.version>5.8.38</hutool.version>
         <ip2region.version>2.6.4</ip2region.version>
         <alipay.version>4.40.472.ALL</alipay.version>
@@ -84,6 +86,11 @@
             <dependency>
                 <groupId>com.yxx</groupId>
                 <artifactId>common-cache</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.yxx</groupId>
+                <artifactId>common-http-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

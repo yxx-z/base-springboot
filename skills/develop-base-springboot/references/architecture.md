@@ -17,6 +17,7 @@
 - `common-core`：无 Web、数据库和业务语义的基础类型、校验、异常、响应模型与纯工具。
 - `common-cache`：Redis/Redisson 接入和通用缓存能力。
 - `common-mq`：RabbitMQ JSON 转换和可靠发布能力；业务拓扑、消费者和消息契约留在具体业务模块。
+- `common-http-client`：Forest 基础集成、出站 TraceId 透传和安全日志默认策略；第三方 Client 与业务契约留在调用方模块。
 - `common-security`：认证上下文、Sa-Token 双 Realm、密码策略、Session、登录保护和安全注解。
 - `common-web`：HTTP、统一响应、异常映射、过滤器、Web 配置和请求日志。
 - `common-ip`：可信代理客户端 IP 解析和 IP 归属地能力。
@@ -56,7 +57,7 @@ architecture-tests
 
 1. 是否只服务一个应用或业务流程？留在 admin/business。
 2. 是否是无基础设施依赖的稳定通用模型或算法？考虑 common-core。
-3. 是否明确属于缓存、消息队列、安全、Web、IP、邮件、数据、审计、RBAC？进入对应模块。
+3. 是否明确属于缓存、消息队列、HTTP 客户端、安全、Web、IP、邮件、数据、审计、RBAC？进入对应模块。
 4. 是否只是组合已有能力？优先由应用 POM 选择依赖，不新增空壳模块。
 5. 是否会迫使低层模块依赖高层业务？停止并重新设计接口或事件边界。
 
@@ -71,5 +72,5 @@ architecture-tests
 
 新增业务模块时，直接选择需要的职责模块。不要默认复制 admin/business，也不要为了方便依赖所有基础设施。
 
-RabbitMQ 属于可选基础设施，`common-mq` 不加入 `common-framework`。只有实际生产或消费消息的
-模块才直接依赖它；交换机、队列、路由键、死信和重试策略不得带入 common 层业务语义。
+Forest 属于可选基础设施，`common-http-client` 、`common-mq` 不加入 `common-framework`。只有实际调用外部 HTTP API
+的模块才直接依赖它；第三方 Client 接口、DTO、签名、业务错误码、限流、熔断和幂等重试策略不得放入公共模块。交换机、队列、路由键、死信和重试策略不得带入 common 层业务语义。

@@ -53,3 +53,12 @@
 - 生产使用独立 vhost 和最小权限账号，禁止保留 guest 默认凭据。
 - `framework.rabbitmq.publisher.confirm-timeout` 必须大于 0。
 - 关闭公共发布器只移除 `RabbitMessagePublisher`，不等于移除 Spring AMQP 依赖或消费者能力。
+
+## Forest HTTP 客户端
+
+- Forest 连接池、连接超时、读取超时、后端实现、变量和重试继续使用原生 `forest.*` 配置。
+- 公共扩展只使用 `framework.http-client.*` 管理 TraceId 透传与日志策略，不复制完整 Forest 配置模型。
+- Forest 请求和响应日志默认关闭；开启前必须确认 URL、Header、Body 和响应内容不包含敏感信息。
+- TraceId 默认从当前线程 MDC 的 `Trace-Id` 透传；消息消费和调度任务应在各自入口建立并清理 MDC。
+- 全局重试默认关闭。只有明确幂等的读取请求才能按外部系统约束配置重试和退避。
+- 第三方基础地址、账号和密钥通过环境变量或密钥管理系统注入，不在 Client 注解中硬编码生产地址和凭据。
