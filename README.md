@@ -1,6 +1,6 @@
 # base-springboot
 
-面向实际项目复用的 Spring Boot 3 多模块基础工程，统一提供认证鉴权、数据访问、缓存、异常协议、链路追踪、操作审计、邮件通知和工程质量约束。
+面向实际项目复用的 Spring Boot 3 多模块基础工程，统一提供认证鉴权、数据访问、缓存、HTTP 客户端、异常协议、链路追踪、操作审计、邮件通知和工程质量约束。
 
 本项目不是一个包含演示业务的脚手架，而是一套可以继续扩展领域模块的后端基础架构。使用时应保留模块边界、安全不变量和数据库迁移规范，不建议把业务代码继续堆放到 `common` 模块。
 
@@ -15,6 +15,7 @@
 - Sa-Token
 - Flyway
 - Redisson
+- Forest 1.8.0
 - Testcontainers
 
 构建阶段通过 Maven Enforcer 校验 Java、Maven 版本及依赖收敛情况，不符合要求时会直接终止构建。
@@ -26,6 +27,7 @@ base-springboot
 ├── common
 │   ├── common-core       纯 Java 公共契约、错误码和基础工具
 │   ├── common-cache      Redis、Redisson 和缓存原子操作
+│   ├── common-http-client Forest HTTP 客户端、TraceId 透传和安全日志策略
 │   ├── common-security   登录主体、Sa-Token、密码与会话安全
 │   ├── common-web        Servlet、统一响应、JSON 和 Web 拦截器
 │   ├── common-ip         可信代理客户端 IP 与归属地解析
@@ -70,6 +72,7 @@ architecture-tests -> admin / business -> common-rbac / common-framework -> 各�
 | 公共契约、错误码、分页模型和纯 Java 工具 | `common-core` |
 | MyBatis-Plus、分页和审计字段填充 | `common-data` |
 | Redis、Redisson 和缓存原子操作 | `common-cache` |
+| 调用第三方 HTTP API、TraceId 透传和 Forest 基础配置 | `common-http-client` |
 | Servlet、统一响应、异常处理和 Web 拦截器 | `common-web` |
 | 登录主体、密码、Sa-Token 和会话安全 | `common-security` |
 | 统一角色、权限、菜单和授权实现 | `common-rbac` |
@@ -1100,6 +1103,57 @@ public class OrderAuditEventListener {
 - Redis Key 不直接放密码、Token、邮箱重置令牌等敏感原文，应使用摘要。
 - 所有临时数据必须有 TTL；配置异常时宁可使用有限默认值，也不要创建永久安全状态。
 - 不要自行创建新的 `RedissonClient`，连接生命周期由 Starter 和 Spring 容器统一管理。
+
+### 集成 Forest HTTP 客户端
+
+Forest 是按需能力，不进入 `common-framework`。只有实际调用第三方 HTTP API 的模块才声明：
+
+```xml
+<dependency>
+    <groupId>com.yxx</groupId>
+    <artifactId>common-http-client</artifactId>
+</dependency>
+```
+
+连接池、超时、后端实现和重试使用 Forest 原生配置；基础框架只管理 TraceId 透传和日志安全策略：
+
+```yaml
+forest:
+  connect-timeout: ${FOREST_CONNECT_TIMEOUT:3000}
+  read-timeout: ${FOREST_READ_TIMEOUT:5000}
+  max-connections: ${FOREST_MAX_CONNECTIONS:200}
+  max-route-connections: ${FOREST_MAX_ROUTE_CONNECTIONS:50}
+  max-retry-count: 0
+  variables:
+    partnerBaseUrl: ${PARTNER_BASE_URL:https://partner.example.com}
+
+framework:
+  http-client:
+    trace-id-propagation-enabled: true
+    trace-id-header-name: Trace-Id
+    logging:
+      enabled: false
+```
+
+Client 接口放在实际调用方模块中，不放进 `common-http-client`：
+
+```java
+@ForestClient
+public interface PartnerClient {
+
+    @Get("${partnerBaseUrl}/health")
+    String health();
+}
+```
+
+应用启动包下的 Forest Client 会被自动扫描；Client 位于启动包之外时，在启动类使用
+`@ForestScan(basePackageClasses = PartnerClient.class)` 显式限定扫描范围。第三方 DTO、认证签名、
+错误码映射、限流和熔断策略属于具体外部系统契约，应留在调用方模块。
+
+`common-http-client` 默认关闭 Forest 请求和响应日志，因为请求概要也可能包含 URL 查询参数。
+确需排障时通过 `framework.http-client.logging.*` 逐项开启；禁止记录 Token、Authorization、签名、
+验证码、密钥或敏感请求体。重试默认关闭，只有确认请求幂等并明确退避策略后才能开启；支付、创建、
+扣减等非幂等请求不得仅靠统一重试配置处理。
 
 ### 扩展配置项
 
