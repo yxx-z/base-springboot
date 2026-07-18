@@ -1,56 +1,51 @@
 # 配置、Profile 与启动方式
 
+## 事实入口
+
+先定位两个应用的 `application*.yml`、`logback-spring.xml`、`@ConfigurationProperties`、
+`@ConditionalOnProperty` 和对应测试。YAML、条件注解和测试共同决定实际默认行为。
+
 ## 配置分层
 
-- `application.yml`：应用名、端口、跨环境默认值和可覆盖的功能策略。
-- `application-dev.yml`：本地开发差异。
-- `application-prod.yml`：生产差异和必须注入的外部配置。
-- `application-bootstrap.yml`：首个管理员初始化的最小启动模式。
+- `application.yml`：应用名、端口、跨环境默认值和可覆盖策略。
+- `application-dev.yml`：本地开发差异，不承载共享环境真实凭据。
+- `application-prod.yml`：生产差异；秘密和环境相关端点只引用外部注入值，稳定且非敏感的差异可以保留字面量。
+- `application-bootstrap.yml`：首个管理员初始化所需的最小配置。
 
-把 `spring.application.name` 放在公共 application.yml，不在各 Profile 重复。
+`spring.application.name` 放在公共配置中。默认开发 Profile 为 dev；生产显式设置
+`SPRING_PROFILES_ACTIVE=prod`；integration 只连接测试隔离资源。
 
-## 环境变量
+## 凭据与环境变量
 
-- 生产数据库、Redis、SMTP、支付宝等凭据必须通过环境变量或密钥管理系统注入。
-- 不新增明文生产凭据；发现仓库已有真实凭据时明确报告并建议轮换，不在输出中重复泄露。
-- 使用 Spring Boot relaxed binding 的稳定键名，必要时在 YAML 中给出显式占位符和安全默认值。
-- Duration 使用 `1s`、`5m`、`7d` 等明确单位。
-- List 环境变量默认值需要确认 IDE YAML 解析和 Spring Binder 均可接受。
+- 所有 Git 跟踪的 Profile 只保存非敏感默认值、占位符和公开配置，不保存真实数据库、Redis、SMTP、第三方平台或密钥系统凭据。
+- dev/local 的真实连接信息也通过环境变量、密钥工具或明确忽略的本地文件提供。
+- 发现已提交凭据时按泄露处理：报告位置、建议轮换并外部化，输出中不复述具体值。
+- 环境变量使用稳定的 relaxed binding 名称；Duration 始终带单位，List 默认值同时验证 YAML 解析和 Spring Binder。
 
-## Profile
+## Feature 三态契约
 
-- 默认开发 Profile 为 dev。
-- 生产必须显式设置 `SPRING_PROFILES_ACTIVE=prod`。
-- integration 由集成测试使用，不应连接开发共享基础设施。
-- bootstrap 只用于空库初始化首个管理员，完成后主动关闭最小上下文。
-- 不依赖“当前工作目录刚好是项目根目录”的隐式行为。
+每个 Feature 都定义一个权威默认值，并保持以下位置一致：
 
-## Feature 开关
+- YAML 占位符默认值。
+- `@ConditionalOnProperty` 的 `havingValue` 和 `matchIfMissing`。
+- Bean、Controller、接口错误及启动行为。
 
-- Feature 开关控制 Bean、接口或行为是否启用。
-- 关闭 Feature 不等于对应 Maven 依赖已经移除。
-- 新 Feature 必须定义：默认值、关闭后的启动行为、接口行为、依赖 Bean 条件和测试覆盖。
-- 测试需要功能开启时在测试属性中显式启用，不依赖应用默认值。
+测试覆盖属性缺失、显式 `false`、显式 `true` 三种状态。需要开启能力的测试显式设置属性，
+不借用应用默认值。关闭 Feature 只改变运行行为，不代表 Maven 依赖已经移除。
 
 ## bootstrap
 
-- 使用独立 bootstrap Profile 和必要的 `BOOTSTRAP_*` 配置。
-- 禁止在正常 dev/prod 启动中重复创建初始管理员。
-- 初始化过程必须事务提交成功后再关闭上下文。
-- 测试等待上下文关闭使用事件和线程同步，不使用 sleep 轮询。
-- bootstrap 不需要 Redis、Web Server、常规 Session 和无关基础设施。
+- bootstrap 只在管理员表为空时创建首个管理员，不在 dev/prod 重复执行。
+- 成功日志及依赖提交结果的副作用放在 `afterCommit`；上下文在 `afterCompletion` 关闭，失败时也释放资源。
+- 最小上下文不装配 Web Server、Redis、常规 Session、邮件和无关基础设施。
+- 测试通过事件、Latch、Future 或线程终止信号等待关闭，不轮询休眠。
 
-## 路径
+## 路径与生产约束
 
-- 相对日志路径相对于 JVM 当前工作目录，不等于仓库根目录。
-- 生产日志、上传目录、临时目录等使用外部绝对路径。
-- Classpath 资源使用 `classpath:`，不要拼接源码目录路径。
+- Classpath 资源使用 `classpath:`，文件系统相对路径始终按 JVM 当前工作目录解释。
+- 本地可保留安全的相对路径默认值；生产日志、上传和临时目录必须注入外部绝对路径并做启动或部署校验。
+- 修改 Profile、Logback 或路径后，验证至少一个非生产 Profile 和 prod 等价配置，确认没有意外文件、错误目录或敏感信息。
 
-## Forest HTTP 客户端
+## 完成门
 
-- Forest 连接池、连接超时、读取超时、后端实现、变量和重试继续使用原生 `forest.*` 配置。
-- 公共扩展只使用 `framework.http-client.*` 管理 TraceId 透传与日志策略，不复制完整 Forest 配置模型。
-- Forest 请求和响应日志默认关闭；开启前必须确认 URL、Header、Body 和响应内容不包含敏感信息。
-- TraceId 默认从当前线程 MDC 的 `Trace-Id` 透传；消息消费和调度任务应在各自入口建立并清理 MDC。
-- 全局重试默认关闭。只有明确幂等的读取请求才能按外部系统约束配置重试和退避。
-- 第三方基础地址、账号和密钥通过环境变量或密钥管理系统注入，不在 Client 注解中硬编码生产地址和凭据。
+配置任务完成前，对本次触及的配置逐项证明默认值、三态行为、外部化凭据、Profile 隔离、关闭行为和对应测试一致。

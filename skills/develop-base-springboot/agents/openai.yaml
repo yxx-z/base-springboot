@@ -1,4 +1,7 @@
 interface:
   display_name: "Base SpringBoot 开发"
-  short_description: "面向基础框架的架构、安全、数据库与测试规范开发指南"
-  default_prompt: "使用 $develop-base-springboot 按项目约定实现并验证本次开发任务。"
+  short_description: "按项目事实、领域规范与验证要求路由并处理 Base SpringBoot 仓库任务"
+  default_prompt: "使用 $develop-base-springboot 按项目约定处理当前仓库请求。"
+
+policy:
+  allow_implicit_invocation: false

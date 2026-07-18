@@ -1,75 +1,67 @@
 ---
 name: develop-base-springboot
-description: Develop, diagnose, review, refactor, test, and document the base-springboot project. Use when working on this repository's Java or Spring Boot code, Maven modules and dependencies, admin or business applications, common modules, authentication and RBAC, Flyway migrations, application YAML, Logback, audit logging, Testcontainers, architecture tests, or production-readiness checks.
+description: base-springboot 仓库的项目级开发 Router，按任务类型和影响面加载事实来源、领域规范与验证要求。
 ---
 
-# 开发 Base SpringBoot 基础框架
+# 开发 Base SpringBoot
 
-## 总体原则
+## 事实门
 
-把当前仓库代码、POM、迁移文件和测试视为最终事实来源。先检查，再判断，不根据本文档猜测已经变化的实现。
+1. 完整读取仓库根目录 `AGENTS.md`，执行 `git status --short`，保留用户已有改动。
+2. 使用 `rg` 检查相关代码、POM、配置、迁移和测试；当前实现及其测试是“现状事实”。
+3. Reference 记录稳定的“目标规范”和少量现状索引。发现两者不一致时，先判定为已批准的目标变更或实现漂移：
+   - 已批准的稳定变更：实现与对应 Reference 同步更新。
+   - 未获批准或与约束冲突：按实现漂移报告或修复，不得修改 Reference 为缺陷背书。
 
-保持基础框架通用、可裁剪、职责清晰。不要为了眼前复用把业务规则塞进公共模块，也不要为了“未来可能使用”增加长期为空的字段、配置或依赖。
+完成标准：结论同时说明现状证据和适用的目标规范，不根据 Skill 猜测当前实现。
 
-## 开始任务
+## 任务分支
 
-1. 完整读取仓库根目录 `AGENTS.md`。
-2. 执行 `git status --short`，识别并保留用户已有改动。
-3. 使用 `rg` 定位实现、调用方、配置、迁移和测试；不要只修改第一个命中的文件。
-4. 判断请求类型：
-   - 审计、解释、诊断：只读检查并给出证据，除非用户同时要求修改。
-   - 修改、构建、优化：完成实现、测试和必要文档更新。
-5. 根据任务读取下列 reference；不要一次加载无关文档。
+先选择一个分支，再执行 Reference 路由：
+
+- **只读诊断**：用于解释、审计、评审和定位原因。只做非变更检查，以文件、符号、配置或测试结果支撑结论；用户未要求修复时不落盘。
+- **仅验证**：用于测试、构建和复现。运行与风险匹配的检查，并核对测试报告中的执行数、失败、错误和跳过，不能只看退出码。
+- **落盘修改**：用于开发、重构、配置或文档更新。建立影响面和验证策略，完成最小完整修改并同步所有直接消费者。
+
+完成标准：任务始终属于一个明确分支；若用户追加了修改要求，切换到“落盘修改”并补齐其前置条件。
 
 ## Reference 路由
 
-- 模块职责、POM、依赖方向、代码放置：读取 [references/architecture.md](references/architecture.md)。
-- Java 代码、注释、命名、异常和事务：读取 [references/coding-conventions.md](references/coding-conventions.md)。
-- 登录、Token、Session、密码、RBAC、安全：读取 [references/security-auth.md](references/security-auth.md)。
-- 表结构、索引、Flyway、初始化数据：读取 [references/database-migrations.md](references/database-migrations.md)。
-- Controller、统一响应、TraceId、审计、Logback：读取 [references/api-audit-logging.md](references/api-audit-logging.md)。
-- application YAML、Profile、环境变量、Feature 开关、bootstrap：读取 [references/configuration.md](references/configuration.md)。
-- 测试选择、Testcontainers、构建和交付：读取 [references/testing.md](references/testing.md)。
+按影响面读取**所有命中项**，不得选择其中一份代替其余项：
 
-修改 Java 代码时同时读取 coding-conventions；任何落盘修改完成后都读取 testing。
+- 模块职责、POM、依赖方向、代码放置：[architecture.md](references/architecture.md)
+- Java 设计、注释、命名、异常、错误码、事务和并发：[coding-conventions.md](references/coding-conventions.md)
+- 登录、Token、Session、密码、RBAC 和安全边界：[security-auth.md](references/security-auth.md)
+- 表结构、索引、Flyway 和初始化数据：[database-migrations.md](references/database-migrations.md)
+- Controller、统一响应、TraceId、审计和 Logback：[api-audit-logging.md](references/api-audit-logging.md)
+- application YAML、Profile、环境变量、Feature 和 bootstrap：[configuration.md](references/configuration.md)
+- Forest、出站 HTTP、第三方 Client、重试和 MockWebServer：[http-client.md](references/http-client.md)
+- 测试选择、Testcontainers、构建和交付：[testing.md](references/testing.md)
 
-## 标准实施流程
+Java 修改必须命中 `coding-conventions.md`；任何落盘修改及仅验证任务必须在实施或执行前命中 `testing.md`。
 
-1. 建立影响面：列出入口、核心实现、数据模型、配置、迁移、测试和文档。
-2. 确认职责边界：决定代码应留在 admin/business，还是进入某个具体 common 模块。
-3. 采用最小完整修改：同步更新所有直接消费者，不做与目标无关的大规模整理。
-4. 保护兼容性：明确 API、数据库、配置键、Token、缓存 Key 和部署行为是否变化。
-5. 逐级验证：先编译或定向测试，再按风险运行集成测试或全量 `clean verify`。
-6. 做静态收尾：检查旧名称、弃用 API、删除资源的 target 残留、补丁格式和工作区范围。
-7. 交付时说明结果、验证命令、兼容性影响和仍存在的真实风险。
+完成标准：每个命中的 Reference 均已完整读取；其适用检查有证据，确实不适用的检查明确标记原因。
 
-## 强制约束
+## 执行与完成门
 
-- 使用 Java 17 和仓库自带的 Maven Wrapper。
-- 优先通过构造器注入；不要新增字段注入。
-- 不在公共模块引用 admin/business 的类。
-- 不让 admin 与 business 互相依赖。
-- 不在 Controller 中堆积事务性业务逻辑。
-- 不记录密码、验证码、Token、授权头、私钥、签名或完整敏感请求。
-- 不把功能开关关闭解释为 Maven 依赖已移除。
-- 不修改已经进入正式环境的历史 Flyway 迁移；初始框架阶段修改基线前也要明确数据库必须重建。
-- 不用测试退出码 0 证明 Testcontainers 已执行；检查测试是否因 Docker 不可用而跳过。
-- 不删除用户生成的日志、数据库、缓存或工作区改动，除非用户明确授权。
+1. 列出入口、核心实现、数据与配置、直接消费者、测试和兼容性影响。
+2. 按 Reference 确认职责边界，以最小完整变更覆盖全部影响面。
+3. 按 `testing.md` 从定向检查逐步扩展到风险所需层级；公共模块先证明消费者清单，存在受影响消费者时验证，没有时验证模块契约并明确报告。
+4. 检查旧引用、补丁格式、测试是否真实执行以及工作区是否出现无关文件。
+5. 交付时报告结果、实际验证、兼容性影响和仍存在的风险；无法执行或被跳过的验证明确记为未完成。
 
-## 使用验证脚本
+## Skill 同步门
 
-从仓库根目录运行：
+“落盘修改”完成实现和所需验证后、交付前必须执行；只读诊断和仅验证任务不修改 Skill。
 
-```bash
-skills/develop-base-springboot/scripts/verify-project.sh static
-skills/develop-base-springboot/scripts/verify-project.sh compile
-skills/develop-base-springboot/scripts/verify-project.sh module common/common-security,admin
-skills/develop-base-springboot/scripts/verify-project.sh architecture
-skills/develop-base-springboot/scripts/verify-project.sh full
-```
+1. 对照事实门记录的初始工作区状态、最终 `git status --short` 和本次实际差异，复核模块职责、依赖方向、跨任务复用的公共契约、配置默认值、迁移策略、领域规则和验证入口。
+2. 按 Reference 路由逐项判断：
+   - 不更新会使后续同类任务沿用错误的职责、契约、默认值或验证流程：在同一任务中更新所有相关 Reference；出现现有路由无法准确承载的新领域时，新增 Reference 并补充路由。
+   - 仅实现既有规范内的业务功能、修复未改变稳定契约的缺陷，或变化属于临时故障、固定测试数量、机器路径、凭据和易失效行号：保持 Skill 不变。
+   - 发现未获批准的实现漂移：报告或修复，不通过修改 Skill 为其背书。
+3. Skill 有修改时按 `testing.md` 完成验证，并针对同一业务变更回查一次同步判断；没有新增稳定变化后结束，不递归扩写。
+4. 交付时明确写出 `Skill 同步判断：已更新 <文件>` 或 `Skill 同步判断：无需更新，<原因>`，不依赖 PR 模板或人工提醒。
 
-脚本只是稳定入口。遇到失败时读取原始 Maven/Testcontainers 输出，不通过屏蔽、跳过或降低断言规避失败。
+完成标准：每次落盘修改都有可核对的同步结论；需要更新的 Reference、路由和验证入口已在当前任务中闭合。
 
-## 更新 Skill
-
-架构、认证契约、迁移策略或验证命令发生稳定变化时，同步更新对应 reference。不要把临时故障、固定测试数量、机器路径、凭据或很快失效的行号写入 Skill。
+只有在所有命中规范均已处理、影响面已闭合、所需验证真实通过、工作区范围正确且 Skill 同步门已闭合时，才能报告完成。

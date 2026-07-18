@@ -1,59 +1,48 @@
 # 数据库与 Flyway
 
-## 当前基线
+## 事实入口
 
-- 唯一共享迁移目录：`database-migrations/src/main/resources/db/migration/shared`。
-- admin 与 business 使用同一 Schema、同一迁移制品和同一 `flyway_schema_history` 表。
-- 当前项目处于初始基础框架阶段，最终基线为 `V1__init_shared_schema.sql`。
-- 后续正式增量迁移从 V2 开始。
+先执行 `rg --files database-migrations`，再核对两个应用的 Flyway 配置、`db/README.md`、相关
+Entity/Mapper 和架构测试。迁移目录中的文件、Git 历史和真实数据库状态共同决定当前版本，
+不要从本文推断固定版本数量。
 
-执行任务前用 `rg --files database-migrations` 确认现状，不假设版本数量永远不变。
+## 迁移所有权
 
-## 历史迁移规则
+- 共享迁移只放在 `database-migrations/src/main/resources/db/migration/shared`。
+- admin 与 business 依赖同一迁移制品，并使用同一 Schema 和 `flyway_schema_history`。
+- 两个部署连接同一目标 Schema 是运维前置条件，代码不会自动校验两个外部连接地址相同。
+- 正常应用保持 `validate-on-migrate=true`，不启用 Flyway clean。
 
-- 未进入正式环境前，可以在明确要求下整理 V1，但必须说明已有开发数据库需要删除重建。
-- 任何已进入共享、测试、预发布或生产环境的迁移都不可修改内容、重命名或重新排序。
-- 正式环境变更只能新增更高版本迁移，不能通过 Flyway repair 掩盖未经评审的历史变更。
-- 删除或合并迁移文件后必须 `clean` 构建，避免 `target/classes` 残留旧 SQL。
+## 不可变历史
 
-## 表结构修改清单
+- 已进入基准或共享分支的迁移视为不可变，不修改内容、不重命名、不删除、不重新排序。
+- 结构、约束或初始化数据变化先发现当前最大版本，再新增更高版本迁移。
+- 只有尚未进入基准或共享分支，且未被共享或持久化环境执行的本地草稿，才能在用户明确授权下重写；可销毁的本地/Testcontainers 试跑不冻结草稿。
+- `baseline-on-migrate` 不用于接管来源未知的非空库，`repair` 不用于掩盖未经评审的历史变更。
+- `.cleanDisabled(false)` 只允许出现在隔离的测试容器中。
 
-同步检查：
+## 结构变更闭环
 
-1. Flyway SQL 和初始化数据。
-2. admin/business Entity、Mapper、XML/注解 SQL。
-3. Request/Response DTO 和查询条件。
-4. 唯一约束、普通索引、复合外键和 CHECK 约束。
-5. 软删除后的唯一性行为。
-6. 数据库字段注释和 Java 字段语义。
-7. 真实 MySQL Testcontainers 测试。
-8. README 中对迁移和兼容性的说明。
+逐项覆盖：
 
-## 建模约定
+1. Flyway SQL、初始化数据及中文表字段注释。
+2. admin/business Entity、Mapper、XML 或注解 SQL。
+3. Request/Response DTO、查询条件和对外兼容性。
+4. 主键、唯一约束、普通索引、复合外键、CHECK 约束及删除策略。
+5. 软删除后的唯一性和历史数据保留行为。
+6. 每个字段的写入来源、读取方、维护责任和测试；不复制无来源的预留字段。
+7. README、部署说明和数据库重建或升级要求。
 
-- 使用稳定内部主键关联，不使用可变账号、邮箱或手机号作为业务外键。
-- 软删除唯一键使用项目现有生成列方案，确保活跃记录唯一且历史记录可保留。
-- RBAC 的主体、角色、权限必须通过 scope 复合约束隔离。
-- 审计日志优先追加，不应提供普通业务删除语义。
-- 避免模糊字段名；新字段明确状态、单位、主体和时间语义。
-- 不保留没有写入来源、查询用途和近期路线图的预留字段。
+建模使用稳定内部主键；账号、邮箱和手机号等可变标识不作为业务外键。RBAC 主体、角色、
+权限和菜单通过 scope 复合约束隔离，不能只依赖 Java 校验。
 
-## 审计表判断
+## 完成门
 
-区分三类空值：
+涉及新迁移时，全部适用项必须有证据：
 
-- 匿名请求合理为空：actor ID、actor 账号和名称。
-- 场景可选为空：subject、异常、请求参数、IP 归属地。
-- 实际未接入：例如没有链路追踪组件时的 span ID。
-
-发现大量空值时，先检查 `@AuditLog` 注解和事件转换，再决定补充采集还是删除字段，不根据单条记录直接删列。
-
-## 验证
-
-高风险迁移至少验证：
-
-- 空库只执行预期迁移。
+- 空库执行到最终结构，执行数和版本符合迁移目录现状。
+- 从上一版本的真实结构和代表性数据升级成功，存量语义保持兼容。
 - 再次 migrate 执行数为 0。
-- admin/business 任一应用先启动都得到相同最终 Schema。
-- bootstrap 可在空库创建首个超级管理员。
-- 关键唯一约束、复合外键和 CHECK 约束真实生效。
+- 两个应用的 location、history table 和目标 Schema 契约一致；若承诺启动顺序无关，必须用同一数据库验证两个顺序。
+- 关键唯一约束、复合外键、CHECK、软删唯一性和 bootstrap 在真实 MySQL 中生效。
+- Testcontainers 报告由本次构建生成且没有跳过；Maven 退出码 0 不能单独证明完成。
